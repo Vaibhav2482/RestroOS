@@ -19,6 +19,7 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -29,6 +30,41 @@ import PosItemOptionsDialog from "./PosItemOptionsDialog";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 const GUEST_PHONE = "0000000000";
+
+function ItemThumbnail({ imageUrl, itemName }) {
+
+    if (imageUrl) {
+
+        return (
+            <Box
+                component="img"
+                src={imageUrl}
+                alt={itemName}
+                sx={{ width: 56, height: 56, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
+            />
+        );
+
+    }
+
+    return (
+        <Box
+            sx={{
+                width: 56,
+                height: 56,
+                borderRadius: 1.5,
+                border: "1px solid #E5E7EB",
+                bgcolor: "#F5F6FA",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
+            }}
+        >
+            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: 24 }} />
+        </Box>
+    );
+
+}
 
 // The order-builder half of the POS flow: browse menu, build a cart, attach
 // a customer (or fall back to the shared guest placeholder), pick a payment
@@ -480,33 +516,49 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "space-between",
-                                    gap: 1
+                                    gap: 1.5
                                 }}
                             >
 
-                                <Box sx={{ minWidth: 0 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0, flex: 1 }}>
 
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+                                    <ItemThumbnail imageUrl={item.ImageUrl} itemName={item.ItemName} />
 
-                                        <Box
-                                            sx={{
-                                                width: 10,
-                                                height: 10,
-                                                borderRadius: "2px",
-                                                bgcolor: item.IsVeg ? "success.main" : "#8b3a3a",
-                                                flexShrink: 0
-                                            }}
-                                        />
+                                    <Box sx={{ minWidth: 0 }}>
 
-                                        <Typography fontWeight={600} noWrap>
-                                            {item.ItemName}
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+
+                                            <Box
+                                                sx={{
+                                                    width: 10,
+                                                    height: 10,
+                                                    borderRadius: "2px",
+                                                    bgcolor: item.IsVeg ? "success.main" : "#8b3a3a",
+                                                    flexShrink: 0
+                                                }}
+                                            />
+
+                                            <Typography fontWeight={600} noWrap>
+                                                {item.ItemName}
+                                            </Typography>
+
+                                            {item.IsPopular && (
+                                                <Chip label="Bestseller" size="small" sx={{ height: 18, fontSize: 10.5, bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 600 }} />
+                                            )}
+
+                                        </Box>
+
+                                        {item.Description && (
+                                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", maxWidth: 260 }}>
+                                                {item.Description}
+                                            </Typography>
+                                        )}
+
+                                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                                            ₹ {Number(item.Price).toFixed(2)}
                                         </Typography>
 
                                     </Box>
-
-                                    <Typography variant="body2" color="text.secondary">
-                                        ₹ {Number(item.Price).toFixed(2)}
-                                    </Typography>
 
                                 </Box>
 
