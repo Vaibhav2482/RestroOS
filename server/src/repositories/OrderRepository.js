@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { resolveMenuItemOptions } from "../utils/menuOptionResolver.js";
 
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -75,7 +76,24 @@ export const createOrder = async (order) => {
 
         const branchId = [...branchIds][0];
 
-        const subTotal = resolvedItems.reduce((sum, item) => sum + item.menuItem.Price * item.quantity, 0);
+        // Options are re-resolved fresh here, never trusted from the client
+        // (or even from a cart snapshot) - a menu item's price/options could
+        // have changed since the customer added it to their cart.
+        const pricedItems = [];
+
+        for (const item of resolvedItems) {
+
+            const { priceDelta, selectedOptions } = await resolveMenuItemOptions(client, item.menuItemId, item.selectedOptionIds);
+
+            pricedItems.push({
+                ...item,
+                unitPrice: Number(item.menuItem.Price) + priceDelta,
+                selectedOptions
+            });
+
+        }
+
+        const subTotal = pricedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
         const cgstAmount = roundGst(subTotal);
         const sgstAmount = roundGst(subTotal);
         const totalAmount = subTotal + cgstAmount + sgstAmount;
@@ -102,12 +120,20 @@ export const createOrder = async (order) => {
 
         const orderId = orderInsert.rows[0].OrderId;
 
-        for (const item of resolvedItems) {
+        for (const item of pricedItems) {
 
             await client.query(
-                `INSERT INTO "OrderItems" ("OrderId", "MenuItemId", "ItemName", "Price", "Quantity", "TotalPrice")
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [orderId, item.menuItem.MenuItemId, item.menuItem.ItemName, item.menuItem.Price, item.quantity, item.menuItem.Price * item.quantity]
+                `INSERT INTO "OrderItems" ("OrderId", "MenuItemId", "ItemName", "Price", "Quantity", "TotalPrice", "SelectedOptions")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    orderId,
+                    item.menuItem.MenuItemId,
+                    item.menuItem.ItemName,
+                    item.unitPrice,
+                    item.quantity,
+                    item.unitPrice * item.quantity,
+                    JSON.stringify(item.selectedOptions)
+                ]
             );
 
         }
@@ -186,7 +212,7 @@ export const getOrderById = async (orderId) => {
                 B."Phone" AS "BranchPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."SubTotal", O."CgstAmount", O."SgstAmount",
                 O."TotalAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
-                OI."OrderItemId", OI."MenuItemId", OI."ItemName", OI."Price", OI."Quantity", OI."TotalPrice"
+                OI."OrderItemId", OI."MenuItemId", OI."ItemName", OI."Price", OI."Quantity", OI."TotalPrice", OI."SelectedOptions"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
@@ -306,19 +332,41 @@ export const updateOrderItems = async (orderId, items) => {
             throw new Error("Items must belong to the order's branch.");
         }
 
-        await client.query(`DELETE FROM "OrderItems" WHERE "OrderId" = $1`, [orderId]);
+        const pricedItems = [];
 
         for (const item of resolvedItems) {
 
+            const { priceDelta, selectedOptions } = await resolveMenuItemOptions(client, item.menuItemId, item.selectedOptionIds);
+
+            pricedItems.push({
+                ...item,
+                unitPrice: Number(item.menuItem.Price) + priceDelta,
+                selectedOptions
+            });
+
+        }
+
+        await client.query(`DELETE FROM "OrderItems" WHERE "OrderId" = $1`, [orderId]);
+
+        for (const item of pricedItems) {
+
             await client.query(
-                `INSERT INTO "OrderItems" ("OrderId", "MenuItemId", "ItemName", "Price", "Quantity", "TotalPrice")
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [orderId, item.menuItem.MenuItemId, item.menuItem.ItemName, item.menuItem.Price, item.quantity, item.menuItem.Price * item.quantity]
+                `INSERT INTO "OrderItems" ("OrderId", "MenuItemId", "ItemName", "Price", "Quantity", "TotalPrice", "SelectedOptions")
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    orderId,
+                    item.menuItem.MenuItemId,
+                    item.menuItem.ItemName,
+                    item.unitPrice,
+                    item.quantity,
+                    item.unitPrice * item.quantity,
+                    JSON.stringify(item.selectedOptions)
+                ]
             );
 
         }
 
-        const subTotal = resolvedItems.reduce((sum, item) => sum + item.menuItem.Price * item.quantity, 0);
+        const subTotal = pricedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
         const cgstAmount = roundGst(subTotal);
         const sgstAmount = roundGst(subTotal);
         const totalAmount = subTotal + cgstAmount + sgstAmount;

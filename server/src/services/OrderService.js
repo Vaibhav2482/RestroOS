@@ -9,7 +9,7 @@ const shapeOrder = (rows) => {
         return null;
     }
 
-    const { OrderItemId, MenuItemId, ItemName, Price, Quantity, TotalPrice, ...order } = rows[0];
+    const { OrderItemId, MenuItemId, ItemName, Price, Quantity, TotalPrice, SelectedOptions, ...order } = rows[0];
 
     order.Items = rows.map((row) => ({
         OrderItemId: row.OrderItemId,
@@ -17,7 +17,8 @@ const shapeOrder = (rows) => {
         ItemName: row.ItemName,
         Price: row.Price,
         Quantity: row.Quantity,
-        TotalPrice: row.TotalPrice
+        TotalPrice: row.TotalPrice,
+        SelectedOptions: row.SelectedOptions ?? []
     }));
 
     return order;

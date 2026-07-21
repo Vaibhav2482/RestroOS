@@ -17,7 +17,8 @@ export const checkout = async (
 
     const items = cartItems.map((item) => ({
         menuItemId: item.MenuItemId,
-        quantity: item.Quantity
+        quantity: item.Quantity,
+        selectedOptionIds: (item.SelectedOptions ?? []).map((option) => option.OptionId)
     }));
 
     const order = await OrderRepository.createOrder({

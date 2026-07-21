@@ -4,7 +4,8 @@ export const getAllMenuItems = async (branchId) => {
 
     const result = await pool.query(
         `SELECT M."MenuItemId", M."BranchId", M."CategoryId", C."CategoryName", M."ItemName", M."Description",
-                M."Price", M."ImageUrl", M."IsAvailable", M."IsPopular", M."IsActive", M."CreatedAt", M."UpdatedAt"
+                M."Price", M."ImageUrl", M."IsVeg", M."IsAvailable", M."IsPopular", M."IsActive", M."CreatedAt", M."UpdatedAt",
+                EXISTS(SELECT 1 FROM "MenuItemOptionGroups" G WHERE G."MenuItemId" = M."MenuItemId") AS "HasOptions"
          FROM "MenuItems" M
          INNER JOIN "Categories" C ON M."CategoryId" = C."CategoryId"
          WHERE C."IsActive" = TRUE AND M."BranchId" = $1
@@ -20,7 +21,8 @@ export const getMenuItemById = async (menuItemId) => {
 
     const result = await pool.query(
         `SELECT M."MenuItemId", M."BranchId", M."CategoryId", C."CategoryName", M."ItemName", M."Description",
-                M."Price", M."ImageUrl", M."IsAvailable", M."IsPopular", M."IsActive", M."CreatedAt", M."UpdatedAt"
+                M."Price", M."ImageUrl", M."IsVeg", M."IsAvailable", M."IsPopular", M."IsActive", M."CreatedAt", M."UpdatedAt",
+                EXISTS(SELECT 1 FROM "MenuItemOptionGroups" G WHERE G."MenuItemId" = M."MenuItemId") AS "HasOptions"
          FROM "MenuItems" M
          INNER JOIN "Categories" C ON M."CategoryId" = C."CategoryId"
          WHERE M."MenuItemId" = $1 AND C."IsActive" = TRUE`,
@@ -46,8 +48,8 @@ export const createMenuItem = async (menuItem) => {
 
     const result = await pool.query(
         `INSERT INTO "MenuItems"
-            ("BranchId", "CategoryId", "ItemName", "Description", "Price", "ImageUrl", "IsAvailable", "IsPopular", "IsActive")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ("BranchId", "CategoryId", "ItemName", "Description", "Price", "ImageUrl", "IsVeg", "IsAvailable", "IsPopular", "IsActive")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING "MenuItemId"`,
         [
             menuItem.branchId,
@@ -56,6 +58,7 @@ export const createMenuItem = async (menuItem) => {
             menuItem.description,
             menuItem.price,
             menuItem.imageUrl,
+            menuItem.isVeg ?? true,
             menuItem.isAvailable,
             menuItem.isPopular,
             menuItem.isActive
@@ -71,8 +74,8 @@ export const updateMenuItem = async (menuItem) => {
     const result = await pool.query(
         `UPDATE "MenuItems"
          SET "CategoryId" = $1, "ItemName" = $2, "Description" = $3, "Price" = $4, "ImageUrl" = $5,
-             "IsAvailable" = $6, "IsPopular" = $7, "IsActive" = $8, "UpdatedAt" = NOW()
-         WHERE "MenuItemId" = $9
+             "IsVeg" = $6, "IsAvailable" = $7, "IsPopular" = $8, "IsActive" = $9, "UpdatedAt" = NOW()
+         WHERE "MenuItemId" = $10
          RETURNING *`,
         [
             menuItem.categoryId,
@@ -80,6 +83,7 @@ export const updateMenuItem = async (menuItem) => {
             menuItem.description,
             menuItem.price,
             menuItem.imageUrl ?? null,
+            menuItem.isVeg ?? true,
             menuItem.isAvailable,
             menuItem.isPopular,
             menuItem.isActive,

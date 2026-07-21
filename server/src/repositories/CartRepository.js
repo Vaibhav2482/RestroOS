@@ -1,4 +1,5 @@
 import pool from "../config/db.js";
+import { resolveMenuItemOptions, selectionsMatch } from "../utils/menuOptionResolver.js";
 
 export const addToCart = async (cart) => {
 
@@ -18,7 +19,7 @@ export const addToCart = async (cart) => {
         }
 
         const menuItemCheck = await client.query(
-            `SELECT "BranchId" FROM "MenuItems" WHERE "MenuItemId" = $1 AND "IsAvailable" = TRUE`,
+            `SELECT "BranchId", "Price" FROM "MenuItems" WHERE "MenuItemId" = $1 AND "IsAvailable" = TRUE`,
             [cart.menuItemId]
         );
 
@@ -40,32 +41,46 @@ export const addToCart = async (cart) => {
             throw new Error("Your cart has items from a different branch. Clear your cart before ordering from a new branch.");
         }
 
-        const existing = await client.query(
-            `SELECT 1 FROM "Cart" WHERE "CustomerId" = $1 AND "MenuItemId" = $2`,
+        const { priceDelta, selectedOptions } = await resolveMenuItemOptions(client, cart.menuItemId, cart.selectedOptionIds);
+
+        const unitPrice = Number(menuItemCheck.rows[0].Price) + priceDelta;
+
+        const existingLines = await client.query(
+            `SELECT "CartId", "SelectedOptions" FROM "Cart" WHERE "CustomerId" = $1 AND "MenuItemId" = $2`,
             [cart.customerId, cart.menuItemId]
         );
 
-        if (existing.rows.length > 0) {
+        const matchingLine = existingLines.rows.find((line) => selectionsMatch(line.SelectedOptions ?? [], selectedOptions));
+
+        let cartId;
+
+        if (matchingLine) {
 
             await client.query(
-                `UPDATE "Cart" SET "Quantity" = "Quantity" + $1 WHERE "CustomerId" = $2 AND "MenuItemId" = $3`,
-                [cart.quantity, cart.customerId, cart.menuItemId]
+                `UPDATE "Cart" SET "Quantity" = "Quantity" + $1 WHERE "CartId" = $2`,
+                [cart.quantity, matchingLine.CartId]
             );
+
+            cartId = matchingLine.CartId;
 
         } else {
 
-            await client.query(
-                `INSERT INTO "Cart" ("CustomerId", "MenuItemId", "Quantity") VALUES ($1, $2, $3)`,
-                [cart.customerId, cart.menuItemId, cart.quantity]
+            const inserted = await client.query(
+                `INSERT INTO "Cart" ("CustomerId", "MenuItemId", "Quantity", "UnitPrice", "SelectedOptions")
+                 VALUES ($1, $2, $3, $4, $5)
+                 RETURNING "CartId"`,
+                [cart.customerId, cart.menuItemId, cart.quantity, unitPrice, JSON.stringify(selectedOptions)]
             );
+
+            cartId = inserted.rows[0].CartId;
 
         }
 
         const result = await client.query(
-            `SELECT "CartId", "CustomerId", "MenuItemId", "Quantity", "CreatedAt"
+            `SELECT "CartId", "CustomerId", "MenuItemId", "Quantity", "UnitPrice", "SelectedOptions", "CreatedAt"
              FROM "Cart"
-             WHERE "CustomerId" = $1 AND "MenuItemId" = $2`,
-            [cart.customerId, cart.menuItemId]
+             WHERE "CartId" = $1`,
+            [cartId]
         );
 
         await client.query("COMMIT");
@@ -88,8 +103,9 @@ export const addToCart = async (cart) => {
 export const getCart = async (customerId) => {
 
     const result = await pool.query(
-        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."BranchId", M."ItemName", M."Price",
-                C."Quantity", (M."Price" * C."Quantity") AS "TotalPrice", C."CreatedAt"
+        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."BranchId", M."ItemName", M."ImageUrl",
+                C."UnitPrice", C."SelectedOptions",
+                C."Quantity", (C."UnitPrice" * C."Quantity") AS "TotalPrice", C."CreatedAt"
          FROM "Cart" C
          INNER JOIN "MenuItems" M ON C."MenuItemId" = M."MenuItemId"
          WHERE C."CustomerId" = $1
@@ -120,8 +136,8 @@ export const updateCartQuantity = async (cartId, quantity) => {
     await pool.query(`UPDATE "Cart" SET "Quantity" = $1 WHERE "CartId" = $2`, [quantity, cartId]);
 
     const result = await pool.query(
-        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."ItemName", M."Price",
-                C."Quantity", (M."Price" * C."Quantity") AS "TotalPrice"
+        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."ItemName", C."UnitPrice", C."SelectedOptions",
+                C."Quantity", (C."UnitPrice" * C."Quantity") AS "TotalPrice"
          FROM "Cart" C
          INNER JOIN "MenuItems" M ON C."MenuItemId" = M."MenuItemId"
          WHERE C."CartId" = $1`,

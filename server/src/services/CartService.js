@@ -14,9 +14,17 @@ export const addToCart = async (cart) => {
         return { success: false, message: "Quantity must be greater than zero." };
     }
 
-    const createdCart = await CartRepository.addToCart(cart);
+    try {
 
-    return { success: true, message: "Item added to cart successfully.", data: createdCart };
+        const createdCart = await CartRepository.addToCart(cart);
+
+        return { success: true, message: "Item added to cart successfully.", data: createdCart };
+
+    } catch (error) {
+
+        return { success: false, message: error.message };
+
+    }
 
 };
 
