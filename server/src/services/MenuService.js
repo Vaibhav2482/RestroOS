@@ -53,6 +53,22 @@ export const getMenuItemById = async (menuItemId) => {
 
 };
 
+export const getRecommendations = async (menuItemId) => {
+
+    const menuItem = await MenuRepository.getMenuItemById(menuItemId);
+
+    if (menuItem.length === 0) {
+        return { success: false, message: "Menu item not found." };
+    }
+
+    const recommendations = await MenuRepository.getRecommendations(
+        menuItemId, menuItem[0].BranchId, menuItem[0].CategoryId
+    );
+
+    return { success: true, message: "Recommendations fetched successfully.", data: recommendations };
+
+};
+
 export const createMenuItem = async (menuItem, tenantId) => {
 
     menuItem.itemName = menuItem.itemName?.trim();

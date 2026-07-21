@@ -1,5 +1,7 @@
 import pool from "../config/db.js";
 import { resolveMenuItemOptions } from "../utils/menuOptionResolver.js";
+import { resolveCoupon } from "../utils/couponResolver.js";
+import * as CouponRepository from "./CouponRepository.js";
 
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -94,14 +96,23 @@ export const createOrder = async (order) => {
         }
 
         const subTotal = pricedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-        const cgstAmount = roundGst(subTotal);
-        const sgstAmount = roundGst(subTotal);
-        const totalAmount = subTotal + cgstAmount + sgstAmount;
+
+        // Re-validated fresh here, never trusted from a checkout "preview"
+        // call - the coupon could hit its usage limit or expire between
+        // preview and actually placing the order.
+        const { discountAmount, couponId } = await resolveCoupon(
+            client, customerTenantId, order.couponCode, order.customerId, subTotal
+        );
+
+        const discountedSubTotal = subTotal - discountAmount;
+        const cgstAmount = roundGst(discountedSubTotal);
+        const sgstAmount = roundGst(discountedSubTotal);
+        const totalAmount = discountedSubTotal + cgstAmount + sgstAmount;
 
         const orderInsert = await client.query(
             `INSERT INTO "Orders"
-                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11)
+                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13)
              RETURNING "OrderId"`,
             [
                 branchId,
@@ -114,11 +125,17 @@ export const createOrder = async (order) => {
                 sgstAmount,
                 totalAmount,
                 order.notes ?? null,
-                order.tableNumber ?? null
+                order.tableNumber ?? null,
+                couponId,
+                discountAmount
             ]
         );
 
         const orderId = orderInsert.rows[0].OrderId;
+
+        if (couponId) {
+            await CouponRepository.recordRedemption(client, couponId, order.customerId, orderId, discountAmount);
+        }
 
         for (const item of pricedItems) {
 
@@ -189,7 +206,7 @@ export const getAllOrders = async (tenantId, branchId) => {
     const result = await pool.query(
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
                 C."Phone" AS "CustomerPhone",
-                O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."OrderStatus",
+                O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
                 O."OrderNotes", O."OrderDate", O."TableNumber"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
@@ -211,7 +228,7 @@ export const getOrderById = async (orderId) => {
                 B."Address" AS "BranchAddress", B."City" AS "BranchCity", B."Pincode" AS "BranchPincode",
                 B."Phone" AS "BranchPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."SubTotal", O."CgstAmount", O."SgstAmount",
-                O."TotalAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
+                O."TotalAmount", O."DiscountAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
                 OI."OrderItemId", OI."MenuItemId", OI."ItemName", OI."Price", OI."Quantity", OI."TotalPrice", OI."SelectedOptions"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
@@ -229,7 +246,7 @@ export const getOrdersByCustomer = async (customerId) => {
 
     const result = await pool.query(
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", O."AddressId", O."DeliveryType",
-                O."PaymentMethod", O."TotalAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
+                O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
                 COALESCE(
                     (SELECT json_agg(json_build_object('ItemName', OI."ItemName", 'Quantity', OI."Quantity")
                               ORDER BY OI."OrderItemId")

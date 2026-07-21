@@ -4,7 +4,7 @@ const VALID_DELIVERY_TYPES = ["Delivery", "Dine In"];
 
 export const checkout = async (checkoutData) => {
 
-    const { customerId, addressId, paymentMethod, notes } = checkoutData;
+    const { customerId, addressId, paymentMethod, notes, couponCode } = checkoutData;
 
     const deliveryType = checkoutData.deliveryType || "Delivery";
 
@@ -31,7 +31,8 @@ export const checkout = async (checkoutData) => {
             deliveryType === "Delivery" ? addressId : null,
             deliveryType,
             paymentMethod,
-            notes
+            notes,
+            couponCode
         );
 
         return { success: true, message: "Checkout completed successfully.", data: order };

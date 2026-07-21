@@ -32,6 +32,20 @@ export const getMenuItemById = asyncHandler(async (req, res) => {
 
 });
 
+export const getRecommendations = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const result = await MenuService.getRecommendations(id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const createMenuItem = asyncHandler(async (req, res) => {
 
     const branchId = isBranchAdmin(req) ? req.user.branchId : req.body.branchId;

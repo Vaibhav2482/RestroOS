@@ -33,6 +33,27 @@ export const getMenuItemById = async (menuItemId) => {
 
 };
 
+// Lightweight "pairs well with" cross-sell: other available items from the
+// same branch, preferring the same category, then falling back to
+// whatever's popular - no recommendation engine, just a simple heuristic.
+export const getRecommendations = async (menuItemId, branchId, categoryId, limit = 6) => {
+
+    const result = await pool.query(
+        `SELECT M."MenuItemId", M."CategoryId", C."CategoryName", M."ItemName", M."Description",
+                M."Price", M."ImageUrl", M."IsVeg", M."IsPopular",
+                EXISTS(SELECT 1 FROM "MenuItemOptionGroups" G WHERE G."MenuItemId" = M."MenuItemId") AS "HasOptions"
+         FROM "MenuItems" M
+         INNER JOIN "Categories" C ON M."CategoryId" = C."CategoryId"
+         WHERE M."BranchId" = $1 AND M."MenuItemId" <> $2 AND M."IsAvailable" = TRUE AND M."IsActive" = TRUE
+         ORDER BY (M."CategoryId" = $3) DESC, M."IsPopular" DESC, M."ItemName"
+         LIMIT $4`,
+        [branchId, menuItemId, categoryId, limit]
+    );
+
+    return result.rows;
+
+};
+
 export const checkMenuItemExists = async (itemName, branchId) => {
 
     const result = await pool.query(

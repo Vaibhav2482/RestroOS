@@ -2,6 +2,7 @@ import express from "express";
 import {
     getAllMenuItems,
     getMenuItemById,
+    getRecommendations,
     createMenuItem,
     updateMenuItem,
     deleteMenuItem
@@ -11,6 +12,7 @@ import { authenticate, authorize, authenticateOptional } from "../middleware/Aut
 const router = express.Router();
 
 router.get("/", authenticateOptional, getAllMenuItems);
+router.get("/:id/recommendations", getRecommendations);
 router.get("/:id", getMenuItemById);
 router.post("/", authenticate, authorize("admin"), createMenuItem);
 router.put("/:id", authenticate, authorize("admin"), updateMenuItem);
