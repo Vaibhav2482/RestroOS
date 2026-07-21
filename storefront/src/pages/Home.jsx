@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -24,6 +24,11 @@ import * as publicService from "../services/publicService";
 import * as cartService from "../services/cartService";
 import { useStorefront } from "../context/StorefrontContext";
 import ItemCustomizationDialog from "./ItemCustomizationDialog";
+
+// The AppBar in Layout.jsx is sticky at the very top - the category bar
+// below sticks right underneath it, so this offset has to match the
+// AppBar's rendered height at each breakpoint or the two would overlap.
+const APPBAR_HEIGHT = { xs: 56, sm: 64 };
 
 function VegIndicator({ isVeg }) {
 
@@ -208,11 +213,21 @@ function Home() {
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
     const [menuLoading, setMenuLoading] = useState(true);
-    const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+    const [activeCategoryId, setActiveCategoryId] = useState(null);
     const [search, setSearch] = useState("");
     const [cartLines, setCartLines] = useState([]);
     const [busyMenuItemId, setBusyMenuItemId] = useState(null);
     const [customizingItem, setCustomizingItem] = useState(null);
+
+    const sectionRefs = useRef({});
+    const chipRefs = useRef({});
+    const chipRowRef = useRef(null);
+    // Scrolling to a section (via chip click) fires the same intersection
+    // events as manual scrolling - this flag tells the observer to stand
+    // down for the duration of that programmatic scroll, so the chip you
+    // just tapped doesn't get immediately overridden by whichever section
+    // happens to cross the threshold first.
+    const suppressObserverRef = useRef(false);
 
     useEffect(() => {
 
@@ -345,31 +360,99 @@ function Home() {
 
     }, [categories, availableItems]);
 
-    // Grouped by category (sections, like a real menu) so the default "All"
-    // view reads as a proper menu rather than one undifferentiated grid.
-    const sections = useMemo(() => {
-
-        if (selectedCategoryId !== "all") {
-
-            const category = categoriesInMenu.find((c) => c.CategoryId === selectedCategoryId);
-
-            return [{
-                categoryId: selectedCategoryId,
-                categoryName: category?.CategoryName ?? "",
-                items: searchedItems.filter((item) => item.CategoryId === selectedCategoryId)
-            }];
-
-        }
-
-        return categoriesInMenu
+    // Every category is always rendered as its own section (like a real
+    // menu) - the chips are for scroll-spy navigation now, not a filter
+    // that hides every other section.
+    const sections = useMemo(() =>
+        categoriesInMenu
             .map((category) => ({
                 categoryId: category.CategoryId,
                 categoryName: category.CategoryName,
                 items: searchedItems.filter((item) => item.CategoryId === category.CategoryId)
             }))
-            .filter((section) => section.items.length > 0);
+            .filter((section) => section.items.length > 0),
+    [categoriesInMenu, searchedItems]);
 
-    }, [categoriesInMenu, searchedItems, selectedCategoryId]);
+    useEffect(() => {
+
+        if (sections.length > 0 && !sections.some((section) => section.categoryId === activeCategoryId)) {
+            setActiveCategoryId(sections[0].categoryId);
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sections]);
+
+    // Scroll-spy: highlight whichever section's top has most recently
+    // crossed the sticky header, instead of requiring a tap to know where
+    // you are in a long menu.
+    useEffect(() => {
+
+        if (sections.length === 0) {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+
+                if (suppressObserverRef.current) {
+                    return;
+                }
+
+                const visible = entries
+                    .filter((entry) => entry.isIntersecting)
+                    .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
+                if (visible.length > 0) {
+                    setActiveCategoryId(Number(visible[0].target.dataset.categoryId));
+                }
+
+            },
+            { rootMargin: "-120px 0px -70% 0px", threshold: 0 }
+        );
+
+        sections.forEach((section) => {
+
+            const element = sectionRefs.current[section.categoryId];
+
+            if (element) {
+                observer.observe(element);
+            }
+
+        });
+
+        return () => observer.disconnect();
+
+    }, [sections]);
+
+    useEffect(() => {
+
+        const chip = chipRefs.current[activeCategoryId];
+
+        chip?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+
+    }, [activeCategoryId]);
+
+    const handleCategoryClick = (categoryId) => {
+
+        setActiveCategoryId(categoryId);
+
+        const element = sectionRefs.current[categoryId];
+
+        if (!element) {
+            return;
+        }
+
+        suppressObserverRef.current = true;
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        // Clears once the smooth scroll has settled - there's no reliable
+        // "scroll finished" event, so a generous timeout stands in for one.
+        window.clearTimeout(handleCategoryClick.timeoutId);
+        handleCategoryClick.timeoutId = window.setTimeout(() => {
+            suppressObserverRef.current = false;
+        }, 700);
+
+    };
 
     const totalVisibleItems = sections.reduce((sum, section) => sum + section.items.length, 0);
 
@@ -530,7 +613,7 @@ function Home() {
                 placeholder="Search menu items..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                sx={{ mb: 3 }}
+                sx={{ mb: 2 }}
                 slotProps={{
                     input: {
                         startAdornment: (
@@ -542,26 +625,37 @@ function Home() {
                 }}
             />
 
-            <Stack direction="row" spacing={1} sx={{ mb: 3, overflowX: "auto", pb: 1 }}>
+            {sections.length > 0 && (
 
-                <Chip
-                    label="All"
-                    onClick={() => setSelectedCategoryId("all")}
-                    color={selectedCategoryId === "all" ? "primary" : "default"}
-                    variant={selectedCategoryId === "all" ? "filled" : "outlined"}
-                />
+                <Stack
+                    ref={chipRowRef}
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                        mb: 3,
+                        py: 1,
+                        overflowX: "auto",
+                        position: "sticky",
+                        top: APPBAR_HEIGHT,
+                        zIndex: 10,
+                        bgcolor: "background.default"
+                    }}
+                >
 
-                {categoriesInMenu.map((category) => (
-                    <Chip
-                        key={category.CategoryId}
-                        label={category.CategoryName}
-                        onClick={() => setSelectedCategoryId(category.CategoryId)}
-                        color={selectedCategoryId === category.CategoryId ? "primary" : "default"}
-                        variant={selectedCategoryId === category.CategoryId ? "filled" : "outlined"}
-                    />
-                ))}
+                    {sections.map((section) => (
+                        <Chip
+                            key={section.categoryId}
+                            ref={(el) => { chipRefs.current[section.categoryId] = el; }}
+                            label={section.categoryName}
+                            onClick={() => handleCategoryClick(section.categoryId)}
+                            color={activeCategoryId === section.categoryId ? "primary" : "default"}
+                            variant={activeCategoryId === section.categoryId ? "filled" : "outlined"}
+                        />
+                    ))}
 
-            </Stack>
+                </Stack>
+
+            )}
 
             {menuLoading ? (
 
@@ -593,13 +687,16 @@ function Home() {
 
                     {sections.map((section) => (
 
-                        <Box key={section.categoryId}>
+                        <Box
+                            key={section.categoryId}
+                            ref={(el) => { sectionRefs.current[section.categoryId] = el; }}
+                            data-category-id={section.categoryId}
+                            sx={{ scrollMarginTop: { xs: "120px", sm: "136px" } }}
+                        >
 
-                            {selectedCategoryId === "all" && (
-                                <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-                                    {section.categoryName}
-                                </Typography>
-                            )}
+                            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                                {section.categoryName}
+                            </Typography>
 
                             <Grid container spacing={2.5}>
 
