@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Box,
     Button,
@@ -15,6 +15,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import SearchIcon from "@mui/icons-material/Search";
+import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -88,7 +89,7 @@ function ItemImage({ item, size = 116 }) {
 
 }
 
-function MenuItemRow({ item, quantity, onAdd, onIncrement, onDecrement }) {
+function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) {
 
     const [expanded, setExpanded] = useState(false);
 
@@ -157,10 +158,10 @@ function MenuItemRow({ item, quantity, onAdd, onIncrement, onDecrement }) {
                             direction="row"
                             alignItems="center"
                             justifyContent="space-between"
-                            sx={{ bgcolor: "#FFFFFF", border: "1px solid #4F46E5", borderRadius: 2, px: 0.5, py: 0.25 }}
+                            sx={{ bgcolor: "#FFFFFF", border: "1px solid #4F46E5", borderRadius: 2, px: 0.5, py: 0.25, opacity: busy ? 0.6 : 1 }}
                         >
 
-                            <IconButton size="small" onClick={onDecrement}>
+                            <IconButton size="small" onClick={onDecrement} disabled={busy}>
                                 <RemoveIcon fontSize="small" sx={{ color: "#4F46E5" }} />
                             </IconButton>
 
@@ -168,7 +169,7 @@ function MenuItemRow({ item, quantity, onAdd, onIncrement, onDecrement }) {
                                 {quantity}
                             </Typography>
 
-                            <IconButton size="small" onClick={onIncrement}>
+                            <IconButton size="small" onClick={onIncrement} disabled={busy}>
                                 <AddIcon fontSize="small" sx={{ color: "#4F46E5" }} />
                             </IconButton>
 
@@ -181,6 +182,7 @@ function MenuItemRow({ item, quantity, onAdd, onIncrement, onDecrement }) {
                             variant="contained"
                             size="small"
                             onClick={onAdd}
+                            disabled={busy}
                             sx={{ borderRadius: 2, minWidth: 0, px: 1 }}
                         >
                             Add
@@ -208,7 +210,8 @@ function Home() {
     const [menuLoading, setMenuLoading] = useState(true);
     const [selectedCategoryId, setSelectedCategoryId] = useState("all");
     const [search, setSearch] = useState("");
-    const [localQuantities, setLocalQuantities] = useState({});
+    const [cartLines, setCartLines] = useState([]);
+    const [busyMenuItemId, setBusyMenuItemId] = useState(null);
     const [customizingItem, setCustomizingItem] = useState(null);
 
     useEffect(() => {
@@ -277,6 +280,44 @@ function Home() {
 
     }, [selectedBranchId]);
 
+    // Keeps the +/- stepper an honest reflection of the real cart, not a
+    // page-local counter that resets (or drifts) the moment you navigate
+    // away and back - this used to silently diverge from what was actually
+    // in the cart, including on decrement, which never called the API at all.
+    const refreshCartLines = useCallback(async () => {
+
+        if (!isLoggedIn || !customer?.CustomerId) {
+            setCartLines([]);
+            return;
+        }
+
+        try {
+
+            const response = await cartService.getCart(customer.CustomerId);
+
+            if (response.success) {
+                setCartLines(response.data);
+            }
+
+        } catch {
+
+            // Non-fatal - the stepper just falls back to "not in cart" for this page view.
+
+        }
+
+    }, [isLoggedIn, customer]);
+
+    useEffect(() => {
+        refreshCartLines();
+    }, [refreshCartLines]);
+
+    // Only plain (no customization) cart lines are ever addressed directly
+    // from this page's stepper - a customizable item always goes through
+    // the dialog, and can have several distinct lines (one per combination),
+    // which a single +/- control can't represent.
+    const getPlainCartLine = (menuItemId) =>
+        cartLines.find((line) => line.MenuItemId === menuItemId && (!line.SelectedOptions || line.SelectedOptions.length === 0));
+
     const availableItems = useMemo(
         () => menuItems.filter((item) => item.IsAvailable && item.IsActive),
         [menuItems]
@@ -332,7 +373,10 @@ function Home() {
 
     const totalVisibleItems = sections.reduce((sum, section) => sum + section.items.length, 0);
 
-    const handleAddToCart = async (item) => {
+    const cartItemCount = cartLines.reduce((sum, line) => sum + line.Quantity, 0);
+    const cartSubtotal = cartLines.reduce((sum, line) => sum + Number(line.TotalPrice ?? 0), 0);
+
+    const handleAdd = async (item) => {
 
         if (!isLoggedIn) {
             navigate(`/${tenantSlug}/login`);
@@ -344,14 +388,14 @@ function Home() {
             return;
         }
 
-        const increment = 1;
-
         try {
+
+            setBusyMenuItemId(item.MenuItemId);
 
             const response = await cartService.addToCart({
                 customerId: customer.CustomerId,
                 menuItemId: item.MenuItemId,
-                quantity: increment
+                quantity: 1
             });
 
             if (!response.success) {
@@ -359,7 +403,7 @@ function Home() {
                 return;
             }
 
-            setLocalQuantities((prev) => ({ ...prev, [item.MenuItemId]: (prev[item.MenuItemId] || 0) + increment }));
+            await refreshCartLines();
             refreshCartCount();
             toast.success(`${item.ItemName} added to cart`);
 
@@ -367,31 +411,88 @@ function Home() {
 
             toast.error(error.response?.data?.message || "Failed to add item to cart.");
 
+        } finally {
+
+            setBusyMenuItemId(null);
+
+        }
+
+    };
+
+    const handleIncrement = async (item) => {
+
+        const line = getPlainCartLine(item.MenuItemId);
+
+        if (!line) {
+            await handleAdd(item);
+            return;
+        }
+
+        try {
+
+            setBusyMenuItemId(item.MenuItemId);
+
+            const response = await cartService.updateCartQuantity(line.CartId, line.Quantity + 1);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            await refreshCartLines();
+            refreshCartCount();
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update cart.");
+
+        } finally {
+
+            setBusyMenuItemId(null);
+
+        }
+
+    };
+
+    const handleDecrement = async (item) => {
+
+        const line = getPlainCartLine(item.MenuItemId);
+
+        if (!line) {
+            return;
+        }
+
+        try {
+
+            setBusyMenuItemId(item.MenuItemId);
+
+            const response = line.Quantity <= 1
+                ? await cartService.removeCartItem(line.CartId)
+                : await cartService.updateCartQuantity(line.CartId, line.Quantity - 1);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            await refreshCartLines();
+            refreshCartCount();
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update cart.");
+
+        } finally {
+
+            setBusyMenuItemId(null);
+
         }
 
     };
 
     const handleCustomizationDialogClose = () => {
         setCustomizingItem(null);
-    };
-
-    const handleIncrement = (item) => handleAddToCart(item);
-
-    const handleDecrement = (item) => {
-
-        setLocalQuantities((prev) => {
-
-            const current = prev[item.MenuItemId] || 0;
-            const next = Math.max(0, current - 1);
-
-            return { ...prev, [item.MenuItemId]: next };
-
-        });
-
-        // Note: server-side cart quantity is only ever incremented from this
-        // page (via addToCart). Decrementing below what was added here does
-        // not call the API - full quantity management lives on the Cart page.
-
+        refreshCartLines();
     };
 
     if (storefrontLoading) {
@@ -422,7 +523,7 @@ function Home() {
 
     return (
 
-        <Box>
+        <Box sx={{ pb: cartItemCount > 0 ? 9 : 0 }}>
 
             <TextField
                 fullWidth
@@ -502,19 +603,26 @@ function Home() {
 
                             <Grid container spacing={2.5}>
 
-                                {section.items.map((item) => (
+                                {section.items.map((item) => {
 
-                                    <Grid key={item.MenuItemId} size={{ xs: 12, md: 6 }} sx={{ pb: 1 }}>
-                                        <MenuItemRow
-                                            item={item}
-                                            quantity={localQuantities[item.MenuItemId] || 0}
-                                            onAdd={() => handleAddToCart(item)}
-                                            onIncrement={() => handleIncrement(item)}
-                                            onDecrement={() => handleDecrement(item)}
-                                        />
-                                    </Grid>
+                                    const plainLine = getPlainCartLine(item.MenuItemId);
 
-                                ))}
+                                    return (
+
+                                        <Grid key={item.MenuItemId} size={{ xs: 12, md: 6 }} sx={{ pb: 1 }}>
+                                            <MenuItemRow
+                                                item={item}
+                                                quantity={plainLine?.Quantity ?? 0}
+                                                busy={busyMenuItemId === item.MenuItemId}
+                                                onAdd={() => handleAdd(item)}
+                                                onIncrement={() => handleIncrement(item)}
+                                                onDecrement={() => handleDecrement(item)}
+                                            />
+                                        </Grid>
+
+                                    );
+
+                                })}
 
                             </Grid>
 
@@ -531,6 +639,51 @@ function Home() {
                 item={customizingItem}
                 onClose={handleCustomizationDialogClose}
             />
+
+            {cartItemCount > 0 && (
+
+                <Box
+                    onClick={() => navigate(`/${tenantSlug}/cart`)}
+                    sx={{
+                        position: "fixed",
+                        left: "50%",
+                        bottom: { xs: 76, md: 16 },
+                        transform: "translateX(-50%)",
+                        width: { xs: "calc(100% - 32px)", sm: 480 },
+                        maxWidth: "calc(100% - 32px)",
+                        bgcolor: "#4F46E5",
+                        color: "#fff",
+                        borderRadius: 3,
+                        boxShadow: "0 10px 30px rgba(79,70,229,.35)",
+                        px: 2.5,
+                        py: 1.5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        cursor: "pointer",
+                        zIndex: 20
+                    }}
+                >
+
+                    <Stack direction="row" alignItems="center" spacing={1.5}>
+                        <ShoppingCartOutlinedIcon />
+                        <Box>
+                            <Typography fontWeight={700} sx={{ lineHeight: 1.2 }}>
+                                {cartItemCount} {cartItemCount === 1 ? "item" : "items"}
+                            </Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.85 }}>
+                                ₹{cartSubtotal.toFixed(2)}
+                            </Typography>
+                        </Box>
+                    </Stack>
+
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Typography fontWeight={700}>View Cart</Typography>
+                    </Stack>
+
+                </Box>
+
+            )}
 
         </Box>
 

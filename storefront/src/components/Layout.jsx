@@ -20,6 +20,7 @@ import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { useStorefront } from "../context/StorefrontContext";
+import BottomNav from "./BottomNav";
 
 function Layout({ children }) {
 
@@ -161,9 +162,11 @@ function Layout({ children }) {
 
             </AppBar>
 
-            <Container maxWidth="lg" sx={{ flex: 1, py: 3 }}>
+            <Container maxWidth="lg" sx={{ flex: 1, py: 3, pb: { xs: 9, md: 3 } }}>
                 {children}
             </Container>
+
+            <BottomNav />
 
         </Box>
 

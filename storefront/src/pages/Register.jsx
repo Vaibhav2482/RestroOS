@@ -34,8 +34,24 @@ function Register() {
                 return;
             }
 
-            toast.success("Account created — log in to continue.");
-            navigate(`/${tenantSlug}/login`);
+            // Registration doesn't return a token - chain straight into login
+            // with the same credentials rather than making the customer
+            // retype what they just typed on a separate page.
+            const loginResponse = await customerAuthService.login(tenantSlug, formData.email.trim(), formData.password);
+
+            if (!loginResponse.success) {
+
+                toast.success("Account created — log in to continue.");
+                navigate(`/${tenantSlug}/login`);
+                return;
+
+            }
+
+            const { token, ...customer } = loginResponse.data;
+
+            login({ token, customer });
+            toast.success(`Welcome, ${customer.FullName}!`);
+            navigate(`/${tenantSlug}`);
 
         } catch (error) {
 
