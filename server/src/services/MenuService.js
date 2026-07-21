@@ -1,5 +1,6 @@
 import * as MenuRepository from "../repositories/MenuRepository.js";
 import * as BranchRepository from "../repositories/BranchRepository.js";
+import * as CategoryRepository from "../repositories/CategoryRepository.js";
 
 // MenuItems has no TenantId column of its own - its tenant is implied
 // through the Branch it belongs to. Every write path below verifies that
@@ -11,6 +12,16 @@ const assertBranchBelongsToTenant = async (branchId, tenantId) => {
     const branch = await BranchRepository.getBranchById(branchId);
 
     return Boolean(branch && branch.TenantId === tenantId);
+
+};
+
+// Same boundary, for CategoryId - without this a menu item can be filed
+// under another tenant's category by guessing/enumerating a categoryId.
+const assertCategoryBelongsToTenant = async (categoryId, tenantId) => {
+
+    const category = await CategoryRepository.getCategoryById(categoryId);
+
+    return Boolean(category && category.TenantId === tenantId);
 
 };
 
@@ -59,6 +70,10 @@ export const createMenuItem = async (menuItem, tenantId) => {
         return { success: false, message: "Category is required." };
     }
 
+    if (!(await assertCategoryBelongsToTenant(menuItem.categoryId, tenantId))) {
+        return { success: false, message: "Category not found." };
+    }
+
     if (!menuItem.itemName) {
         return { success: false, message: "Item Name is required." };
     }
@@ -91,7 +106,7 @@ export const createMenuItem = async (menuItem, tenantId) => {
 
 };
 
-export const updateMenuItem = async (menuItemId, menuItem) => {
+export const updateMenuItem = async (menuItemId, menuItem, tenantId) => {
 
     const existingMenuItem = await MenuRepository.getMenuItemById(menuItemId);
 
@@ -104,6 +119,10 @@ export const updateMenuItem = async (menuItemId, menuItem) => {
 
     if (!menuItem.categoryId) {
         return { success: false, message: "Category is required." };
+    }
+
+    if (!(await assertCategoryBelongsToTenant(menuItem.categoryId, tenantId))) {
+        return { success: false, message: "Category not found." };
     }
 
     if (!menuItem.itemName) {

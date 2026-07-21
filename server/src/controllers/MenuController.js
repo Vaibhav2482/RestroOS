@@ -68,7 +68,7 @@ export const updateMenuItem = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to update a menu item from another branch.", 403);
     }
 
-    const result = await MenuService.updateMenuItem(id, req.body);
+    const result = await MenuService.updateMenuItem(id, req.body, req.user.tenantId);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
