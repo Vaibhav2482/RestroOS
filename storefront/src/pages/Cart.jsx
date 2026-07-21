@@ -120,7 +120,7 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
 function Cart() {
 
     const navigate = useNavigate();
-    const { tenantSlug, isLoggedIn, customer, refreshCartCount } = useStorefront();
+    const { tenantSlug, isLoggedIn, customer, setCartCount } = useStorefront();
 
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -150,6 +150,9 @@ function Cart() {
 
             if (response.success) {
                 setItems(response.data);
+                // Same fetch also drives the header badge - no need for a
+                // second getCart round trip just to recompute this count.
+                setCartCount(response.data.reduce((sum, item) => sum + item.Quantity, 0));
             } else {
                 toast.error(response.message);
             }
@@ -165,7 +168,7 @@ function Cart() {
 
         }
 
-    }, [isLoggedIn, customer]);
+    }, [isLoggedIn, customer, setCartCount]);
 
     useEffect(() => {
         loadCart();
@@ -186,8 +189,10 @@ function Cart() {
                 return;
             }
 
-            await loadCart();
-            await refreshCartCount();
+            // Not awaited - the mutation already succeeded, so re-enabling
+            // the stepper shouldn't wait on a second round trip just to
+            // refresh the displayed quantity/badge.
+            loadCart();
 
         } catch (error) {
 
@@ -215,8 +220,7 @@ function Cart() {
             }
 
             toast.success("Item removed from cart.");
-            await loadCart();
-            await refreshCartCount();
+            loadCart();
 
         } catch (error) {
 
@@ -244,8 +248,7 @@ function Cart() {
             }
 
             toast.success("Cart cleared.");
-            await loadCart();
-            await refreshCartCount();
+            loadCart();
 
         } catch (error) {
 

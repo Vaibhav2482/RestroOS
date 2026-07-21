@@ -156,6 +156,7 @@ export function StorefrontProvider({ children }) {
         logout,
         cartCount,
         refreshCartCount,
+        setCartCount,
         loading,
         notFound
     };

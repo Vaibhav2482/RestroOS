@@ -219,7 +219,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 function Home() {
 
     const navigate = useNavigate();
-    const { tenantSlug, branches, selectedBranchId, isLoggedIn, customer, refreshCartCount, loading: storefrontLoading } = useStorefront();
+    const { tenantSlug, branches, selectedBranchId, isLoggedIn, customer, setCartCount, loading: storefrontLoading } = useStorefront();
 
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
@@ -324,6 +324,9 @@ function Home() {
 
             if (response.success) {
                 setCartLines(response.data);
+                // Same fetch also drives the header badge - no need for a
+                // second getCart round trip just to recompute this count.
+                setCartCount(response.data.reduce((sum, line) => sum + line.Quantity, 0));
             }
 
         } catch {
@@ -332,7 +335,7 @@ function Home() {
 
         }
 
-    }, [isLoggedIn, customer]);
+    }, [isLoggedIn, customer, setCartCount]);
 
     useEffect(() => {
         refreshCartLines();
@@ -527,9 +530,11 @@ function Home() {
                 return;
             }
 
-            await refreshCartLines();
-            refreshCartCount();
             toast.success(`${item.ItemName} added to cart`);
+            // Not awaited - the mutation already succeeded, so the toast and
+            // the button re-enabling shouldn't wait on a second round trip
+            // just to refresh the displayed quantity/badge.
+            refreshCartLines();
 
         } catch (error) {
 
@@ -563,8 +568,7 @@ function Home() {
                 return;
             }
 
-            await refreshCartLines();
-            refreshCartCount();
+            refreshCartLines();
 
         } catch (error) {
 
@@ -599,8 +603,7 @@ function Home() {
                 return;
             }
 
-            await refreshCartLines();
-            refreshCartCount();
+            refreshCartLines();
 
         } catch (error) {
 
