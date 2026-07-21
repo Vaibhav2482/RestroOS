@@ -11,6 +11,8 @@ import {
     TextField
 } from "@mui/material";
 
+import ImageUploadField from "../components/ImageUploadField";
+
 const emptyForm = {
     categoryName: "",
     description: "",
@@ -59,6 +61,10 @@ function CategoryDialog({ open, onClose, onSave, selectedCategory, isEditMode })
             setErrors((prev) => ({ ...prev, [name]: "" }));
         }
 
+    };
+
+    const handleImageChange = (url) => {
+        setFormData((prev) => ({ ...prev, imageUrl: url }));
     };
 
     const validate = () => {
@@ -175,13 +181,10 @@ function CategoryDialog({ open, onClose, onSave, selectedCategory, isEditMode })
                     )}
 
                     <Grid size={{ xs: 12 }}>
-                        <TextField
-                            fullWidth
-                            label="Image URL (optional)"
-                            name="imageUrl"
-                            placeholder="https://..."
+                        <ImageUploadField
+                            label="Photo (optional)"
                             value={formData.imageUrl}
-                            onChange={handleChange}
+                            onChange={handleImageChange}
                         />
                     </Grid>
 

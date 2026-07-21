@@ -16,6 +16,8 @@ import {
     TextField
 } from "@mui/material";
 
+import ImageUploadField from "../components/ImageUploadField";
+
 const emptyForm = {
     categoryId: "",
     itemName: "",
@@ -67,6 +69,10 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, editingItem]);
+
+    const handleImageChange = (url) => {
+        setFormData((prev) => ({ ...prev, imageUrl: url }));
+    };
 
     const handleChange = (event) => {
 
@@ -214,15 +220,12 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
 
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12 }}>
 
-                        <TextField
-                            fullWidth
-                            label="Image URL"
-                            name="imageUrl"
-                            placeholder="https://..."
+                        <ImageUploadField
+                            label="Photo"
                             value={formData.imageUrl}
-                            onChange={handleChange}
+                            onChange={handleImageChange}
                         />
 
                     </Grid>
