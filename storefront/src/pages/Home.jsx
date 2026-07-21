@@ -3,7 +3,6 @@ import {
     Box,
     Button,
     Card,
-    CardContent,
     Chip,
     Grid,
     IconButton,
@@ -16,6 +15,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import SearchIcon from "@mui/icons-material/Search";
+import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -31,8 +31,8 @@ function VegIndicator({ isVeg }) {
     return (
         <Box
             sx={{
-                width: 16,
-                height: 16,
+                width: 15,
+                height: 15,
                 border: `1.5px solid ${color}`,
                 display: "flex",
                 alignItems: "center",
@@ -40,92 +40,157 @@ function VegIndicator({ isVeg }) {
                 flexShrink: 0
             }}
         >
-            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
+            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
         </Box>
     );
 
 }
 
-function MenuItemCard({ item, quantity, onAdd, onIncrement, onDecrement }) {
+function ItemImage({ item, size = 116 }) {
 
-    const truncatedDescription = item.Description && item.Description.length > 110
-        ? `${item.Description.slice(0, 110).trim()}...`
-        : item.Description;
+    if (item.ImageUrl) {
+
+        return (
+            <Box
+                component="img"
+                src={item.ImageUrl}
+                alt={item.ItemName}
+                sx={{
+                    width: size,
+                    height: size,
+                    borderRadius: 2,
+                    objectFit: "cover",
+                    flexShrink: 0,
+                    border: "1px solid #E5E7EB"
+                }}
+            />
+        );
+
+    }
+
+    return (
+        <Box
+            sx={{
+                width: size,
+                height: size,
+                borderRadius: 2,
+                flexShrink: 0,
+                border: "1px solid #E5E7EB",
+                bgcolor: "#F5F6FA",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+            }}
+        >
+            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: size * 0.4 }} />
+        </Box>
+    );
+
+}
+
+function MenuItemRow({ item, quantity, onAdd, onIncrement, onDecrement }) {
+
+    const [expanded, setExpanded] = useState(false);
+
+    const isLong = item.Description && item.Description.length > 90;
+    const shownDescription = !isLong || expanded
+        ? item.Description
+        : `${item.Description.slice(0, 90).trim()}...`;
 
     return (
 
-        <Card elevation={0} sx={{ height: "100%", display: "flex", flexDirection: "column", border: "1px solid #E5E7EB" }}>
+        <Card elevation={0} sx={{ p: 2, border: "1px solid #E5E7EB", display: "flex", gap: 2 }}>
 
-            <CardContent sx={{ flexGrow: 1, display: "flex", flexDirection: "column" }}>
+            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
 
-                <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
-
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                        <VegIndicator isVeg={Boolean(item.IsVeg)} />
-                        <Typography variant="subtitle1" fontWeight={700}>
-                            {item.ItemName}
-                        </Typography>
-                    </Stack>
-
+                <Stack direction="row" alignItems="center" spacing={1}>
+                    <VegIndicator isVeg={Boolean(item.IsVeg)} />
                     {item.IsPopular ? (
-                        <Chip label="Popular" size="small" sx={{ bgcolor: "#EEF2FF", color: "#4F46E5", fontWeight: 600 }} />
+                        <Chip label="Bestseller" size="small" sx={{ bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 600, height: 20 }} />
                     ) : null}
-
                 </Stack>
 
-                {truncatedDescription ? (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, flexGrow: 1 }}>
-                        {truncatedDescription}
-                    </Typography>
-                ) : (
-                    <Box sx={{ flexGrow: 1 }} />
-                )}
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.5 }}>
+                    {item.ItemName}
+                </Typography>
 
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "#4F46E5", mt: 0.5 }}>
+                    ₹{Number(item.Price).toFixed(2)}
+                </Typography>
 
-                    <Typography variant="subtitle1" fontWeight={800} sx={{ color: "#4F46E5" }}>
-                        ₹{Number(item.Price).toFixed(2)}
+                {item.Description ? (
+
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {shownDescription}{" "}
+                        {isLong && (
+                            <Box
+                                component="span"
+                                onClick={() => setExpanded((prev) => !prev)}
+                                sx={{ color: "#4F46E5", fontWeight: 600, cursor: "pointer" }}
+                            >
+                                {expanded ? "less" : "more"}
+                            </Box>
+                        )}
                     </Typography>
+
+                ) : null}
+
+                <Box sx={{ flexGrow: 1 }} />
+
+                {item.HasOptions ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        customisable
+                    </Typography>
+                ) : null}
+
+            </Box>
+
+            <Box sx={{ position: "relative", flexShrink: 0 }}>
+
+                <ItemImage item={item} />
+
+                <Box sx={{ position: "absolute", left: "50%", bottom: -14, transform: "translateX(-50%)", width: "84%" }}>
 
                     {quantity > 0 ? (
 
-                        <Stack direction="row" alignItems="center" spacing={1}>
+                        <Stack
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ bgcolor: "#FFFFFF", border: "1px solid #4F46E5", borderRadius: 2, px: 0.5, py: 0.25 }}
+                        >
 
-                            <IconButton size="small" onClick={onDecrement} sx={{ border: "1px solid #E5E7EB" }}>
-                                <RemoveIcon fontSize="small" />
+                            <IconButton size="small" onClick={onDecrement}>
+                                <RemoveIcon fontSize="small" sx={{ color: "#4F46E5" }} />
                             </IconButton>
 
-                            <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
+                            <Typography fontWeight={700} sx={{ color: "#4F46E5" }}>
                                 {quantity}
                             </Typography>
 
-                            <IconButton size="small" onClick={onIncrement} sx={{ border: "1px solid #E5E7EB" }}>
-                                <AddIcon fontSize="small" />
+                            <IconButton size="small" onClick={onIncrement}>
+                                <AddIcon fontSize="small" sx={{ color: "#4F46E5" }} />
                             </IconButton>
 
                         </Stack>
 
                     ) : (
 
-                        <Stack alignItems="center" spacing={0.25}>
-
-                            <Button variant="outlined" size="small" onClick={onAdd}>
-                                Add
-                            </Button>
-
-                            {item.HasOptions ? (
-                                <Typography variant="caption" color="text.secondary">
-                                    customisable
-                                </Typography>
-                            ) : null}
-
-                        </Stack>
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            size="small"
+                            onClick={onAdd}
+                            sx={{ borderRadius: 2, minWidth: 0, px: 1 }}
+                        >
+                            Add
+                        </Button>
 
                     )}
 
-                </Stack>
+                </Box>
 
-            </CardContent>
+            </Box>
 
         </Card>
 
@@ -217,25 +282,55 @@ function Home() {
         [menuItems]
     );
 
-    const filteredItems = useMemo(() => {
+    const searchedItems = useMemo(() => {
 
-        return availableItems.filter((item) => {
+        if (!search.trim()) {
+            return availableItems;
+        }
 
-            const matchesCategory = selectedCategoryId === "all" || item.CategoryId === selectedCategoryId;
-            const matchesSearch = !search.trim() || item.ItemName.toLowerCase().includes(search.trim().toLowerCase());
+        const term = search.trim().toLowerCase();
 
-            return matchesCategory && matchesSearch;
+        return availableItems.filter((item) => item.ItemName.toLowerCase().includes(term));
 
-        });
-
-    }, [availableItems, selectedCategoryId, search]);
+    }, [availableItems, search]);
 
     const categoriesInMenu = useMemo(() => {
 
         const idsInMenu = new Set(availableItems.map((item) => item.CategoryId));
-        return categories.filter((category) => category.IsActive !== false && idsInMenu.has(category.CategoryId));
+
+        return categories
+            .filter((category) => category.IsActive !== false && idsInMenu.has(category.CategoryId))
+            .sort((a, b) => a.DisplayOrder - b.DisplayOrder);
 
     }, [categories, availableItems]);
+
+    // Grouped by category (sections, like a real menu) so the default "All"
+    // view reads as a proper menu rather than one undifferentiated grid.
+    const sections = useMemo(() => {
+
+        if (selectedCategoryId !== "all") {
+
+            const category = categoriesInMenu.find((c) => c.CategoryId === selectedCategoryId);
+
+            return [{
+                categoryId: selectedCategoryId,
+                categoryName: category?.CategoryName ?? "",
+                items: searchedItems.filter((item) => item.CategoryId === selectedCategoryId)
+            }];
+
+        }
+
+        return categoriesInMenu
+            .map((category) => ({
+                categoryId: category.CategoryId,
+                categoryName: category.CategoryName,
+                items: searchedItems.filter((item) => item.CategoryId === category.CategoryId)
+            }))
+            .filter((section) => section.items.length > 0);
+
+    }, [categoriesInMenu, searchedItems, selectedCategoryId]);
+
+    const totalVisibleItems = sections.reduce((sum, section) => sum + section.items.length, 0);
 
     const handleAddToCart = async (item) => {
 
@@ -303,13 +398,11 @@ function Home() {
 
         return (
 
-            <Grid container spacing={2}>
-                {Array.from({ length: 6 }).map((_, index) => (
-                    <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
-                        <Skeleton variant="rounded" height={160} />
-                    </Grid>
+            <Stack spacing={2}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={index} variant="rounded" height={140} />
                 ))}
-            </Grid>
+            </Stack>
 
         );
 
@@ -371,13 +464,11 @@ function Home() {
 
             {menuLoading ? (
 
-                <Grid container spacing={2}>
-                    {Array.from({ length: 6 }).map((_, index) => (
-                        <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
-                            <Skeleton variant="rounded" height={160} />
-                        </Grid>
+                <Stack spacing={2}>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <Skeleton key={index} variant="rounded" height={140} />
                     ))}
-                </Grid>
+                </Stack>
 
             ) : availableItems.length === 0 ? (
 
@@ -387,7 +478,7 @@ function Home() {
                     </Typography>
                 </Box>
 
-            ) : filteredItems.length === 0 ? (
+            ) : totalVisibleItems === 0 ? (
 
                 <Box sx={{ textAlign: "center", py: 8 }}>
                     <Typography variant="h6" color="text.secondary">
@@ -397,23 +488,41 @@ function Home() {
 
             ) : (
 
-                <Grid container spacing={2}>
+                <Stack spacing={4}>
 
-                    {filteredItems.map((item) => (
+                    {sections.map((section) => (
 
-                        <Grid key={item.MenuItemId} size={{ xs: 12, sm: 6, md: 4 }}>
-                            <MenuItemCard
-                                item={item}
-                                quantity={localQuantities[item.MenuItemId] || 0}
-                                onAdd={() => handleAddToCart(item)}
-                                onIncrement={() => handleIncrement(item)}
-                                onDecrement={() => handleDecrement(item)}
-                            />
-                        </Grid>
+                        <Box key={section.categoryId}>
+
+                            {selectedCategoryId === "all" && (
+                                <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                                    {section.categoryName}
+                                </Typography>
+                            )}
+
+                            <Grid container spacing={2.5}>
+
+                                {section.items.map((item) => (
+
+                                    <Grid key={item.MenuItemId} size={{ xs: 12, md: 6 }} sx={{ pb: 1 }}>
+                                        <MenuItemRow
+                                            item={item}
+                                            quantity={localQuantities[item.MenuItemId] || 0}
+                                            onAdd={() => handleAddToCart(item)}
+                                            onIncrement={() => handleIncrement(item)}
+                                            onDecrement={() => handleDecrement(item)}
+                                        />
+                                    </Grid>
+
+                                ))}
+
+                            </Grid>
+
+                        </Box>
 
                     ))}
 
-                </Grid>
+                </Stack>
 
             )}
 

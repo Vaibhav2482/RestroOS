@@ -30,6 +30,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
+import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -38,6 +39,41 @@ import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import MenuItemDialog from "./MenuItemDialog";
 import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
+
+function ItemThumbnail({ imageUrl, itemName }) {
+
+    if (imageUrl) {
+
+        return (
+            <Box
+                component="img"
+                src={imageUrl}
+                alt={itemName}
+                sx={{ width: 48, height: 48, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
+            />
+        );
+
+    }
+
+    return (
+        <Box
+            sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 1.5,
+                border: "1px solid #E5E7EB",
+                bgcolor: "#F5F6FA",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
+            }}
+        >
+            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: 22 }} />
+        </Box>
+    );
+
+}
 
 function Menu() {
 
@@ -407,6 +443,7 @@ function Menu() {
                                     <TableHead>
 
                                         <TableRow>
+                                            <TableCell sx={{ width: 64 }} />
                                             <TableCell>Item Name</TableCell>
                                             <TableCell>Price</TableCell>
                                             <TableCell>Status</TableCell>
@@ -420,6 +457,10 @@ function Menu() {
                                         {items.map((item) => (
 
                                             <TableRow key={item.MenuItemId} hover>
+
+                                                <TableCell>
+                                                    <ItemThumbnail imageUrl={item.ImageUrl} itemName={item.ItemName} />
+                                                </TableCell>
 
                                                 <TableCell>
 
