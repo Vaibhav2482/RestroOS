@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -100,6 +100,11 @@ function Menu() {
     const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
     const [optionsTarget, setOptionsTarget] = useState(null);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // create/edit/delete (or switching branches) keeps the existing table
+    // visible instead of blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadCategories();
@@ -171,7 +176,9 @@ function Menu() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await menuService.getAllMenuItems(branchId);
 
@@ -186,6 +193,7 @@ function Menu() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

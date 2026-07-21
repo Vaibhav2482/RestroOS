@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box, Chip, CircularProgress, Paper, Stack, Typography } from "@mui/material";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -60,13 +60,21 @@ function Orders() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Only the very first load shows the blocking spinner - the periodic
+    // background refresh below keeps the list visible and just silently
+    // swaps in fresh statuses, so an order moving from Preparing to Ready
+    // shows up without the customer needing to pull-to-refresh.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         let cancelled = false;
 
-        (async () => {
+        const load = async (silent = false) => {
 
-            setLoading(true);
+            if (!hasLoadedRef.current && !silent) {
+                setLoading(true);
+            }
 
             try {
 
@@ -78,13 +86,13 @@ function Orders() {
 
                 if (response.success) {
                     setOrders(response.data);
-                } else {
+                } else if (!silent) {
                     toast.error(response.message);
                 }
 
             } catch (error) {
 
-                if (!cancelled) {
+                if (!cancelled && !silent) {
                     toast.error(error.response?.data?.message || "Failed to load orders.");
                 }
 
@@ -92,13 +100,27 @@ function Orders() {
 
                 if (!cancelled) {
                     setLoading(false);
+                    hasLoadedRef.current = true;
                 }
 
             }
 
-        })();
+        };
 
-        return () => { cancelled = true; };
+        load();
+
+        const interval = setInterval(() => {
+
+            if (document.visibilityState === "visible") {
+                load(true);
+            }
+
+        }, 15000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
 
     }, [customer.CustomerId]);
 

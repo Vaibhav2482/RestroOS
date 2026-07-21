@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -38,6 +38,11 @@ function Addresses() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // save/delete keeps the existing list visible instead of blanking the
+    // page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadAddresses();
@@ -49,7 +54,9 @@ function Addresses() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await addressService.getAddresses(customer.CustomerId);
 
@@ -66,6 +73,7 @@ function Addresses() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

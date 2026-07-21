@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -183,6 +183,11 @@ function Branches() {
     const [editingBranch, setEditingBranch] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // create/edit/deactivate keeps the existing table visible instead of
+    // blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadBranches();
@@ -193,7 +198,9 @@ function Branches() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await branchService.getAllBranches();
 
@@ -208,6 +215,7 @@ function Branches() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

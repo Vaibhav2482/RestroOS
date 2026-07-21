@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Chip,
@@ -38,6 +38,13 @@ function Orders() {
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
 
+    // Only the very first load (nothing on screen yet) shows the blocking
+    // spinner. Every reload after that - after advancing a status, after
+    // switching branches, or the periodic background refresh below - keeps
+    // the existing table visible and just swaps in fresh data once it
+    // arrives, instead of blanking the whole page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         if (ownerMode) {
@@ -50,6 +57,18 @@ function Orders() {
     useEffect(() => {
 
         loadOrders();
+
+        // Live-ish view: silently re-check for status changes made from
+        // another device/tab without requiring a manual refresh.
+        const interval = setInterval(() => {
+
+            if (document.visibilityState === "visible") {
+                loadOrders(true);
+            }
+
+        }, 15000);
+
+        return () => clearInterval(interval);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedBranchId]);
@@ -72,11 +91,13 @@ function Orders() {
 
     };
 
-    const loadOrders = async () => {
+    const loadOrders = async (silent = false) => {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current && !silent) {
+                setLoading(true);
+            }
 
             const branchId = ownerMode && selectedBranchId !== "all" ? selectedBranchId : undefined;
 
@@ -84,17 +105,20 @@ function Orders() {
 
             if (response.success) {
                 setOrders(response.data);
-            } else {
+            } else if (!silent) {
                 toast.error(response.message || "Failed to load orders.");
             }
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to load orders.");
+            if (!silent) {
+                toast.error(error.response?.data?.message || "Failed to load orders.");
+            }
 
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -51,6 +51,11 @@ function Tables() {
 
     const [deactivateTarget, setDeactivateTarget] = useState(null);
     const [deactivating, setDeactivating] = useState(false);
+
+    // Only the first load shows the blocking spinner - reloading after a
+    // create/edit/deactivate keeps the existing table visible instead of
+    // blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
 
     useEffect(() => {
 
@@ -108,7 +113,9 @@ function Tables() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = owner
                 ? await tableService.getAllTables(selectedBranchId)
@@ -125,6 +132,7 @@ function Tables() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -57,6 +57,11 @@ function Coupons() {
     const [editingCoupon, setEditingCoupon] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // create/edit/deactivate keeps the existing table visible instead of
+    // blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadCoupons();
@@ -67,7 +72,9 @@ function Coupons() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await couponService.getAllCoupons();
 
@@ -82,6 +89,7 @@ function Coupons() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

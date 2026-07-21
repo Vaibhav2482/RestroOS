@@ -595,18 +595,30 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                 ) : (
 
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+                                    <Box
+                                        sx={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            flexShrink: 0,
+                                            border: "1px solid #E5E7EB",
+                                            borderRadius: 5,
+                                            px: 0.5,
+                                            py: 0.25,
+                                            width: 112
+                                        }}
+                                    >
 
-                                        <IconButton size="small" onClick={() => handleDecrement(item)}>
-                                            <RemoveRoundedIcon fontSize="small" />
+                                        <IconButton size="small" onClick={() => handleDecrement(item)} sx={{ p: 0.75 }}>
+                                            <RemoveRoundedIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
 
                                         <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
                                             {quantity}
                                         </Typography>
 
-                                        <IconButton size="small" onClick={() => handleIncrement(item)}>
-                                            <AddRoundedIcon fontSize="small" />
+                                        <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
+                                            <AddRoundedIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
 
                                     </Box>

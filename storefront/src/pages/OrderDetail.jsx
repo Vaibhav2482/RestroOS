@@ -64,7 +64,7 @@ function OrderDetail() {
     const [cancelling, setCancelling] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
-    const fetchOrder = useCallback(async () => {
+    const fetchOrder = useCallback(async (silent = false) => {
 
         try {
 
@@ -72,13 +72,15 @@ function OrderDetail() {
 
             if (response.success) {
                 setOrder(response.data);
-            } else {
+            } else if (!silent) {
                 toast.error(response.message);
             }
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to load order.");
+            if (!silent) {
+                toast.error(error.response?.data?.message || "Failed to load order.");
+            }
 
         }
 
@@ -99,6 +101,28 @@ function OrderDetail() {
         return () => { cancelled = true; };
 
     }, [fetchOrder]);
+
+    // Live tracking: silently re-check for a status change every few
+    // seconds instead of requiring the customer to refresh the page to see
+    // their order move from Preparing to Ready. Stops once the order
+    // reaches a terminal state - nothing left to watch for at that point.
+    useEffect(() => {
+
+        if (!order || order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled") {
+            return undefined;
+        }
+
+        const interval = setInterval(() => {
+
+            if (document.visibilityState === "visible") {
+                fetchOrder(true);
+            }
+
+        }, 10000);
+
+        return () => clearInterval(interval);
+
+    }, [order, fetchOrder]);
 
     const handleCancelOrder = async () => {
 

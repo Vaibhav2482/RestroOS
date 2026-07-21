@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -255,6 +255,11 @@ function Admins() {
     const [editingAdmin, setEditingAdmin] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // create/edit/deactivate keeps the existing table visible instead of
+    // blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadAdmins();
@@ -266,7 +271,9 @@ function Admins() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await adminService.getAllAdmins();
 
@@ -281,6 +288,7 @@ function Admins() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

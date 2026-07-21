@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -59,17 +59,26 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
 
                 <Stack direction="row" alignItems="center" spacing={1.5}>
 
-                    <Stack direction="row" alignItems="center" sx={{ border: "1px solid #E5E7EB", borderRadius: 1 }}>
+                    {/* MUI's default IconButton padding made this read as three
+                        loose, unevenly-spaced elements rather than one grouped
+                        control - tight p:0.75 + a real pill radius fixes that. */}
+                    <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        sx={{ border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25 }}
+                    >
 
                         <IconButton
                             size="small"
                             disabled={busy}
                             onClick={() => onQuantityChange(item, item.Quantity - 1)}
+                            sx={{ p: 0.75 }}
                         >
-                            <RemoveIcon fontSize="small" />
+                            <RemoveIcon sx={{ fontSize: 18 }} />
                         </IconButton>
 
-                        <Typography sx={{ minWidth: 24, textAlign: "center" }}>
+                        <Typography fontWeight={600} sx={{ minWidth: 20, textAlign: "center" }}>
                             {item.Quantity}
                         </Typography>
 
@@ -77,8 +86,9 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
                             size="small"
                             disabled={busy}
                             onClick={() => onQuantityChange(item, item.Quantity + 1)}
+                            sx={{ p: 0.75 }}
                         >
-                            <AddIcon fontSize="small" />
+                            <AddIcon sx={{ fontSize: 18 }} />
                         </IconButton>
 
                     </Stack>
@@ -118,6 +128,11 @@ function Cart() {
     const [clearing, setClearing] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after a
+    // quantity change/remove/clear keeps the existing list visible instead
+    // of blanking the page out on every action.
+    const hasLoadedRef = useRef(false);
+
     const loadCart = useCallback(async () => {
 
         if (!isLoggedIn || !customer?.CustomerId) {
@@ -127,7 +142,9 @@ function Cart() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await cartService.getCart(customer.CustomerId);
 
@@ -144,6 +161,7 @@ function Cart() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

@@ -349,22 +349,38 @@ function PosItemOptionsDialog({ open, menuItem, onClose, onConfirm }) {
                                 Quantity
                             </Typography>
 
-                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    border: "1px solid #E5E7EB",
+                                    borderRadius: 5,
+                                    px: 0.5,
+                                    py: 0.25,
+                                    width: 112
+                                }}
+                            >
 
                                 <IconButton
                                     size="small"
                                     onClick={() => setQuantity((current) => Math.max(1, current - 1))}
                                     disabled={quantity <= 1}
+                                    sx={{ p: 0.75 }}
                                 >
-                                    <RemoveRoundedIcon fontSize="small" />
+                                    <RemoveRoundedIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
 
                                 <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
                                     {quantity}
                                 </Typography>
 
-                                <IconButton size="small" onClick={() => setQuantity((current) => current + 1)}>
-                                    <AddRoundedIcon fontSize="small" />
+                                <IconButton
+                                    size="small"
+                                    onClick={() => setQuantity((current) => current + 1)}
+                                    sx={{ p: 0.75 }}
+                                >
+                                    <AddRoundedIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
 
                             </Box>

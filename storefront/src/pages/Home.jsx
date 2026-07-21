@@ -163,19 +163,29 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                             direction="row"
                             alignItems="center"
                             justifyContent="space-between"
-                            sx={{ bgcolor: "#FFFFFF", border: "1px solid #4F46E5", borderRadius: 2, px: 0.5, py: 0.25, opacity: busy ? 0.6 : 1 }}
+                            sx={{
+                                bgcolor: "#FFFFFF",
+                                border: "1px solid #4F46E5",
+                                borderRadius: 5,
+                                px: 0.5,
+                                py: 0.25,
+                                opacity: busy ? 0.6 : 1
+                            }}
                         >
 
-                            <IconButton size="small" onClick={onDecrement} disabled={busy}>
-                                <RemoveIcon fontSize="small" sx={{ color: "#4F46E5" }} />
+                            {/* MUI's default IconButton padding is oversized for a pill this
+                                narrow, which is what made the whole control look off-center -
+                                p:0.75 keeps a real tap target without breaking the layout. */}
+                            <IconButton size="small" onClick={onDecrement} disabled={busy} sx={{ p: 0.75 }}>
+                                <RemoveIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
                             </IconButton>
 
-                            <Typography fontWeight={700} sx={{ color: "#4F46E5" }}>
+                            <Typography fontWeight={700} sx={{ color: "#4F46E5", minWidth: 16, textAlign: "center" }}>
                                 {quantity}
                             </Typography>
 
-                            <IconButton size="small" onClick={onIncrement} disabled={busy}>
-                                <AddIcon fontSize="small" sx={{ color: "#4F46E5" }} />
+                            <IconButton size="small" onClick={onIncrement} disabled={busy} sx={{ p: 0.75 }}>
+                                <AddIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
                             </IconButton>
 
                         </Stack>

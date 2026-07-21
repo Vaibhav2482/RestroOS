@@ -62,9 +62,24 @@ function Pos() {
 
     useEffect(() => {
 
-        if (selectedBranchId) {
-            loadTableState(selectedBranchId);
+        if (!selectedBranchId) {
+            return undefined;
         }
+
+        loadTableState(selectedBranchId);
+
+        // Live-ish table grid: picks up orders/status changes made from
+        // another till or device without staff needing to switch screens
+        // and back to refresh.
+        const interval = setInterval(() => {
+
+            if (document.visibilityState === "visible") {
+                loadTableState(selectedBranchId, true);
+            }
+
+        }, 15000);
+
+        return () => clearInterval(interval);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedBranchId]);
@@ -143,7 +158,7 @@ function Pos() {
     const handleOrderCreated = () => {
         setMode("grid");
         setPendingTable(null);
-        loadTableState(selectedBranchId);
+        loadTableState(selectedBranchId, true);
     };
 
     const handleAdvanceStatus = async (orderId, orderStatus) => {
@@ -184,7 +199,7 @@ function Pos() {
 
             toast.success(response.message);
             setDetailsOrder(null);
-            await loadTableState(selectedBranchId);
+            await loadTableState(selectedBranchId, true);
 
         } catch (error) {
 

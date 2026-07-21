@@ -548,27 +548,32 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
             <DialogActions sx={{ flexDirection: "column", alignItems: "stretch", p: 2, gap: 1.5 }}>
 
-                <Stack direction="row" alignItems="center" justifyContent="center" spacing={2}>
+                <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25, width: 120, alignSelf: "center" }}
+                >
 
                     <IconButton
                         size="small"
-                        sx={{ border: "1px solid #E5E7EB" }}
                         disabled={quantity <= 1}
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        sx={{ p: 0.75 }}
                     >
-                        <RemoveIcon fontSize="small" />
+                        <RemoveIcon sx={{ fontSize: 18 }} />
                     </IconButton>
 
-                    <Typography fontWeight={700} sx={{ minWidth: 24, textAlign: "center" }}>
+                    <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
                         {quantity}
                     </Typography>
 
                     <IconButton
                         size="small"
-                        sx={{ border: "1px solid #E5E7EB" }}
                         onClick={() => setQuantity((q) => q + 1)}
+                        sx={{ p: 0.75 }}
                     >
-                        <AddIcon fontSize="small" />
+                        <AddIcon sx={{ fontSize: 18 }} />
                     </IconButton>
 
                 </Stack>
