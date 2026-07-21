@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 
 import * as menuOptionService from "../services/menuOptionService";
 import * as cartService from "../services/cartService";
+import * as publicService from "../services/publicService";
 import { useStorefront } from "../context/StorefrontContext";
 
 function formatDelta(delta) {
@@ -64,11 +65,103 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
     const { customer, refreshCartCount } = useStorefront();
 
+    const [activeItem, setActiveItem] = useState(item);
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selections, setSelections] = useState({});
     const [quantity, setQuantity] = useState(1);
     const [submitting, setSubmitting] = useState(false);
+
+    const [recommendations, setRecommendations] = useState([]);
+    const [recsLoading, setRecsLoading] = useState(false);
+    const [addingRecId, setAddingRecId] = useState(null);
+
+    // Loads option groups + cross-sell recommendations for whichever item
+    // should currently be shown in the dialog. Called both when the dialog
+    // is first opened for `item` (via the effect below) and when the
+    // customer quick-adds a recommendation that itself needs customization -
+    // in that case we simply reload this same dialog in place for the new
+    // item instead of stacking/nesting a second dialog.
+    const loadItemForCustomization = async (targetItem, cancelledRef) => {
+
+        setActiveItem(targetItem);
+        setQuantity(1);
+        setSelections({});
+        setRecommendations([]);
+        setLoading(true);
+
+        try {
+
+            const response = await menuOptionService.getGroupsForMenuItem(targetItem.MenuItemId);
+
+            if (cancelledRef.current) {
+                return;
+            }
+
+            if (!response.success) {
+                toast.error(response.message || "Failed to load customization options.");
+                onClose();
+                return;
+            }
+
+            const fetchedGroups = response.data || [];
+            setGroups(fetchedGroups);
+
+            const initialSelections = {};
+
+            fetchedGroups.forEach((group) => {
+
+                const defaults = (group.Options || [])
+                    .filter((option) => option.IsDefault)
+                    .map((option) => option.OptionId);
+
+                if (defaults.length > 0) {
+                    initialSelections[group.GroupId] = group.MaxSelect === 1 ? [defaults[0]] : defaults;
+                }
+
+            });
+
+            if (!cancelledRef.current) {
+                setSelections(initialSelections);
+            }
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to load customization options.");
+            onClose();
+            return;
+
+        } finally {
+
+            if (!cancelledRef.current) {
+                setLoading(false);
+            }
+
+        }
+
+        setRecsLoading(true);
+
+        try {
+
+            const recResponse = await publicService.getRecommendations(targetItem.MenuItemId);
+
+            if (!cancelledRef.current && recResponse.success) {
+                setRecommendations(recResponse.data || []);
+            }
+
+        } catch (error) {
+
+            // Cross-sell suggestions are a non-critical enhancement - fail silently.
+
+        } finally {
+
+            if (!cancelledRef.current) {
+                setRecsLoading(false);
+            }
+
+        }
+
+    };
 
     useEffect(() => {
 
@@ -76,64 +169,11 @@ function ItemCustomizationDialog({ open, item, onClose }) {
             return;
         }
 
-        let cancelled = false;
+        const cancelledRef = { current: false };
 
-        setQuantity(1);
-        setSelections({});
+        loadItemForCustomization(item, cancelledRef);
 
-        (async () => {
-
-            setLoading(true);
-
-            try {
-
-                const response = await menuOptionService.getGroupsForMenuItem(item.MenuItemId);
-
-                if (cancelled) {
-                    return;
-                }
-
-                if (!response.success) {
-                    toast.error(response.message || "Failed to load customization options.");
-                    onClose();
-                    return;
-                }
-
-                const fetchedGroups = response.data || [];
-                setGroups(fetchedGroups);
-
-                const initialSelections = {};
-
-                fetchedGroups.forEach((group) => {
-
-                    const defaults = (group.Options || [])
-                        .filter((option) => option.IsDefault)
-                        .map((option) => option.OptionId);
-
-                    if (defaults.length > 0) {
-                        initialSelections[group.GroupId] = group.MaxSelect === 1 ? [defaults[0]] : defaults;
-                    }
-
-                });
-
-                setSelections(initialSelections);
-
-            } catch (error) {
-
-                toast.error(error.response?.data?.message || "Failed to load customization options.");
-                onClose();
-
-            } finally {
-
-                if (!cancelled) {
-                    setLoading(false);
-                }
-
-            }
-
-        })();
-
-        return () => { cancelled = true; };
+        return () => { cancelledRef.current = true; };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, item?.MenuItemId]);
@@ -162,7 +202,7 @@ function ItemCustomizationDialog({ open, item, onClose }) {
         [selectedOptionIds, optionsById]
     );
 
-    const unitPrice = Number(item?.Price ?? 0) + optionsDelta;
+    const unitPrice = Number(activeItem?.Price ?? 0) + optionsDelta;
     const grandTotal = unitPrice * quantity;
 
     const canSubmit = !loading && groups.every((group) => isGroupValid(group, selections[group.GroupId]));
@@ -216,7 +256,7 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
             const response = await cartService.addToCart({
                 customerId: customer.CustomerId,
-                menuItemId: item.MenuItemId,
+                menuItemId: displayItem.MenuItemId,
                 quantity,
                 selectedOptionIds
             });
@@ -227,7 +267,7 @@ function ItemCustomizationDialog({ open, item, onClose }) {
             }
 
             refreshCartCount();
-            toast.success(`${item.ItemName} added to cart`);
+            toast.success(`${displayItem.ItemName} added to cart`);
             onClose(true);
 
         } catch (error) {
@@ -242,9 +282,59 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
     };
 
+    const handleQuickAddRecommendation = async (rec) => {
+
+        if (submitting || addingRecId) {
+            return;
+        }
+
+        if (rec.HasOptions) {
+
+            const cancelledRef = { current: false };
+            loadItemForCustomization(rec, cancelledRef);
+            return;
+
+        }
+
+        try {
+
+            setAddingRecId(rec.MenuItemId);
+
+            const response = await cartService.addToCart({
+                customerId: customer.CustomerId,
+                menuItemId: rec.MenuItemId,
+                quantity: 1
+            });
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            refreshCartCount();
+            toast.success(`${rec.ItemName} added to cart`);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to add item to cart.");
+
+        } finally {
+
+            setAddingRecId(null);
+
+        }
+
+    };
+
     if (!item) {
         return null;
     }
+
+    // activeItem is kept in sync with `item` by loadItemForCustomization,
+    // but falls back to `item` itself for the brief render before that
+    // effect has had a chance to run (e.g. the very first time this dialog
+    // instance is ever opened).
+    const displayItem = activeItem || item;
 
     return (
 
@@ -254,10 +344,10 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
                 <Box>
                     <Typography variant="h6" fontWeight={800}>
-                        {item.ItemName}
+                        {displayItem.ItemName}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        ₹{Number(item.Price).toFixed(2)}
+                        ₹{Number(displayItem.Price).toFixed(2)}
                     </Typography>
                 </Box>
 
@@ -378,6 +468,79 @@ function ItemCustomizationDialog({ open, item, onClose }) {
                     </Stack>
 
                 )}
+
+                {!loading && !recsLoading && recommendations.length > 0 ? (
+
+                    <Box sx={{ mt: 3 }}>
+
+                        <Divider sx={{ mb: 1.5 }} />
+
+                        <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            color="text.secondary"
+                            sx={{ textTransform: "uppercase", letterSpacing: 0.4 }}
+                        >
+                            Pairs well with
+                        </Typography>
+
+                        <Stack direction="row" spacing={1.25} sx={{ mt: 1, overflowX: "auto", pb: 0.5 }}>
+
+                            {recommendations.slice(0, 4).map((rec) => (
+
+                                <Box
+                                    key={rec.MenuItemId}
+                                    sx={{
+                                        flexShrink: 0,
+                                        width: 104,
+                                        border: "1px solid #E5E7EB",
+                                        borderRadius: 1.5,
+                                        p: 1
+                                    }}
+                                >
+                                    <Box
+                                        sx={{
+                                            width: "100%",
+                                            height: 52,
+                                            borderRadius: 1,
+                                            bgcolor: "#F3F4F6",
+                                            backgroundImage: rec.ImageUrl ? `url(${rec.ImageUrl})` : "none",
+                                            backgroundSize: "cover",
+                                            backgroundPosition: "center",
+                                            mb: 0.75
+                                        }}
+                                    />
+
+                                    <Typography variant="caption" fontWeight={600} noWrap component="div">
+                                        {rec.ItemName}
+                                    </Typography>
+
+                                    <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 0.25 }}>
+
+                                        <Typography variant="caption" color="text.secondary">
+                                            ₹{Number(rec.Price).toFixed(2)}
+                                        </Typography>
+
+                                        <IconButton
+                                            size="small"
+                                            disabled={Boolean(addingRecId) || submitting}
+                                            onClick={() => handleQuickAddRecommendation(rec)}
+                                            sx={{ border: "1px solid #E5E7EB", width: 22, height: 22 }}
+                                        >
+                                            <AddIcon sx={{ fontSize: 14 }} />
+                                        </IconButton>
+
+                                    </Stack>
+
+                                </Box>
+
+                            ))}
+
+                        </Stack>
+
+                    </Box>
+
+                ) : null}
 
             </DialogContent>
 

@@ -24,6 +24,7 @@ import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlin
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import StoreOutlinedIcon from "@mui/icons-material/StoreOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import { NavLink, useNavigate } from "react-router-dom";
 
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
     { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> },
     { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
     { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> },
+    { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, ownerOnly: true },
     { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
     { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true }
 ];

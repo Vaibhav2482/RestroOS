@@ -26,6 +26,7 @@ import * as cartService from "../services/cartService";
 import * as addressService from "../services/addressService";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
+import * as couponService from "../services/couponService";
 import { useStorefront } from "../context/StorefrontContext";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
@@ -45,6 +46,10 @@ function Checkout() {
     const [paymentMethod, setPaymentMethod] = useState("Cash");
     const [notes, setNotes] = useState("");
     const [placingOrder, setPlacingOrder] = useState(false);
+
+    const [couponInput, setCouponInput] = useState("");
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [applyingCoupon, setApplyingCoupon] = useState(false);
 
     useEffect(() => {
 
@@ -109,6 +114,57 @@ function Checkout() {
     }, [customer.CustomerId]);
 
     const subtotal = cartItems.reduce((sum, item) => sum + Number(item.TotalPrice), 0);
+    const discountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
+    const estimatedTotalAfterDiscount = Math.max(0, subtotal - discountAmount);
+
+    const handleApplyCoupon = async () => {
+
+        const code = couponInput.trim();
+
+        if (!code) {
+            toast.error("Please enter a coupon code.");
+            return;
+        }
+
+        try {
+
+            setApplyingCoupon(true);
+
+            const response = await couponService.previewCoupon({
+                code,
+                customerId: customer.CustomerId,
+                subtotal
+            });
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            setAppliedCoupon({
+                code,
+                discountAmount: response.data.discountAmount,
+                couponId: response.data.couponId
+            });
+
+            toast.success(`Coupon ${code} applied: -₹${Number(response.data.discountAmount).toFixed(2)}`);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to apply coupon.");
+
+        } finally {
+
+            setApplyingCoupon(false);
+
+        }
+
+    };
+
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+        setCouponInput("");
+    };
 
     const handlePlaceOrder = async () => {
 
@@ -126,7 +182,8 @@ function Checkout() {
                 addressId: deliveryType === "Delivery" ? addressId : undefined,
                 deliveryType,
                 paymentMethod,
-                notes: notes.trim() || undefined
+                notes: notes.trim() || undefined,
+                couponCode: appliedCoupon ? appliedCoupon.code : undefined
             });
 
             if (!checkoutResponse.success) {
@@ -358,13 +415,79 @@ function Checkout() {
 
                         <Divider sx={{ mb: 2 }} />
 
+                        <Box sx={{ mb: 2 }}>
+
+                            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                                Have a coupon?
+                            </Typography>
+
+                            {appliedCoupon ? (
+
+                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, bgcolor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 1, px: 1.5, py: 1 }}>
+
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>
+                                        Coupon <strong>{appliedCoupon.code}</strong> applied: -₹{discountAmount.toFixed(2)}
+                                    </Typography>
+
+                                    <Button size="small" onClick={handleRemoveCoupon}>
+                                        Remove
+                                    </Button>
+
+                                </Box>
+
+                            ) : (
+
+                                <Stack direction="row" spacing={1}>
+
+                                    <TextField
+                                        size="small"
+                                        fullWidth
+                                        placeholder="Enter coupon code"
+                                        value={couponInput}
+                                        onChange={(event) => setCouponInput(event.target.value.toUpperCase())}
+                                        disabled={applyingCoupon}
+                                    />
+
+                                    <Button
+                                        variant="outlined"
+                                        onClick={handleApplyCoupon}
+                                        disabled={applyingCoupon}
+                                        sx={{ flexShrink: 0 }}
+                                    >
+                                        {applyingCoupon ? "Checking..." : "Apply"}
+                                    </Button>
+
+                                </Stack>
+
+                            )}
+
+                        </Box>
+
                         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
                             <Typography fontWeight={700}>Subtotal</Typography>
                             <Typography fontWeight={700}>₹{subtotal.toFixed(2)}</Typography>
                         </Box>
 
+                        {appliedCoupon ? (
+
+                            <>
+
+                                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>Coupon Discount</Typography>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>-₹{discountAmount.toFixed(2)}</Typography>
+                                </Box>
+
+                                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                                    <Typography fontWeight={700}>Estimated Total</Typography>
+                                    <Typography fontWeight={700}>₹{estimatedTotalAfterDiscount.toFixed(2)}</Typography>
+                                </Box>
+
+                            </>
+
+                        ) : null}
+
                         <Typography variant="caption" color="text.secondary">
-                            GST added at checkout
+                            + GST added at checkout
                         </Typography>
 
                         <Button

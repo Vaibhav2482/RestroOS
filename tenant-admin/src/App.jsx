@@ -7,6 +7,7 @@ import Pos from "./pages/Pos";
 import Tables from "./pages/Tables";
 import Menu from "./pages/Menu";
 import Categories from "./pages/Categories";
+import Coupons from "./pages/Coupons";
 import Branches from "./pages/Branches";
 import Admins from "./pages/Admins";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -38,6 +39,7 @@ function App() {
                 <Route path="/tables" element={withLayout(<Tables />)} />
                 <Route path="/menu" element={withLayout(<Menu />)} />
                 <Route path="/categories" element={withLayout(<Categories />)} />
+                <Route path="/coupons" element={withLayout(<Coupons />, { ownerOnly: true })} />
                 <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true })} />
                 <Route path="/admins" element={withLayout(<Admins />, { ownerOnly: true })} />
 
