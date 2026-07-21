@@ -363,14 +363,14 @@ function Cart() {
 
             <Paper elevation={0} sx={{ p: 3, mt: 3, border: "1px solid #E5E7EB" }}>
 
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
 
                     <Typography fontWeight={700}>Subtotal</Typography>
                     <Typography variant="h6" fontWeight={800}>
                         {formatCurrency(subtotal)}
                     </Typography>
 
-                </Stack>
+                </Box>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                     Tax is calculated and added at checkout.
