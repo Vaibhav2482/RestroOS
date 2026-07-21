@@ -38,3 +38,37 @@ export const getAllByTenant = async (tenantId) => {
     return result.rows;
 
 };
+
+export const getById = async (adminId) => {
+
+    const result = await pool.query(
+        `SELECT A."AdminId", A."TenantId", A."FullName", A."Email", A."BranchId", B."BranchName", A."IsActive", A."CreatedAt"
+         FROM "Admins" A
+         LEFT JOIN "Branches" B ON A."BranchId" = B."BranchId"
+         WHERE A."AdminId" = $1`,
+        [adminId]
+    );
+
+    return result.rows[0];
+
+};
+
+export const update = async (admin) => {
+
+    const result = await pool.query(
+        `UPDATE "Admins"
+         SET "FullName" = $1, "BranchId" = $2, "IsActive" = $3, "UpdatedAt" = NOW()
+         WHERE "AdminId" = $4
+         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "IsActive", "CreatedAt", "UpdatedAt"`,
+        [admin.fullName, admin.branchId ?? null, admin.isActive, admin.adminId]
+    );
+
+    return result.rows[0];
+
+};
+
+export const deactivate = async (adminId) => {
+
+    await pool.query(`UPDATE "Admins" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "AdminId" = $1`, [adminId]);
+
+};
