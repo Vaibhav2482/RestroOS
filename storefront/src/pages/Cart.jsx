@@ -29,6 +29,10 @@ function formatCurrency(value) {
 
 function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
 
+    const optionsSummary = item.SelectedOptions && item.SelectedOptions.length > 0
+        ? item.SelectedOptions.map((option) => option.OptionName).join(", ")
+        : null;
+
     return (
 
         <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #E5E7EB" }}>
@@ -40,6 +44,12 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
                     <Typography fontWeight={700} noWrap>
                         {item.ItemName}
                     </Typography>
+
+                    {optionsSummary ? (
+                        <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                            {optionsSummary}
+                        </Typography>
+                    ) : null}
 
                     <Typography variant="body2" color="text.secondary">
                         {formatCurrency(item.Price)} each

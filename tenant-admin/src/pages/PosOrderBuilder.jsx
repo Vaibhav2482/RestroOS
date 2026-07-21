@@ -25,6 +25,7 @@ import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
 import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
+import PosItemOptionsDialog from "./PosItemOptionsDialog";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 const GUEST_PHONE = "0000000000";
@@ -42,6 +43,7 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
     const [selectedCategoryId, setSelectedCategoryId] = useState("all");
 
     const [cartLines, setCartLines] = useState([]);
+    const [optionsDialogItem, setOptionsDialogItem] = useState(null);
 
     const [resolvedCustomer, setResolvedCustomer] = useState(null);
     const [customerPhone, setCustomerPhone] = useState("");
@@ -213,8 +215,14 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
         setCustomerName("");
     };
 
+    // Sums quantity across every cart line for a menu item — a plain item
+    // only ever has one line, but a customized item can have several (one
+    // per distinct combination of selected options), so this doubles as the
+    // "total in cart" badge for options-enabled items too.
     const getQuantity = (menuItemId) =>
-        cartLines.find((line) => line.menuItemId === menuItemId)?.quantity ?? 0;
+        cartLines
+            .filter((line) => line.menuItemId === menuItemId)
+            .reduce((sum, line) => sum + line.quantity, 0);
 
     const handleIncrement = (menuItem) => {
 
@@ -233,14 +241,70 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
             return [
                 ...prev,
                 {
+                    lineKey: String(menuItem.MenuItemId),
                     menuItemId: menuItem.MenuItemId,
                     itemName: menuItem.ItemName,
                     price: Number(menuItem.Price),
-                    quantity: 1
+                    quantity: 1,
+                    selectedOptionIds: [],
+                    summary: undefined
                 }
             ];
 
         });
+
+    };
+
+    // Menu items with option groups open the customization dialog instead of
+    // adding straight to the cart; plain items keep the old direct-add path.
+    const handleAddClick = (item) => {
+
+        if (item.HasOptions) {
+            setOptionsDialogItem(item);
+        } else {
+            handleIncrement(item);
+        }
+
+    };
+
+    // Called back by PosItemOptionsDialog with the resolved selection. Two
+    // customizations of the same menu item are distinct line items — only an
+    // identical set of selected options merges quantity into an existing
+    // line, mirroring how the storefront cart treats variants.
+    const handleConfirmOptions = ({ menuItemId, quantity, selectedOptionIds, unitPrice, summary }) => {
+
+        const sortedOptionIds = [...selectedOptionIds].sort((a, b) => a - b);
+        const lineKey = `${menuItemId}::${sortedOptionIds.join(",")}`;
+        const item = menuItems.find((menuItem) => menuItem.MenuItemId === menuItemId);
+
+        setCartLines((prev) => {
+
+            const existing = prev.find((line) => line.lineKey === lineKey);
+
+            if (existing) {
+                return prev.map((line) =>
+                    line.lineKey === lineKey
+                        ? { ...line, quantity: line.quantity + quantity }
+                        : line
+                );
+            }
+
+            return [
+                ...prev,
+                {
+                    lineKey,
+                    menuItemId,
+                    itemName: item?.ItemName ?? "",
+                    price: unitPrice,
+                    quantity,
+                    selectedOptionIds: sortedOptionIds,
+                    summary
+                }
+            ];
+
+        });
+
+        setOptionsDialogItem(null);
 
     };
 
@@ -268,8 +332,8 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
     };
 
-    const handleRemoveLine = (menuItemId) => {
-        setCartLines((prev) => prev.filter((line) => line.menuItemId !== menuItemId));
+    const handleRemoveLine = (lineKey) => {
+        setCartLines((prev) => prev.filter((line) => line.lineKey !== lineKey));
     };
 
     const categoriesWithItems = useMemo(() =>
@@ -321,7 +385,8 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                 notes: notes.trim() || undefined,
                 items: cartLines.map((line) => ({
                     menuItemId: line.menuItemId,
-                    quantity: line.quantity
+                    quantity: line.quantity,
+                    selectedOptionIds: line.selectedOptionIds || []
                 }))
             });
 
@@ -421,9 +486,23 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                 <Box sx={{ minWidth: 0 }}>
 
-                                    <Typography fontWeight={600} noWrap>
-                                        {item.ItemName}
-                                    </Typography>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+
+                                        <Box
+                                            sx={{
+                                                width: 10,
+                                                height: 10,
+                                                borderRadius: "2px",
+                                                bgcolor: item.IsVeg ? "success.main" : "#8b3a3a",
+                                                flexShrink: 0
+                                            }}
+                                        />
+
+                                        <Typography fontWeight={600} noWrap>
+                                            {item.ItemName}
+                                        </Typography>
+
+                                    </Box>
 
                                     <Typography variant="body2" color="text.secondary">
                                         ₹ {Number(item.Price).toFixed(2)}
@@ -431,13 +510,32 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                 </Box>
 
-                                {quantity === 0 ? (
+                                {item.HasOptions ? (
+
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+
+                                        {quantity > 0 && (
+                                            <Chip size="small" color="primary" label={quantity} />
+                                        )}
+
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            startIcon={<AddRoundedIcon />}
+                                            onClick={() => handleAddClick(item)}
+                                        >
+                                            Add
+                                        </Button>
+
+                                    </Box>
+
+                                ) : quantity === 0 ? (
 
                                     <Button
                                         variant="outlined"
                                         size="small"
                                         startIcon={<AddRoundedIcon />}
-                                        onClick={() => handleIncrement(item)}
+                                        onClick={() => handleAddClick(item)}
                                         sx={{ flexShrink: 0 }}
                                     >
                                         Add
@@ -582,11 +680,21 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                 {cartLines.map((line) => (
 
-                                    <Box key={line.menuItemId} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                    <Box key={line.lineKey} sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
 
-                                        <Typography variant="body2" sx={{ minWidth: 0 }} noWrap>
-                                            {line.itemName} &times; {line.quantity}
-                                        </Typography>
+                                        <Box sx={{ minWidth: 0 }}>
+
+                                            <Typography variant="body2" noWrap>
+                                                {line.itemName} &times; {line.quantity}
+                                            </Typography>
+
+                                            {line.summary && (
+                                                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                                                    {line.summary}
+                                                </Typography>
+                                            )}
+
+                                        </Box>
 
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
 
@@ -594,7 +702,7 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                                 ₹ {(line.price * line.quantity).toFixed(2)}
                                             </Typography>
 
-                                            <IconButton size="small" color="error" onClick={() => handleRemoveLine(line.menuItemId)}>
+                                            <IconButton size="small" color="error" onClick={() => handleRemoveLine(line.lineKey)}>
                                                 <DeleteRoundedIcon fontSize="small" />
                                             </IconButton>
 
@@ -709,11 +817,21 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                         {cartLines.map((line) => (
 
-                            <Box key={line.menuItemId} sx={{ display: "flex", justifyContent: "space-between" }}>
+                            <Box key={line.lineKey} sx={{ display: "flex", justifyContent: "space-between" }}>
 
-                                <Typography variant="body2">
-                                    {line.itemName} &times; {line.quantity}
-                                </Typography>
+                                <Box sx={{ minWidth: 0 }}>
+
+                                    <Typography variant="body2">
+                                        {line.itemName} &times; {line.quantity}
+                                    </Typography>
+
+                                    {line.summary && (
+                                        <Typography variant="caption" color="text.secondary">
+                                            {line.summary}
+                                        </Typography>
+                                    )}
+
+                                </Box>
 
                                 <Typography variant="body2" fontWeight={600}>
                                     ₹ {(line.price * line.quantity).toFixed(2)}
@@ -755,6 +873,13 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                 </DialogActions>
 
             </Dialog>
+
+            <PosItemOptionsDialog
+                open={Boolean(optionsDialogItem)}
+                menuItem={optionsDialogItem}
+                onClose={() => setOptionsDialogItem(null)}
+                onConfirm={handleConfirmOptions}
+            />
 
         </Grid>
 

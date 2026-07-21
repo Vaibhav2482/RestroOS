@@ -24,7 +24,8 @@ const emptyForm = {
     imageUrl: "",
     isAvailable: true,
     isPopular: false,
-    isActive: true
+    isActive: true,
+    isVeg: true
 };
 
 const emptyErrors = { itemName: "", categoryId: "", price: "" };
@@ -52,7 +53,8 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
                 imageUrl: editingItem.ImageUrl ?? "",
                 isAvailable: Boolean(editingItem.IsAvailable),
                 isPopular: Boolean(editingItem.IsPopular),
-                isActive: Boolean(editingItem.IsActive)
+                isActive: Boolean(editingItem.IsActive),
+                isVeg: editingItem.IsVeg === undefined ? true : Boolean(editingItem.IsVeg)
             });
 
         } else {
@@ -117,7 +119,8 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
             imageUrl: formData.imageUrl.trim() || null,
             isAvailable: formData.isAvailable,
             isPopular: formData.isPopular,
-            isActive: formData.isActive
+            isActive: formData.isActive,
+            isVeg: formData.isVeg
         });
 
     };
@@ -224,7 +227,7 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
 
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 4 }}>
+                    <Grid size={{ xs: 12, md: 3 }}>
 
                         <FormControlLabel
                             control={
@@ -239,7 +242,7 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
 
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 4 }}>
+                    <Grid size={{ xs: 12, md: 3 }}>
 
                         <FormControlLabel
                             control={
@@ -254,7 +257,7 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
 
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 4 }}>
+                    <Grid size={{ xs: 12, md: 3 }}>
 
                         <FormControlLabel
                             control={
@@ -265,6 +268,21 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
                                 />
                             }
                             label="Active"
+                        />
+
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 3 }}>
+
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    name="isVeg"
+                                    checked={formData.isVeg}
+                                    onChange={handleChange}
+                                />
+                            }
+                            label="Veg"
                         />
 
                     </Grid>

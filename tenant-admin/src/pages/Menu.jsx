@@ -29,6 +29,7 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -36,6 +37,7 @@ import * as categoryService from "../services/categoryService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import MenuItemDialog from "./MenuItemDialog";
+import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
 
 function Menu() {
 
@@ -58,6 +60,9 @@ function Menu() {
 
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
+
+    const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
+    const [optionsTarget, setOptionsTarget] = useState(null);
 
     useEffect(() => {
 
@@ -205,6 +210,16 @@ function Menu() {
 
     const handleDeleteClick = (item) => {
         setDeleteTarget(item);
+    };
+
+    const handleManageOptionsClick = (item) => {
+        setOptionsTarget(item);
+        setOptionsDialogOpen(true);
+    };
+
+    const handleOptionsDialogClose = () => {
+        setOptionsDialogOpen(false);
+        setOptionsTarget(null);
     };
 
     const handleDeleteConfirm = async () => {
@@ -408,9 +423,37 @@ function Menu() {
 
                                                 <TableCell>
 
-                                                    <Typography fontWeight={600}>
-                                                        {item.ItemName}
-                                                    </Typography>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+
+                                                        <Tooltip title={item.IsVeg ? "Veg" : "Non-Veg"}>
+                                                            <Box
+                                                                sx={{
+                                                                    width: 12,
+                                                                    height: 12,
+                                                                    borderRadius: "3px",
+                                                                    border: `1.5px solid ${item.IsVeg ? "#2E7D32" : "#C62828"}`,
+                                                                    display: "flex",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    flexShrink: 0
+                                                                }}
+                                                            >
+                                                                <Box
+                                                                    sx={{
+                                                                        width: 6,
+                                                                        height: 6,
+                                                                        borderRadius: "50%",
+                                                                        backgroundColor: item.IsVeg ? "#2E7D32" : "#C62828"
+                                                                    }}
+                                                                />
+                                                            </Box>
+                                                        </Tooltip>
+
+                                                        <Typography fontWeight={600}>
+                                                            {item.ItemName}
+                                                        </Typography>
+
+                                                    </Stack>
 
                                                     {item.Description && (
 
@@ -454,6 +497,12 @@ function Menu() {
 
                                                 <TableCell align="right">
 
+                                                    <Tooltip title="Manage Options">
+                                                        <IconButton size="small" onClick={() => handleManageOptionsClick(item)}>
+                                                            <TuneOutlinedIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+
                                                     <Tooltip title="Edit">
                                                         <IconButton size="small" onClick={() => handleEditClick(item)}>
                                                             <EditRoundedIcon fontSize="small" />
@@ -493,6 +542,12 @@ function Menu() {
                 categories={categories}
                 editingItem={editingItem}
                 saving={saving}
+            />
+
+            <MenuItemOptionsDialog
+                open={optionsDialogOpen}
+                onClose={handleOptionsDialogClose}
+                menuItem={optionsTarget}
             />
 
             <Dialog open={Boolean(deleteTarget)} onClose={() => (!deleting ? setDeleteTarget(null) : null)}>

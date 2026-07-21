@@ -22,6 +22,29 @@ import toast from "react-hot-toast";
 import * as publicService from "../services/publicService";
 import * as cartService from "../services/cartService";
 import { useStorefront } from "../context/StorefrontContext";
+import ItemCustomizationDialog from "./ItemCustomizationDialog";
+
+function VegIndicator({ isVeg }) {
+
+    const color = isVeg ? "#0B8A3D" : "#943126";
+
+    return (
+        <Box
+            sx={{
+                width: 16,
+                height: 16,
+                border: `1.5px solid ${color}`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
+            }}
+        >
+            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: color }} />
+        </Box>
+    );
+
+}
 
 function MenuItemCard({ item, quantity, onAdd, onIncrement, onDecrement }) {
 
@@ -37,9 +60,12 @@ function MenuItemCard({ item, quantity, onAdd, onIncrement, onDecrement }) {
 
                 <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={1}>
 
-                    <Typography variant="subtitle1" fontWeight={700}>
-                        {item.ItemName}
-                    </Typography>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        <VegIndicator isVeg={Boolean(item.IsVeg)} />
+                        <Typography variant="subtitle1" fontWeight={700}>
+                            {item.ItemName}
+                        </Typography>
+                    </Stack>
 
                     {item.IsPopular ? (
                         <Chip label="Popular" size="small" sx={{ bgcolor: "#EEF2FF", color: "#4F46E5", fontWeight: 600 }} />
@@ -81,9 +107,19 @@ function MenuItemCard({ item, quantity, onAdd, onIncrement, onDecrement }) {
 
                     ) : (
 
-                        <Button variant="outlined" size="small" onClick={onAdd}>
-                            Add
-                        </Button>
+                        <Stack alignItems="center" spacing={0.25}>
+
+                            <Button variant="outlined" size="small" onClick={onAdd}>
+                                Add
+                            </Button>
+
+                            {item.HasOptions ? (
+                                <Typography variant="caption" color="text.secondary">
+                                    customisable
+                                </Typography>
+                            ) : null}
+
+                        </Stack>
 
                     )}
 
@@ -108,6 +144,7 @@ function Home() {
     const [selectedCategoryId, setSelectedCategoryId] = useState("all");
     const [search, setSearch] = useState("");
     const [localQuantities, setLocalQuantities] = useState({});
+    const [customizingItem, setCustomizingItem] = useState(null);
 
     useEffect(() => {
 
@@ -207,6 +244,11 @@ function Home() {
             return;
         }
 
+        if (item.HasOptions) {
+            setCustomizingItem(item);
+            return;
+        }
+
         const increment = 1;
 
         try {
@@ -232,6 +274,10 @@ function Home() {
 
         }
 
+    };
+
+    const handleCustomizationDialogClose = () => {
+        setCustomizingItem(null);
     };
 
     const handleIncrement = (item) => handleAddToCart(item);
@@ -370,6 +416,12 @@ function Home() {
                 </Grid>
 
             )}
+
+            <ItemCustomizationDialog
+                open={Boolean(customizingItem)}
+                item={customizingItem}
+                onClose={handleCustomizationDialogClose}
+            />
 
         </Box>
 

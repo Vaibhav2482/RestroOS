@@ -320,21 +320,39 @@ function Checkout() {
 
                         <Stack spacing={1.5} sx={{ mb: 2 }}>
 
-                            {cartItems.map((item) => (
+                            {cartItems.map((item) => {
 
-                                <Box key={item.CartId} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                                const optionsSummary = item.SelectedOptions && item.SelectedOptions.length > 0
+                                    ? item.SelectedOptions.map((option) => option.OptionName).join(", ")
+                                    : null;
 
-                                    <Typography variant="body2" sx={{ minWidth: 0 }}>
-                                        {item.ItemName} <Chip label={`x${item.Quantity}`} size="small" sx={{ ml: 0.5 }} />
-                                    </Typography>
+                                return (
 
-                                    <Typography variant="body2" fontWeight={600} sx={{ flexShrink: 0 }}>
-                                        ₹{Number(item.TotalPrice).toFixed(2)}
-                                    </Typography>
+                                    <Box key={item.CartId} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
 
-                                </Box>
+                                        <Box sx={{ minWidth: 0 }}>
 
-                            ))}
+                                            <Typography variant="body2">
+                                                {item.ItemName} <Chip label={`x${item.Quantity}`} size="small" sx={{ ml: 0.5 }} />
+                                            </Typography>
+
+                                            {optionsSummary ? (
+                                                <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                                                    {optionsSummary}
+                                                </Typography>
+                                            ) : null}
+
+                                        </Box>
+
+                                        <Typography variant="body2" fontWeight={600} sx={{ flexShrink: 0 }}>
+                                            ₹{Number(item.TotalPrice).toFixed(2)}
+                                        </Typography>
+
+                                    </Box>
+
+                                );
+
+                            })}
 
                         </Stack>
 
