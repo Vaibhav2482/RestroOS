@@ -52,7 +52,7 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
                     ) : null}
 
                     <Typography variant="body2" color="text.secondary">
-                        {formatCurrency(item.Price)} each
+                        {formatCurrency(item.UnitPrice)} each
                     </Typography>
 
                 </Box>
