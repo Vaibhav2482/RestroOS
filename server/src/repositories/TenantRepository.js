@@ -12,6 +12,20 @@ export const getAll = async () => {
 
 };
 
+// Public storefront lookup - only ever expose these three columns here.
+// OwnerEmail/OwnerPhone/PlanType are internal and must never reach an
+// unauthenticated caller.
+export const getPublicBySlug = async (slug) => {
+
+    const result = await pool.query(
+        `SELECT "TenantId", "TenantName", "Slug" FROM "Tenants" WHERE "Slug" = $1 AND "IsActive" = TRUE`,
+        [slug]
+    );
+
+    return result.rows[0];
+
+};
+
 export const getBySlug = async (slug) => {
 
     const result = await pool.query(

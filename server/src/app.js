@@ -6,6 +6,7 @@ import errorHandler from "./middleware/ErrorHandler.js";
 
 import PlatformAdminRoutes from "./routes/PlatformAdminRoutes.js";
 import TenantRoutes from "./routes/TenantRoutes.js";
+import PublicTenantRoutes from "./routes/PublicTenantRoutes.js";
 import AdminAuthRoutes from "./routes/AdminAuthRoutes.js";
 import AdminRoutes from "./routes/AdminRoutes.js";
 import BranchRoutes from "./routes/BranchRoutes.js";
@@ -34,6 +35,7 @@ app.get("/api/v1/health", (req, res) => {
 
 app.use("/api/v1/platform-admin/auth", PlatformAdminRoutes);
 app.use("/api/v1/platform-admin/tenants", TenantRoutes);
+app.use("/api/v1/tenants", PublicTenantRoutes);
 app.use("/api/v1/admin/auth", AdminAuthRoutes);
 app.use("/api/v1/admins", AdminRoutes);
 app.use("/api/v1/branches", BranchRoutes);

@@ -9,6 +9,18 @@ const slugify = (text) =>
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
+export const getPublicTenant = async (slug) => {
+
+    const tenant = await TenantRepository.getPublicBySlug(slug);
+
+    if (!tenant) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    return { success: true, message: "Restaurant found.", data: tenant };
+
+};
+
 export const getAllTenants = async () => {
 
     const tenants = await TenantRepository.getAll();
