@@ -6,6 +6,11 @@ import errorHandler from "./middleware/ErrorHandler.js";
 
 import PlatformAdminRoutes from "./routes/PlatformAdminRoutes.js";
 import TenantRoutes from "./routes/TenantRoutes.js";
+import AdminAuthRoutes from "./routes/AdminAuthRoutes.js";
+import BranchRoutes from "./routes/BranchRoutes.js";
+import CategoryRoutes from "./routes/CategoryRoutes.js";
+import MenuRoutes from "./routes/MenuRoutes.js";
+import TableRoutes from "./routes/TableRoutes.js";
 
 const app = express();
 
@@ -21,6 +26,11 @@ app.get("/api/v1/health", (req, res) => {
 
 app.use("/api/v1/platform-admin/auth", PlatformAdminRoutes);
 app.use("/api/v1/platform-admin/tenants", TenantRoutes);
+app.use("/api/v1/admin/auth", AdminAuthRoutes);
+app.use("/api/v1/branches", BranchRoutes);
+app.use("/api/v1/categories", CategoryRoutes);
+app.use("/api/v1/menu", MenuRoutes);
+app.use("/api/v1/tables", TableRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

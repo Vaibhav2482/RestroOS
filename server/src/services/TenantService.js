@@ -1,3 +1,5 @@
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 import * as TenantRepository from "../repositories/TenantRepository.js";
 
 const slugify = (text) =>
@@ -37,8 +39,25 @@ export const createTenant = async (tenant) => {
         return { success: false, message: `The slug "${slug}" is already taken. Try a different restaurant name or a custom slug.` };
     }
 
-    const created = await TenantRepository.create({ ...tenant, slug });
+    // No email delivery is wired up yet, so the one-time owner password is
+    // handed back in this response for you (the platform admin) to relay -
+    // same "shown once, never stored in plaintext" pattern as a cloud
+    // console creating a new account's initial credentials.
+    const temporaryPassword = crypto.randomBytes(9).toString("base64url");
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
-    return { success: true, message: "Restaurant onboarded successfully.", data: created };
+    const { tenant: createdTenant, admin } = await TenantRepository.createWithOwnerAdmin(
+        { ...tenant, slug },
+        hashedPassword
+    );
+
+    return {
+        success: true,
+        message: "Restaurant onboarded successfully.",
+        data: {
+            ...createdTenant,
+            ownerAdmin: { adminId: admin.AdminId, email: admin.Email, temporaryPassword }
+        }
+    };
 
 };
