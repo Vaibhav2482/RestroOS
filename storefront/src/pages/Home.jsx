@@ -155,7 +155,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 
                 <ItemImage item={item} />
 
-                <Box sx={{ position: "absolute", left: "50%", bottom: -14, transform: "translateX(-50%)", width: "84%" }}>
+                <Box sx={{ position: "absolute", left: "50%", bottom: -14, transform: "translateX(-50%)", width: "84%", display: "flex", justifyContent: "center" }}>
 
                     {quantity > 0 ? (
 
@@ -169,6 +169,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                 borderRadius: 5,
                                 px: 0.5,
                                 py: 0.25,
+                                width: 104,
                                 opacity: busy ? 0.6 : 1
                             }}
                         >

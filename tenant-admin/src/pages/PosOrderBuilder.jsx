@@ -4,13 +4,10 @@ import {
     Button,
     Card,
     Chip,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     Divider,
     Grid,
     IconButton,
+    InputBase,
     TextField,
     ToggleButton,
     ToggleButtonGroup,
@@ -90,7 +87,6 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
     const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
     const [notes, setNotes] = useState("");
     const [submitting, setSubmitting] = useState(false);
-    const [reviewOpen, setReviewOpen] = useState(false);
 
     // Default to the shared guest placeholder so staff can start adding items
     // immediately; they can still swap in a real customer below.
@@ -372,6 +368,29 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
         setCartLines((prev) => prev.filter((line) => line.lineKey !== lineKey));
     };
 
+    // Lets staff type a quantity directly (e.g. "8x chai") instead of tapping
+    // + eight times - works by lineKey so it covers both plain items and
+    // customized lines the same way.
+    const handleSetLineQuantity = (lineKey, rawValue) => {
+
+        const next = Math.max(0, Math.floor(Number(rawValue) || 0));
+
+        setCartLines((prev) => {
+
+            if (next <= 0) {
+                return prev.filter((line) => line.lineKey !== lineKey);
+            }
+
+            return prev.map((line) =>
+                line.lineKey === lineKey
+                    ? { ...line, quantity: next }
+                    : line
+            );
+
+        });
+
+    };
+
     const categoriesWithItems = useMemo(() =>
         categories.filter((category) =>
             menuItems.some((item) => item.CategoryId === category.CategoryId)
@@ -391,7 +410,11 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
     const subtotal = cartLines.reduce((sum, line) => sum + line.price * line.quantity, 0);
 
-    const handleReview = () => {
+    // The sticky cart sidebar already shows every line item, the subtotal,
+    // payment method and notes in full - a separate "review" dialog would
+    // just repeat the same information behind an extra click. Placing the
+    // order directly off the sidebar button is the actual confirmation step.
+    const handlePlaceOrder = async () => {
 
         if (!resolvedCustomer) {
             toast.error("Attach a customer (or use Guest) first.");
@@ -402,12 +425,6 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
             toast.error("Add at least one item.");
             return;
         }
-
-        setReviewOpen(true);
-
-    };
-
-    const handleConfirm = async () => {
 
         try {
 
@@ -432,7 +449,6 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
             }
 
             toast.success(`Order #${response.data.OrderId} placed — total ₹ ${Number(response.data.TotalAmount).toFixed(2)}.`);
-            setReviewOpen(false);
             onCreated(response.data);
 
         } catch (error) {
@@ -613,9 +629,14 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                             <RemoveRoundedIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
 
-                                        <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
-                                            {quantity}
-                                        </Typography>
+                                        <InputBase
+                                            value={quantity}
+                                            onChange={(event) => handleSetLineQuantity(String(item.MenuItemId), event.target.value)}
+                                            onFocus={(event) => event.target.select()}
+                                            type="number"
+                                            inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } }}
+                                            sx={{ width: 28, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
+                                        />
 
                                         <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
                                             <AddRoundedIcon sx={{ fontSize: 18 }} />
@@ -749,7 +770,7 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                         <Box sx={{ minWidth: 0 }}>
 
                                             <Typography variant="body2" noWrap>
-                                                {line.itemName} &times; {line.quantity}
+                                                {line.itemName}
                                             </Typography>
 
                                             {line.summary && (
@@ -760,7 +781,18 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                         </Box>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 }}>
+
+                                            <Typography variant="body2" color="text.secondary">&times;</Typography>
+
+                                            <InputBase
+                                                value={line.quantity}
+                                                onChange={(event) => handleSetLineQuantity(line.lineKey, event.target.value)}
+                                                onFocus={(event) => event.target.select()}
+                                                type="number"
+                                                inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 600, MozAppearance: "textfield" } }}
+                                                sx={{ width: 22, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
+                                            />
 
                                             <Typography variant="body2" fontWeight={600}>
                                                 ₹ {(line.price * line.quantity).toFixed(2)}
@@ -843,9 +875,9 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                 variant="contained"
                                 fullWidth={!onCancel}
                                 disabled={submitting}
-                                onClick={handleReview}
+                                onClick={handlePlaceOrder}
                             >
-                                Review Order
+                                {submitting ? "Placing Order..." : "Place Order"}
                             </Button>
 
                         </Box>
@@ -855,88 +887,6 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                 </Box>
 
             </Grid>
-
-            <Dialog open={reviewOpen} onClose={() => setReviewOpen(false)} fullWidth maxWidth="xs">
-
-                <DialogTitle>
-                    Confirm Order
-                </DialogTitle>
-
-                <DialogContent>
-
-                    <Typography sx={{ mb: 1.5 }}>
-                        <strong>Customer:</strong>{" "}
-                        {isGuest ? "Walk-in Guest (no details given)" : `${resolvedCustomer?.FullName} — ${resolvedCustomer?.Phone}`}
-                    </Typography>
-
-                    <Typography sx={{ mb: 1.5 }}>
-                        <strong>Order Type:</strong>{" "}
-                        {deliveryType}
-                        {deliveryType === "Dine In" && tableNumber && ` (Table ${tableNumber})`}
-                    </Typography>
-
-                    <Divider sx={{ mb: 1.5 }} />
-
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1.5 }}>
-
-                        {cartLines.map((line) => (
-
-                            <Box key={line.lineKey} sx={{ display: "flex", justifyContent: "space-between" }}>
-
-                                <Box sx={{ minWidth: 0 }}>
-
-                                    <Typography variant="body2">
-                                        {line.itemName} &times; {line.quantity}
-                                    </Typography>
-
-                                    {line.summary && (
-                                        <Typography variant="caption" color="text.secondary">
-                                            {line.summary}
-                                        </Typography>
-                                    )}
-
-                                </Box>
-
-                                <Typography variant="body2" fontWeight={600}>
-                                    ₹ {(line.price * line.quantity).toFixed(2)}
-                                </Typography>
-
-                            </Box>
-
-                        ))}
-
-                    </Box>
-
-                    <Divider sx={{ mb: 1.5 }} />
-
-                    <Typography sx={{ mb: 0.5 }}>
-                        <strong>Payment:</strong> {paymentMethod}
-                    </Typography>
-
-                    <Typography variant="h6" fontWeight={700}>
-                        Subtotal: ₹ {subtotal.toFixed(2)}
-                    </Typography>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                        GST (2.5% CGST + 2.5% SGST) is added automatically — the final
-                        total will be confirmed once the order is placed.
-                    </Typography>
-
-                </DialogContent>
-
-                <DialogActions>
-
-                    <Button onClick={() => setReviewOpen(false)} disabled={submitting}>
-                        Edit
-                    </Button>
-
-                    <Button variant="contained" disabled={submitting} onClick={handleConfirm}>
-                        {submitting ? "Placing Order..." : "Confirm & Place Order"}
-                    </Button>
-
-                </DialogActions>
-
-            </Dialog>
 
             <PosItemOptionsDialog
                 open={Boolean(optionsDialogItem)}

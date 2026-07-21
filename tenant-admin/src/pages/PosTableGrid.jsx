@@ -1,9 +1,13 @@
-import { Box, Card, Chip, Grid, Typography } from "@mui/material";
+import { Box, Button, Card, Chip, Grid, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 
-import { POS_STATUS_COLOR } from "./posOrderStatus";
+import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 
-function PosTableGrid({ tables, activeOrdersByTable, onTableClick }) {
+// The single next status only (never skip-ahead) - jumping multiple steps
+// or cancelling still requires opening the full order details dialog, so
+// this quick action can't be used to fast-forward past a step by mistake.
+function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance }) {
 
     if (tables.length === 0) {
 
@@ -23,6 +27,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick }) {
 
                 const activeOrder = activeOrdersByTable.get(table.TableName);
                 const isOccupied = Boolean(activeOrder);
+                const nextStatus = isOccupied ? getPosForwardStatuses(activeOrder.OrderStatus)[0] : null;
 
                 return (
 
@@ -72,6 +77,23 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick }) {
                                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                                             #{activeOrder.OrderId} &middot; ₹ {Number(activeOrder.TotalAmount).toFixed(2)}
                                         </Typography>
+
+                                        {nextStatus && (
+
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    onQuickAdvance(activeOrder.OrderId, nextStatus);
+                                                }}
+                                                sx={{ mt: 0.75, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
+                                            >
+                                                {nextStatus}
+                                            </Button>
+
+                                        )}
                                     </>
 
                                 ) : (

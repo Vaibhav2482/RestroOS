@@ -266,6 +266,7 @@ function Pos() {
                         tables={tables}
                         activeOrdersByTable={activeOrdersByTable}
                         onTableClick={handleTableClick}
+                        onQuickAdvance={handleAdvanceStatus}
                     />
                 </>
 
