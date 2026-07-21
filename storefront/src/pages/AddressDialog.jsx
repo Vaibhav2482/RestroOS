@@ -76,7 +76,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
 
                     <Grid container spacing={2}>
 
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -88,7 +88,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -101,7 +101,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -112,7 +112,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -123,7 +123,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -134,7 +134,7 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                             />
                         </Grid>
 
-                        <Grid item xs={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 label="Landmark (optional)"

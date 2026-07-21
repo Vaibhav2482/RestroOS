@@ -20,6 +20,11 @@ import {
 } from "@mui/material";
 import LocalMallOutlinedIcon from "@mui/icons-material/LocalMallOutlined";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
+import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import CreditCardOutlinedIcon from "@mui/icons-material/CreditCardOutlined";
+import QrCode2OutlinedIcon from "@mui/icons-material/QrCode2Outlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import toast from "react-hot-toast";
 
 import * as cartService from "../services/cartService";
@@ -29,7 +34,33 @@ import * as paymentService from "../services/paymentService";
 import * as couponService from "../services/couponService";
 import { useStorefront } from "../context/StorefrontContext";
 
-const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
+const PAYMENT_METHODS = [
+    { value: "Cash", label: "Cash", icon: <PaymentsOutlinedIcon fontSize="small" /> },
+    { value: "Card", label: "Card", icon: <CreditCardOutlinedIcon fontSize="small" /> },
+    { value: "UPI", label: "UPI", icon: <QrCode2OutlinedIcon fontSize="small" /> }
+];
+
+function formatCurrency(value) {
+    return `₹${Number(value ?? 0).toFixed(2)}`;
+}
+
+function SectionCard({ title, children }) {
+
+    return (
+
+        <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3 }, border: "1px solid #E5E7EB" }}>
+
+            <Typography fontWeight={700} sx={{ mb: 2 }}>
+                {title}
+            </Typography>
+
+            {children}
+
+        </Paper>
+
+    );
+
+}
 
 function Checkout() {
 
@@ -147,7 +178,7 @@ function Checkout() {
                 couponId: response.data.couponId
             });
 
-            toast.success(`Coupon ${code} applied: -₹${Number(response.data.discountAmount).toFixed(2)}`);
+            toast.success(`Coupon ${code} applied: -${formatCurrency(response.data.discountAmount)}`);
 
         } catch (error) {
 
@@ -239,7 +270,7 @@ function Checkout() {
 
     return (
 
-        <Box>
+        <Box sx={{ pb: { xs: 2, md: 0 } }}>
 
             <Typography variant="h5" fontWeight={800} sx={{ mb: 3 }}>
                 Checkout
@@ -247,45 +278,66 @@ function Checkout() {
 
             <Grid container spacing={3}>
 
-                <Grid item xs={12} md={7}>
+                <Grid size={{ xs: 12, md: 7 }}>
 
                     <Stack spacing={3}>
 
-                        <Paper elevation={0} sx={{ p: 3, border: "1px solid #E5E7EB" }}>
-
-                            <Typography fontWeight={700} sx={{ mb: 2 }}>
-                                Delivery Type
-                            </Typography>
+                        <SectionCard title="Delivery Type">
 
                             <ToggleButtonGroup
                                 exclusive
                                 fullWidth
                                 value={deliveryType}
                                 onChange={(event, value) => value && setDeliveryType(value)}
+                                sx={{
+                                    "& .MuiToggleButton-root": {
+                                        py: 1.25,
+                                        gap: 1,
+                                        textTransform: "none",
+                                        fontWeight: 600,
+                                        "&.Mui-selected": {
+                                            bgcolor: "#EEF2FF",
+                                            color: "#4F46E5",
+                                            borderColor: "#4F46E5",
+                                            "&:hover": { bgcolor: "#E0E7FF" }
+                                        }
+                                    }
+                                }}
                             >
                                 <ToggleButton value="Delivery">
-                                    <LocalMallOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+                                    <LocalMallOutlinedIcon fontSize="small" />
                                     Delivery
                                 </ToggleButton>
                                 <ToggleButton value="Dine In">
-                                    <RestaurantOutlinedIcon fontSize="small" sx={{ mr: 1 }} />
+                                    <RestaurantOutlinedIcon fontSize="small" />
                                     Dine In
                                 </ToggleButton>
                             </ToggleButtonGroup>
 
                             {deliveryType === "Delivery" && (
 
-                                <Box sx={{ mt: 3 }}>
+                                <Box sx={{ mt: 2.5 }}>
 
                                     {addresses.length === 0 ? (
 
-                                        <Box sx={{ textAlign: "center", py: 3 }}>
+                                        <Box
+                                            sx={{
+                                                textAlign: "center",
+                                                py: 3,
+                                                px: 2,
+                                                border: "1px dashed #E5E7EB",
+                                                borderRadius: 2,
+                                                bgcolor: "#FAFAFA"
+                                            }}
+                                        >
+
+                                            <PlaceOutlinedIcon sx={{ color: "#9CA3AF", fontSize: 28, mb: 1 }} />
 
                                             <Typography color="text.secondary" sx={{ mb: 1.5 }}>
                                                 You don't have any saved addresses yet.
                                             </Typography>
 
-                                            <Button component={RouterLink} to={`/${tenantSlug}/addresses`} variant="outlined">
+                                            <Button component={RouterLink} to={`/${tenantSlug}/addresses`} variant="contained" size="small">
                                                 Add an Address
                                             </Button>
 
@@ -301,16 +353,30 @@ function Checkout() {
                                                 label="Deliver To"
                                                 value={addressId}
                                                 onChange={(event) => setAddressId(event.target.value)}
+                                                slotProps={{
+                                                    input: {
+                                                        startAdornment: <PlaceOutlinedIcon fontSize="small" sx={{ mr: 1, color: "text.secondary" }} />
+                                                    }
+                                                }}
                                             >
                                                 {addresses.map((address) => (
                                                     <MenuItem key={address.AddressId} value={address.AddressId}>
-                                                        {address.AddressTitle} - {address.FullAddress}, {address.City}
+                                                        <Box>
+                                                            <Typography fontWeight={600} component="span">
+                                                                {address.AddressTitle}
+                                                            </Typography>
+                                                            <Typography variant="body2" color="text.secondary" component="div">
+                                                                {address.FullAddress}, {address.City}
+                                                            </Typography>
+                                                        </Box>
                                                     </MenuItem>
                                                 ))}
                                             </TextField>
 
-                                            <Typography variant="body2" sx={{ mt: 1 }}>
-                                                <RouterLink to={`/${tenantSlug}/addresses`}>Manage addresses</RouterLink>
+                                            <Typography variant="body2" sx={{ mt: 1.5 }}>
+                                                <RouterLink to={`/${tenantSlug}/addresses`} style={{ color: "#4F46E5", fontWeight: 600 }}>
+                                                    Manage addresses
+                                                </RouterLink>
                                             </Typography>
 
                                         </>
@@ -321,36 +387,60 @@ function Checkout() {
 
                             )}
 
-                        </Paper>
+                        </SectionCard>
 
-                        <Paper elevation={0} sx={{ p: 3, border: "1px solid #E5E7EB" }}>
-
-                            <Typography fontWeight={700} sx={{ mb: 2 }}>
-                                Payment Method
-                            </Typography>
+                        <SectionCard title="Payment Method">
 
                             <RadioGroup
-                                row
                                 value={paymentMethod}
                                 onChange={(event) => setPaymentMethod(event.target.value)}
                             >
-                                {PAYMENT_METHODS.map((method) => (
-                                    <FormControlLabel
-                                        key={method}
-                                        value={method}
-                                        control={<Radio />}
-                                        label={method}
-                                    />
-                                ))}
+
+                                <Stack spacing={1}>
+
+                                    {PAYMENT_METHODS.map((method) => (
+
+                                        <Box
+                                            key={method.value}
+                                            onClick={() => setPaymentMethod(method.value)}
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 1,
+                                                border: "1px solid",
+                                                borderColor: paymentMethod === method.value ? "#4F46E5" : "#E5E7EB",
+                                                bgcolor: paymentMethod === method.value ? "#EEF2FF" : "transparent",
+                                                borderRadius: 2,
+                                                px: 1.5,
+                                                py: 1,
+                                                cursor: "pointer",
+                                                transition: "border-color .15s ease, background-color .15s ease"
+                                            }}
+                                        >
+
+                                            <FormControlLabel
+                                                value={method.value}
+                                                control={<Radio size="small" />}
+                                                label={
+                                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                                        {method.icon}
+                                                        <Typography fontWeight={600}>{method.label}</Typography>
+                                                    </Stack>
+                                                }
+                                                sx={{ m: 0, flex: 1 }}
+                                            />
+
+                                        </Box>
+
+                                    ))}
+
+                                </Stack>
+
                             </RadioGroup>
 
-                        </Paper>
+                        </SectionCard>
 
-                        <Paper elevation={0} sx={{ p: 3, border: "1px solid #E5E7EB" }}>
-
-                            <Typography fontWeight={700} sx={{ mb: 2 }}>
-                                Order Notes (optional)
-                            </Typography>
+                        <SectionCard title="Order Notes (optional)">
 
                             <TextField
                                 fullWidth
@@ -361,21 +451,21 @@ function Checkout() {
                                 onChange={(event) => setNotes(event.target.value)}
                             />
 
-                        </Paper>
+                        </SectionCard>
 
                     </Stack>
 
                 </Grid>
 
-                <Grid item xs={12} md={5}>
+                <Grid size={{ xs: 12, md: 5 }}>
 
-                    <Paper elevation={0} sx={{ p: 3, border: "1px solid #E5E7EB", position: "sticky", top: 88 }}>
+                    <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3 }, border: "1px solid #E5E7EB", position: { md: "sticky" }, top: { md: 88 } }}>
 
                         <Typography fontWeight={700} sx={{ mb: 2 }}>
                             Order Summary
                         </Typography>
 
-                        <Stack spacing={1.5} sx={{ mb: 2 }}>
+                        <Stack spacing={1.5} sx={{ mb: 2.5 }}>
 
                             {cartItems.map((item) => {
 
@@ -389,9 +479,12 @@ function Checkout() {
 
                                         <Box sx={{ minWidth: 0 }}>
 
-                                            <Typography variant="body2">
-                                                {item.ItemName} <Chip label={`x${item.Quantity}`} size="small" sx={{ ml: 0.5 }} />
-                                            </Typography>
+                                            <Stack direction="row" alignItems="center" spacing={0.75}>
+                                                <Typography variant="body2" fontWeight={600} noWrap>
+                                                    {item.ItemName}
+                                                </Typography>
+                                                <Chip label={`x${item.Quantity}`} size="small" sx={{ height: 18, fontSize: 11 }} />
+                                            </Stack>
 
                                             {optionsSummary ? (
                                                 <Typography variant="caption" color="text.secondary" component="div" noWrap>
@@ -402,7 +495,7 @@ function Checkout() {
                                         </Box>
 
                                         <Typography variant="body2" fontWeight={600} sx={{ flexShrink: 0 }}>
-                                            ₹{Number(item.TotalPrice).toFixed(2)}
+                                            {formatCurrency(item.TotalPrice)}
                                         </Typography>
 
                                     </Box>
@@ -413,23 +506,38 @@ function Checkout() {
 
                         </Stack>
 
-                        <Divider sx={{ mb: 2 }} />
+                        <Divider sx={{ mb: 2.5 }} />
 
-                        <Box sx={{ mb: 2 }}>
+                        <Box sx={{ mb: 2.5 }}>
 
-                            <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
-                                Have a coupon?
-                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 1 }}>
+                                <LocalOfferOutlinedIcon fontSize="small" sx={{ color: "text.secondary" }} />
+                                <Typography variant="body2" fontWeight={600}>
+                                    Have a coupon?
+                                </Typography>
+                            </Stack>
 
                             {appliedCoupon ? (
 
-                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, bgcolor: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 1, px: 1.5, py: 1 }}>
+                                <Box
+                                    sx={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "space-between",
+                                        gap: 1,
+                                        bgcolor: "#F0FDF4",
+                                        border: "1px solid #BBF7D0",
+                                        borderRadius: 2,
+                                        px: 1.5,
+                                        py: 1
+                                    }}
+                                >
 
                                     <Typography variant="body2" sx={{ color: "#166534" }}>
-                                        Coupon <strong>{appliedCoupon.code}</strong> applied: -₹{discountAmount.toFixed(2)}
+                                        <strong>{appliedCoupon.code}</strong> applied: -{formatCurrency(discountAmount)}
                                     </Typography>
 
-                                    <Button size="small" onClick={handleRemoveCoupon}>
+                                    <Button size="small" onClick={handleRemoveCoupon} sx={{ color: "#166534" }}>
                                         Remove
                                     </Button>
 
@@ -463,31 +571,37 @@ function Checkout() {
 
                         </Box>
 
-                        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                            <Typography fontWeight={700}>Subtotal</Typography>
-                            <Typography fontWeight={700}>₹{subtotal.toFixed(2)}</Typography>
+                        <Stack spacing={0.75}>
+
+                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                                <Typography variant="body2">{formatCurrency(subtotal)}</Typography>
+                            </Box>
+
+                            {appliedCoupon ? (
+
+                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>Coupon Discount</Typography>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>-{formatCurrency(discountAmount)}</Typography>
+                                </Box>
+
+                            ) : null}
+
+                        </Stack>
+
+                        <Divider sx={{ my: 1.5 }} />
+
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                            <Typography fontWeight={700}>
+                                {appliedCoupon ? "Estimated Total" : "Estimated Total"}
+                            </Typography>
+                            <Typography variant="h6" fontWeight={800}>
+                                {formatCurrency(estimatedTotalAfterDiscount)}
+                            </Typography>
                         </Box>
 
-                        {appliedCoupon ? (
-
-                            <>
-
-                                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                                    <Typography variant="body2" sx={{ color: "#166534" }}>Coupon Discount</Typography>
-                                    <Typography variant="body2" sx={{ color: "#166534" }}>-₹{discountAmount.toFixed(2)}</Typography>
-                                </Box>
-
-                                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                                    <Typography fontWeight={700}>Estimated Total</Typography>
-                                    <Typography fontWeight={700}>₹{estimatedTotalAfterDiscount.toFixed(2)}</Typography>
-                                </Box>
-
-                            </>
-
-                        ) : null}
-
                         <Typography variant="caption" color="text.secondary">
-                            + GST added at checkout
+                            + GST calculated at checkout
                         </Typography>
 
                         <Button
