@@ -11,6 +11,17 @@ export const getCustomerByTenantAndEmail = async (tenantId, email) => {
 
 };
 
+export const getCustomerByTenantAndPhone = async (tenantId, phone) => {
+
+    const result = await pool.query(
+        `SELECT * FROM "Customers" WHERE "TenantId" = $1 AND "Phone" = $2`,
+        [tenantId, phone]
+    );
+
+    return result.rows[0];
+
+};
+
 export const createCustomer = async (customer) => {
 
     const result = await pool.query(
