@@ -228,6 +228,7 @@ function Home() {
     // just tapped doesn't get immediately overridden by whichever section
     // happens to cross the threshold first.
     const suppressObserverRef = useRef(false);
+    const suppressTimeoutRef = useRef(null);
 
     useEffect(() => {
 
@@ -382,45 +383,74 @@ function Home() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sections]);
 
-    // Scroll-spy: highlight whichever section's top has most recently
-    // crossed the sticky header, instead of requiring a tap to know where
-    // you are in a long menu.
+    // Scroll-spy: on every scroll tick, walk the sections in order and pick
+    // the LAST one whose top has already crossed the reference line just
+    // below the sticky header - i.e. "the section we've scrolled into or
+    // past." An IntersectionObserver with a narrow rootMargin band was tried
+    // first, but any section taller than that band never registered as
+    // intersecting while scrolling through its middle, so the highlight got
+    // stuck. Direct position checks don't have that failure mode.
     useEffect(() => {
 
         if (sections.length === 0) {
             return undefined;
         }
 
-        const observer = new IntersectionObserver(
-            (entries) => {
+        const REFERENCE_Y = 150;
 
-                if (suppressObserverRef.current) {
-                    return;
-                }
+        const handleScroll = () => {
 
-                const visible = entries
-                    .filter((entry) => entry.isIntersecting)
-                    .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-
-                if (visible.length > 0) {
-                    setActiveCategoryId(Number(visible[0].target.dataset.categoryId));
-                }
-
-            },
-            { rootMargin: "-120px 0px -70% 0px", threshold: 0 }
-        );
-
-        sections.forEach((section) => {
-
-            const element = sectionRefs.current[section.categoryId];
-
-            if (element) {
-                observer.observe(element);
+            if (suppressObserverRef.current) {
+                return;
             }
 
-        });
+            let current = sections[0].categoryId;
 
-        return () => observer.disconnect();
+            for (const section of sections) {
+
+                const element = sectionRefs.current[section.categoryId];
+
+                if (!element) {
+                    continue;
+                }
+
+                if (element.getBoundingClientRect().top <= REFERENCE_Y) {
+                    current = section.categoryId;
+                } else {
+                    break;
+                }
+
+            }
+
+            setActiveCategoryId((prev) => (prev === current ? prev : current));
+
+        };
+
+        let ticking = false;
+
+        const onScroll = () => {
+
+            if (ticking) {
+                return;
+            }
+
+            ticking = true;
+
+            window.requestAnimationFrame(() => {
+                handleScroll();
+                ticking = false;
+            });
+
+        };
+
+        window.addEventListener("scroll", onScroll, { passive: true });
+        window.addEventListener("resize", onScroll);
+        handleScroll();
+
+        return () => {
+            window.removeEventListener("scroll", onScroll);
+            window.removeEventListener("resize", onScroll);
+        };
 
     }, [sections]);
 
@@ -447,8 +477,8 @@ function Home() {
 
         // Clears once the smooth scroll has settled - there's no reliable
         // "scroll finished" event, so a generous timeout stands in for one.
-        window.clearTimeout(handleCategoryClick.timeoutId);
-        handleCategoryClick.timeoutId = window.setTimeout(() => {
+        window.clearTimeout(suppressTimeoutRef.current);
+        suppressTimeoutRef.current = window.setTimeout(() => {
             suppressObserverRef.current = false;
         }, 700);
 
