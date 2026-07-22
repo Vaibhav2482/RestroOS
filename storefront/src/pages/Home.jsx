@@ -617,9 +617,13 @@ function Home() {
 
     };
 
-    const handleCustomizationDialogClose = () => {
+    // wasAdded is only true when the dialog's own "Add Item" button
+    // succeeded - a plain Cancel/X dismissal has nothing new to fetch.
+    const handleCustomizationDialogClose = (wasAdded) => {
         setCustomizingItem(null);
-        refreshCartLines();
+        if (wasAdded) {
+            refreshCartLines();
+        }
     };
 
     if (storefrontLoading) {

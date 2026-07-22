@@ -791,7 +791,7 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                                 onFocus={(event) => event.target.select()}
                                                 type="number"
                                                 inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 600, MozAppearance: "textfield" } }}
-                                                sx={{ width: 22, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
+                                                sx={{ width: 28, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
                                             />
 
                                             <Typography variant="body2" fontWeight={600}>
