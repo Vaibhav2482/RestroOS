@@ -94,20 +94,25 @@ function Orders() {
             return undefined;
         }
 
-        const handleUpdate = () => loadOrders(true);
+        const handleStatusChange = () => loadOrders(true);
+
+        const handleCreated = (payload) => {
+            toast.success(`New order #${payload.orderId} received.`);
+            loadOrders(true);
+        };
 
         const channels = branchIds.map((branchId) => {
             const channel = pusher.subscribe(`private-branch-${branchId}`);
-            channel.bind("order:created", handleUpdate);
-            channel.bind("order:status-changed", handleUpdate);
+            channel.bind("order:created", handleCreated);
+            channel.bind("order:status-changed", handleStatusChange);
             return channel;
         });
 
         return () => {
 
             channels.forEach((channel) => {
-                channel.unbind("order:created", handleUpdate);
-                channel.unbind("order:status-changed", handleUpdate);
+                channel.unbind("order:created", handleCreated);
+                channel.unbind("order:status-changed", handleStatusChange);
                 pusher.unsubscribe(channel.name);
             });
 

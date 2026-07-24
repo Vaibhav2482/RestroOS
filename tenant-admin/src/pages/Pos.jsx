@@ -95,14 +95,19 @@ function Pos() {
         }
 
         const channel = pusher.subscribe(`private-branch-${selectedBranchId}`);
-        const handleUpdate = () => loadTableState(selectedBranchId, true);
+        const handleStatusChange = () => loadTableState(selectedBranchId, true);
 
-        channel.bind("order:created", handleUpdate);
-        channel.bind("order:status-changed", handleUpdate);
+        const handleCreated = (payload) => {
+            toast.success(`New order #${payload.orderId} received.`);
+            loadTableState(selectedBranchId, true);
+        };
+
+        channel.bind("order:created", handleCreated);
+        channel.bind("order:status-changed", handleStatusChange);
 
         return () => {
-            channel.unbind("order:created", handleUpdate);
-            channel.unbind("order:status-changed", handleUpdate);
+            channel.unbind("order:created", handleCreated);
+            channel.unbind("order:status-changed", handleStatusChange);
             pusher.unsubscribe(channel.name);
         };
 

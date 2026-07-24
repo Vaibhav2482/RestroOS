@@ -23,7 +23,8 @@
     "multer": "^2.2.0",
     "pg": "^8.22.0",
     "pusher": "^5.3.4",
-    "razorpay": "^2.9.8"
+    "razorpay": "^2.9.8",
+    "resend": "^6.18.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
