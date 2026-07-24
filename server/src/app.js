@@ -26,7 +26,11 @@ import UploadRoutes from "./routes/UploadRoutes.js";
 
 const app = express();
 
-app.use(cors());
+// Without maxAge, browsers don't cache the CORS preflight at all - every
+// mutating request (any JSON body + Authorization header counts as
+// non-simple) pays a full extra OPTIONS round trip before the real one.
+// Caching it removes that tax for repeat requests to the same origin.
+app.use(cors({ maxAge: 7200 }));
 app.use(express.json());
 
 app.get("/api/v1/health", (req, res) => {

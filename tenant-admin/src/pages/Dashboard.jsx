@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Card,
@@ -67,33 +67,55 @@ function Dashboard() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // Only the first load shows the blocking spinner - the periodic
+    // background refresh below keeps the existing stats/table visible
+    // instead of blanking the page out every time.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadOrders();
 
+        // Live-ish view: silently re-check for new orders/status changes
+        // without requiring a manual refresh.
+        const interval = setInterval(() => {
+
+            if (document.visibilityState === "visible") {
+                loadOrders(true);
+            }
+
+        }, 15000);
+
+        return () => clearInterval(interval);
+
     }, []);
 
-    const loadOrders = async () => {
+    const loadOrders = async (silent = false) => {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current && !silent) {
+                setLoading(true);
+            }
 
             const response = await orderService.getAllOrders();
 
             if (response.success) {
                 setOrders(response.data);
-            } else {
+            } else if (!silent) {
                 toast.error(response.message || "Failed to load orders.");
             }
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to load orders.");
+            if (!silent) {
+                toast.error(error.response?.data?.message || "Failed to load orders.");
+            }
 
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

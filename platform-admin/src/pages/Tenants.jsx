@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     AppBar,
     Box,
@@ -34,6 +34,11 @@ function Tenants() {
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
 
+    // Only the first load shows the blocking spinner - reloading after
+    // onboarding a tenant keeps the existing table visible instead of
+    // blanking the page out.
+    const hasLoadedRef = useRef(false);
+
     useEffect(() => {
 
         loadTenants();
@@ -44,7 +49,9 @@ function Tenants() {
 
         try {
 
-            setLoading(true);
+            if (!hasLoadedRef.current) {
+                setLoading(true);
+            }
 
             const response = await getAllTenants();
 
@@ -59,6 +66,7 @@ function Tenants() {
         } finally {
 
             setLoading(false);
+            hasLoadedRef.current = true;
 
         }
 

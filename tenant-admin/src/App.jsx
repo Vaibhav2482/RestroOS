@@ -1,23 +1,31 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Orders from "./pages/Orders";
-import Pos from "./pages/Pos";
-import Tables from "./pages/Tables";
-import Menu from "./pages/Menu";
-import Categories from "./pages/Categories";
-import Coupons from "./pages/Coupons";
-import Branches from "./pages/Branches";
-import Admins from "./pages/Admins";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
+import PageLoader from "./components/PageLoader";
+
+import Login from "./pages/Login";
+
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Pos = lazy(() => import("./pages/Pos"));
+const Tables = lazy(() => import("./pages/Tables"));
+const Menu = lazy(() => import("./pages/Menu"));
+const Categories = lazy(() => import("./pages/Categories"));
+const Coupons = lazy(() => import("./pages/Coupons"));
+const Branches = lazy(() => import("./pages/Branches"));
+const Admins = lazy(() => import("./pages/Admins"));
 
 function withLayout(element, options) {
 
     return (
         <ProtectedRoute {...options}>
-            <Layout>{element}</Layout>
+            <Layout>
+                <Suspense fallback={<PageLoader />}>
+                    {element}
+                </Suspense>
+            </Layout>
         </ProtectedRoute>
     );
 
