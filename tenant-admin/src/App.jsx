@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
 import Pos from "./pages/Pos";
+import Kitchen from "./pages/Kitchen";
 import Tables from "./pages/Tables";
 import Menu from "./pages/Menu";
 import Categories from "./pages/Categories";
@@ -36,6 +37,7 @@ function App() {
                 <Route path="/" element={withLayout(<Dashboard />)} />
                 <Route path="/orders" element={withLayout(<Orders />)} />
                 <Route path="/pos" element={withLayout(<Pos />)} />
+                <Route path="/kitchen" element={withLayout(<Kitchen />)} />
                 <Route path="/tables" element={withLayout(<Tables />)} />
                 <Route path="/menu" element={withLayout(<Menu />)} />
                 <Route path="/categories" element={withLayout(<Categories />)} />

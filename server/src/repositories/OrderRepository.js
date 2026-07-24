@@ -198,6 +198,35 @@ export const getActiveTableOrders = async (branchId) => {
 
 };
 
+// Every order the kitchen still has work to do on, across all delivery
+// types (Dine In, Takeaway, Delivery) - unlike getActiveTableOrders, which
+// is Dine-In-only for the POS table grid. Items include SelectedOptions so
+// the kitchen sees customizations (e.g. "no onions"), not just item names.
+export const getKitchenOrders = async (branchId) => {
+
+    const result = await pool.query(
+        `SELECT O."OrderId", O."TableNumber", O."DeliveryType", O."OrderStatus", O."OrderNotes", O."OrderDate",
+                COALESCE(
+                    (SELECT json_agg(json_build_object(
+                            'OrderItemId', OI."OrderItemId",
+                            'ItemName', OI."ItemName",
+                            'Quantity', OI."Quantity",
+                            'SelectedOptions', OI."SelectedOptions"
+                        ) ORDER BY OI."OrderItemId")
+                     FROM "OrderItems" OI WHERE OI."OrderId" = O."OrderId"),
+                    '[]'
+                ) AS "Items"
+         FROM "Orders" O
+         WHERE O."BranchId" = $1
+           AND O."OrderStatus" IN ('Pending', 'Accepted', 'Preparing', 'Ready')
+         ORDER BY O."OrderDate" ASC`,
+        [branchId]
+    );
+
+    return result.rows;
+
+};
+
 // tenantId is always enforced here, independent of branchId - an owner
 // admin (no branchId restriction) querying "all branches" must still only
 // ever see their OWN tenant's branches, never the whole platform's orders.

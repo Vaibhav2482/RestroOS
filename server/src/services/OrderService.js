@@ -79,6 +79,18 @@ export const getActiveTableOrders = async (branchId) => {
 
 };
 
+export const getKitchenOrders = async (branchId) => {
+
+    if (!branchId) {
+        return { success: false, message: "Branch Id is required." };
+    }
+
+    const orders = await OrderRepository.getKitchenOrders(branchId);
+
+    return { success: true, message: "Kitchen orders fetched successfully.", data: orders };
+
+};
+
 export const getAllOrders = async (tenantId, branchId) => {
 
     const orders = await OrderRepository.getAllOrders(tenantId, branchId);

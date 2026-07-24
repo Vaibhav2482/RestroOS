@@ -10,6 +10,11 @@ export const getActiveTableOrders = async (branchId) => {
     return response.data;
 };
 
+export const getKitchenOrders = async (branchId) => {
+    const response = await axiosClient.get("/orders/kitchen/active", { params: branchId ? { branchId } : {} });
+    return response.data;
+};
+
 export const getOrderById = async (id) => {
     const response = await axiosClient.get(`/orders/${id}`);
     return response.data;

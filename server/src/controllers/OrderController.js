@@ -85,6 +85,24 @@ export const getActiveTableOrders = asyncHandler(async (req, res) => {
 
 });
 
+export const getKitchenOrders = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+
+    if (!branchId) {
+        return errorResponse(res, "Branch Id is required.", 400);
+    }
+
+    if (!(await assertBranchBelongsToTenant(branchId, req.user.tenantId))) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    const result = await OrderService.getKitchenOrders(branchId);
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getAllOrders = asyncHandler(async (req, res) => {
 
     const branchId = resolveBranchId(req);

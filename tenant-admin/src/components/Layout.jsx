@@ -19,6 +19,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import PointOfSaleOutlinedIcon from "@mui/icons-material/PointOfSaleOutlined";
+import KitchenOutlinedIcon from "@mui/icons-material/KitchenOutlined";
 import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
     { label: "Dashboard", to: "/", icon: <DashboardOutlinedIcon /> },
     { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon /> },
     { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon /> },
+    { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },
     { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> },
     { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
     { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> },

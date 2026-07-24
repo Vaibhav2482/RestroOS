@@ -3,6 +3,7 @@ import express from "express";
 import {
     createOrder,
     getActiveTableOrders,
+    getKitchenOrders,
     getAllOrders,
     getOrderById,
     getOrdersByCustomer,
@@ -19,6 +20,7 @@ router.use(authenticate, authorize("customer", "admin"));
 router.post("/", createOrder);
 router.get("/", authorize("admin"), getAllOrders);
 router.get("/active-by-table", authorize("admin"), getActiveTableOrders);
+router.get("/kitchen/active", authorize("admin"), getKitchenOrders);
 router.get("/:id", getOrderById);
 router.get("/customer/:customerId", getOrdersByCustomer);
 router.put("/:id/status", authorize("admin"), updateOrderStatus);
