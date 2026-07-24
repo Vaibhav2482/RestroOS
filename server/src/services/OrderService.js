@@ -1,5 +1,6 @@
 import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
+import * as PaymentService from "./PaymentService.js";
 
 const VALID_DELIVERY_TYPES = ["Delivery", "Dine In", "Takeaway"];
 const VALID_PAYMENT_METHODS = ["Cash", "Card", "UPI"];
@@ -156,7 +157,17 @@ export const cancelOrder = async (orderId) => {
 
         const cancelledOrder = await OrderRepository.cancelOrder(orderId);
 
-        return { success: true, message: "Order cancelled successfully.", data: cancelledOrder };
+        await RealtimeService.publishOrderStatusChanged(cancelledOrder);
+
+        const refundResult = await PaymentService.refundPaymentForOrder(orderId);
+
+        const message = refundResult.refunded
+            ? "Order cancelled and payment refunded successfully."
+            : refundResult.reason === "refund-api-failed"
+                ? "Order cancelled, but the automatic refund failed - please refund manually via the Razorpay dashboard."
+                : "Order cancelled successfully.";
+
+        return { success: true, message, data: cancelledOrder };
 
     } catch (error) {
 

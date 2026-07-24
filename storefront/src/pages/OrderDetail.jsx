@@ -170,7 +170,7 @@ function OrderDetail() {
                 return;
             }
 
-            toast.success("Order cancelled.");
+            toast.success(response.message || "Order cancelled.");
             await fetchOrder();
 
         } catch (error) {

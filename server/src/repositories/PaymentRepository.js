@@ -38,6 +38,17 @@ export const getPaymentByOrderId = async (orderId) => {
 
 };
 
+export const updatePaymentStatus = async (paymentId, paymentStatus) => {
+
+    const result = await pool.query(
+        `UPDATE "Payments" SET "PaymentStatus" = $1 WHERE "PaymentId" = $2 RETURNING *`,
+        [paymentStatus, paymentId]
+    );
+
+    return result.rows[0];
+
+};
+
 export const getPaymentsByCustomer = async (customerId) => {
 
     const result = await pool.query(

@@ -434,7 +434,7 @@ export const cancelOrder = async (orderId) => {
 
     const result = await pool.query(
         `UPDATE "Orders" SET "OrderStatus" = 'Cancelled' WHERE "OrderId" = $1
-         RETURNING "OrderId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate"`,
+         RETURNING "OrderId", "BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate"`,
         [orderId]
     );
 

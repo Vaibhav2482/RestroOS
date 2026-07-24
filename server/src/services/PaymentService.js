@@ -91,6 +91,49 @@ export const createRazorpayOrder = async (orderId) => {
 
 };
 
+// Called when an order is cancelled. Best-effort: a failed or unavailable
+// refund attempt must never block the cancellation itself (kitchen needs to
+// stop preparing regardless) - callers surface `refunded: false` to the
+// customer/admin instead of losing the order state change over it.
+export const refundPaymentForOrder = async (orderId) => {
+
+    const payments = await PaymentRepository.getPaymentByOrderId(orderId);
+    const payment = payments.find((row) => row.PaymentStatus === "Paid");
+
+    if (!payment) {
+        return { refunded: false, reason: "no-payment-to-refund" };
+    }
+
+    if (payment.PaymentMethod === "Cash") {
+        return { refunded: false, reason: "cash-payment" };
+    }
+
+    const razorpay = getRazorpayClient();
+
+    if (!razorpay || !payment.TransactionId) {
+        return { refunded: false, reason: "not-configured" };
+    }
+
+    try {
+
+        await razorpay.payments.refund(payment.TransactionId, {
+            amount: Math.round(Number(payment.Amount) * 100)
+        });
+
+        await PaymentRepository.updatePaymentStatus(payment.PaymentId, "Refunded");
+
+        return { refunded: true };
+
+    } catch (error) {
+
+        console.error(`Refund failed for order ${orderId}: ${error.message}`);
+
+        return { refunded: false, reason: "refund-api-failed" };
+
+    }
+
+};
+
 export const verifyRazorpayPayment = async (payment) => {
 
     const { orderId, paymentMethod, razorpayOrderId, razorpayPaymentId, razorpaySignature } = payment;
