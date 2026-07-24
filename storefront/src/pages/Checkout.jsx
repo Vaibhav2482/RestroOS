@@ -44,6 +44,36 @@ function formatCurrency(value) {
     return `₹${Number(value ?? 0).toFixed(2)}`;
 }
 
+const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
+
+// Loaded lazily, only when a Card/UPI order actually needs the widget.
+function loadRazorpayScript() {
+
+    return new Promise((resolve) => {
+
+        if (window.Razorpay) {
+            resolve(true);
+            return;
+        }
+
+        const existingScript = document.querySelector(`script[src="${RAZORPAY_SCRIPT_SRC}"]`);
+
+        if (existingScript) {
+            existingScript.addEventListener("load", () => resolve(true));
+            existingScript.addEventListener("error", () => resolve(false));
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = RAZORPAY_SCRIPT_SRC;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+
+    });
+
+}
+
 function SectionCard({ title, children }) {
 
     return (
@@ -224,27 +254,110 @@ function Checkout() {
 
             const order = checkoutResponse.data;
 
-            try {
+            await refreshCartCount();
 
-                const paymentResponse = await paymentService.createPayment({
-                    orderId: order.OrderId,
-                    paymentMethod,
-                    amount: order.TotalAmount
-                });
+            if (paymentMethod === "Cash") {
 
-                if (!paymentResponse.success) {
-                    toast.error(paymentResponse.message);
+                try {
+
+                    const paymentResponse = await paymentService.createPayment({
+                        orderId: order.OrderId,
+                        paymentMethod,
+                        amount: order.TotalAmount
+                    });
+
+                    if (!paymentResponse.success) {
+                        toast.error(paymentResponse.message);
+                    }
+
+                } catch (paymentError) {
+
+                    toast.error(paymentError.response?.data?.message || "Order placed, but recording the payment failed.");
+
                 }
 
-            } catch (paymentError) {
-
-                toast.error(paymentError.response?.data?.message || "Order placed, but recording the payment failed.");
+                toast.success("Order placed successfully!");
+                navigate(`/${tenantSlug}/orders/${order.OrderId}`);
+                return;
 
             }
 
-            await refreshCartCount();
-            toast.success("Order placed successfully!");
-            navigate(`/${tenantSlug}/orders/${order.OrderId}`);
+            // Card / UPI: collect payment through Razorpay's test-mode Checkout widget.
+            const goToOrder = () => navigate(`/${tenantSlug}/orders/${order.OrderId}`);
+
+            const scriptLoaded = await loadRazorpayScript();
+
+            if (!scriptLoaded) {
+                toast.error("Could not load the payment widget. Order placed - you can retry payment from Order Details.");
+                goToOrder();
+                return;
+            }
+
+            const razorpayOrderResponse = await paymentService.createRazorpayOrder(order.OrderId);
+
+            if (!razorpayOrderResponse.success) {
+                toast.error(razorpayOrderResponse.message);
+                goToOrder();
+                return;
+            }
+
+            const { razorpayOrderId, amount, currency, keyId } = razorpayOrderResponse.data;
+
+            const razorpayCheckout = new window.Razorpay({
+                key: keyId,
+                amount,
+                currency,
+                order_id: razorpayOrderId,
+                name: "RestroOS",
+                description: `Order #${order.OrderId}`,
+                prefill: {
+                    name: customer.FullName,
+                    email: customer.Email,
+                    contact: customer.Phone
+                },
+                theme: { color: "#4F46E5" },
+                handler: async (response) => {
+
+                    try {
+
+                        const verifyResponse = await paymentService.verifyRazorpayPayment({
+                            orderId: order.OrderId,
+                            paymentMethod,
+                            razorpayOrderId: response.razorpay_order_id,
+                            razorpayPaymentId: response.razorpay_payment_id,
+                            razorpaySignature: response.razorpay_signature
+                        });
+
+                        if (!verifyResponse.success) {
+                            toast.error(verifyResponse.message);
+                        } else {
+                            toast.success("Payment successful! Order placed.");
+                        }
+
+                    } catch (verifyError) {
+
+                        toast.error(verifyError.response?.data?.message || "Payment succeeded, but verification failed.");
+
+                    } finally {
+
+                        goToOrder();
+
+                    }
+
+                },
+                modal: {
+                    ondismiss: () => {
+                        toast.error("Order placed - payment was not completed.");
+                        goToOrder();
+                    }
+                }
+            });
+
+            razorpayCheckout.on("payment.failed", (response) => {
+                toast.error(response.error?.description || "Payment failed.");
+            });
+
+            razorpayCheckout.open();
 
         } catch (error) {
 

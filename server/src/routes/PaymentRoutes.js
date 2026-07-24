@@ -2,6 +2,8 @@ import express from "express";
 
 import {
     createPayment,
+    createRazorpayOrder,
+    verifyRazorpayPayment,
     getPaymentByOrderId,
     getPaymentsByCustomer
 } from "../controllers/PaymentController.js";
@@ -12,6 +14,10 @@ const router = express.Router();
 router.use(authenticate, authorize("customer", "admin"));
 
 router.post("/", createPayment);
+
+router.post("/razorpay/order", createRazorpayOrder);
+
+router.post("/razorpay/verify", verifyRazorpayPayment);
 
 router.get("/order/:orderId", getPaymentByOrderId);
 

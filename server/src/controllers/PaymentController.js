@@ -49,6 +49,54 @@ export const createPayment = asyncHandler(async (req, res) => {
 
 });
 
+export const createRazorpayOrder = asyncHandler(async (req, res) => {
+
+    const { orderId } = req.body;
+
+    const order = await OrderRepository.getOrderById(orderId);
+
+    if (!order || order.length === 0) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    if (!canAccessOrderPayment(req, order[0])) {
+        return errorResponse(res, "You are not authorized to pay for this order.", 403);
+    }
+
+    const result = await PaymentService.createRazorpayOrder(orderId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message, 201);
+
+});
+
+export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
+
+    const { orderId } = req.body;
+
+    const order = await OrderRepository.getOrderById(orderId);
+
+    if (!order || order.length === 0) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    if (!canAccessOrderPayment(req, order[0])) {
+        return errorResponse(res, "You are not authorized to pay for this order.", 403);
+    }
+
+    const result = await PaymentService.verifyRazorpayPayment(req.body);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message, 201);
+
+});
+
 export const getPaymentByOrderId = asyncHandler(async (req, res) => {
 
     const { orderId } = req.params;
