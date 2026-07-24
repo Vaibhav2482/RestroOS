@@ -21,6 +21,7 @@ import toast from "react-hot-toast";
 import * as orderService from "../services/orderService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
+import { getPusherClient } from "../lib/pusherClient";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 import { formatCurrency, getStatusChipColor } from "./orderStatusUtils";
 
@@ -58,20 +59,62 @@ function Orders() {
 
         loadOrders();
 
-        // Live-ish view: silently re-check for status changes made from
-        // another device/tab without requiring a manual refresh.
+        // Fallback safety net in case a realtime event is ever missed (dropped
+        // connection, Pusher not configured) - the Pusher subscription below
+        // is what actually makes this feel live.
         const interval = setInterval(() => {
 
             if (document.visibilityState === "visible") {
                 loadOrders(true);
             }
 
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedBranchId]);
+
+    // Realtime: subscribe to every branch this admin can see so a new order
+    // or a status change made from the POS/another tab shows up immediately
+    // instead of waiting for the next poll.
+    useEffect(() => {
+
+        const pusher = getPusherClient();
+
+        if (!pusher) {
+            return undefined;
+        }
+
+        const branchIds = ownerMode
+            ? branches.map((branch) => branch.BranchId)
+            : (admin?.BranchId ? [admin.BranchId] : []);
+
+        if (branchIds.length === 0) {
+            return undefined;
+        }
+
+        const handleUpdate = () => loadOrders(true);
+
+        const channels = branchIds.map((branchId) => {
+            const channel = pusher.subscribe(`private-branch-${branchId}`);
+            channel.bind("order:created", handleUpdate);
+            channel.bind("order:status-changed", handleUpdate);
+            return channel;
+        });
+
+        return () => {
+
+            channels.forEach((channel) => {
+                channel.unbind("order:created", handleUpdate);
+                channel.unbind("order:status-changed", handleUpdate);
+                pusher.unsubscribe(channel.name);
+            });
+
+        };
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ownerMode, branches, admin?.BranchId]);
 
     const loadBranches = async () => {
 

@@ -1,4 +1,5 @@
 import * as OrderRepository from "../repositories/OrderRepository.js";
+import * as RealtimeService from "./RealtimeService.js";
 
 const VALID_DELIVERY_TYPES = ["Delivery", "Dine In", "Takeaway"];
 const VALID_PAYMENT_METHODS = ["Cash", "Card", "UPI"];
@@ -52,6 +53,8 @@ export const createOrder = async (order) => {
     try {
 
         const createdOrder = await OrderRepository.createOrder(order);
+
+        await RealtimeService.publishOrderCreated(createdOrder);
 
         return { success: true, message: "Order placed successfully.", data: createdOrder };
 
@@ -114,6 +117,8 @@ export const updateOrderStatus = async (id, orderStatus) => {
     try {
 
         const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus);
+
+        await RealtimeService.publishOrderStatusChanged(updatedOrder);
 
         return { success: true, message: "Order status updated successfully.", data: updatedOrder };
 

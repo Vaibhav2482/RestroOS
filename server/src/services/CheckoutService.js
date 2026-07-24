@@ -1,4 +1,5 @@
 import * as CheckoutRepository from "../repositories/CheckoutRepository.js";
+import * as RealtimeService from "./RealtimeService.js";
 
 const VALID_DELIVERY_TYPES = ["Delivery", "Dine In"];
 
@@ -34,6 +35,8 @@ export const checkout = async (checkoutData) => {
             notes,
             couponCode
         );
+
+        await RealtimeService.publishOrderCreated(order);
 
         return { success: true, message: "Checkout completed successfully.", data: order };
 

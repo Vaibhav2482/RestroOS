@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
 import { useStorefront } from "../context/StorefrontContext";
+import { getPusherClient } from "../lib/pusherClient";
 
 const STATUS_COLORS = {
     "Pending": "warning",
@@ -109,17 +110,37 @@ function Orders() {
 
         load();
 
+        // Fallback safety net in case a realtime event is ever missed - the
+        // Pusher subscription below is what actually makes this feel live.
         const interval = setInterval(() => {
 
             if (document.visibilityState === "visible") {
                 load(true);
             }
 
-        }, 15000);
+        }, 30000);
+
+        const pusher = getPusherClient();
+        let channel = null;
+
+        if (pusher && customer.CustomerId) {
+
+            channel = pusher.subscribe(`private-customer-${customer.CustomerId}`);
+            channel.bind("order:status-changed", () => load(true));
+            channel.bind("order:created", () => load(true));
+
+        }
 
         return () => {
+
             cancelled = true;
             clearInterval(interval);
+
+            if (channel) {
+                channel.unbind_all();
+                pusher.unsubscribe(channel.name);
+            }
+
         };
 
     }, [customer.CustomerId]);

@@ -27,6 +27,7 @@ import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
 import { useStorefront } from "../context/StorefrontContext";
+import { getPusherClient } from "../lib/pusherClient";
 
 const DELIVERY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -56,7 +57,7 @@ function formatMoney(value) {
 function OrderDetail() {
 
     const { orderId } = useParams();
-    const { tenantSlug } = useStorefront();
+    const { tenantSlug, customer } = useStorefront();
     const navigate = useNavigate();
 
     const [order, setOrder] = useState(null);
@@ -102,10 +103,10 @@ function OrderDetail() {
 
     }, [fetchOrder]);
 
-    // Live tracking: silently re-check for a status change every few
-    // seconds instead of requiring the customer to refresh the page to see
-    // their order move from Preparing to Ready. Stops once the order
-    // reaches a terminal state - nothing left to watch for at that point.
+    // Fallback safety net in case a realtime event is ever missed (dropped
+    // connection, Pusher not configured) - the Pusher subscription below is
+    // what actually makes status changes show up instantly. Stops once the
+    // order reaches a terminal state - nothing left to watch for at that point.
     useEffect(() => {
 
         if (!order || order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled") {
@@ -118,11 +119,41 @@ function OrderDetail() {
                 fetchOrder(true);
             }
 
-        }, 10000);
+        }, 30000);
 
         return () => clearInterval(interval);
 
     }, [order, fetchOrder]);
+
+    // Realtime: this customer's own channel carries status changes for all
+    // of their orders - only react when the event is for the order this
+    // page is showing.
+    useEffect(() => {
+
+        const pusher = getPusherClient();
+
+        if (!pusher || !customer?.CustomerId) {
+            return undefined;
+        }
+
+        const channel = pusher.subscribe(`private-customer-${customer.CustomerId}`);
+
+        const handleStatusChanged = (payload) => {
+
+            if (String(payload.orderId) === String(orderId)) {
+                fetchOrder(true);
+            }
+
+        };
+
+        channel.bind("order:status-changed", handleStatusChanged);
+
+        return () => {
+            channel.unbind("order:status-changed", handleStatusChanged);
+            pusher.unsubscribe(channel.name);
+        };
+
+    }, [customer?.CustomerId, orderId, fetchOrder]);
 
     const handleCancelOrder = async () => {
 

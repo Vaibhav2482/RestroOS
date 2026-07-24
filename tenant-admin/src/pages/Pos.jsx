@@ -6,6 +6,7 @@ import * as branchService from "../services/branchService";
 import * as tableService from "../services/tableService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
+import { getPusherClient } from "../lib/pusherClient";
 
 import PosTableGrid from "./PosTableGrid";
 import PosOrderBuilder from "./PosOrderBuilder";
@@ -68,18 +69,42 @@ function Pos() {
 
         loadTableState(selectedBranchId);
 
-        // Live-ish table grid: picks up orders/status changes made from
-        // another till or device without staff needing to switch screens
-        // and back to refresh.
+        // Fallback safety net in case a realtime event is ever missed - the
+        // Pusher subscription below is what actually makes this feel live.
         const interval = setInterval(() => {
 
             if (document.visibilityState === "visible") {
                 loadTableState(selectedBranchId, true);
             }
 
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedBranchId]);
+
+    // Realtime: a new order (placed by a customer, or rung up on another
+    // till) or a status change shows up on the table grid immediately.
+    useEffect(() => {
+
+        const pusher = getPusherClient();
+
+        if (!pusher || !selectedBranchId) {
+            return undefined;
+        }
+
+        const channel = pusher.subscribe(`private-branch-${selectedBranchId}`);
+        const handleUpdate = () => loadTableState(selectedBranchId, true);
+
+        channel.bind("order:created", handleUpdate);
+        channel.bind("order:status-changed", handleUpdate);
+
+        return () => {
+            channel.unbind("order:created", handleUpdate);
+            channel.unbind("order:status-changed", handleUpdate);
+            pusher.unsubscribe(channel.name);
+        };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedBranchId]);
