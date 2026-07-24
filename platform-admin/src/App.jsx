@@ -1,13 +1,9 @@
-import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-import ProtectedRoute from "./components/ProtectedRoute";
-import PageLoader from "./components/PageLoader";
-
 import Login from "./pages/Login";
-
-const Setup = lazy(() => import("./pages/Setup"));
-const Tenants = lazy(() => import("./pages/Tenants"));
+import Setup from "./pages/Setup";
+import Tenants from "./pages/Tenants";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
 
@@ -21,22 +17,13 @@ function App() {
 
                 <Route path="/login" element={<Login />} />
 
-                <Route
-                    path="/setup"
-                    element={
-                        <Suspense fallback={<PageLoader />}>
-                            <Setup />
-                        </Suspense>
-                    }
-                />
+                <Route path="/setup" element={<Setup />} />
 
                 <Route
                     path="/tenants"
                     element={
                         <ProtectedRoute>
-                            <Suspense fallback={<PageLoader />}>
-                                <Tenants />
-                            </Suspense>
+                            <Tenants />
                         </ProtectedRoute>
                     }
                 />
