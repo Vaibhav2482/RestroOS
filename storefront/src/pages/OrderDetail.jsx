@@ -141,6 +141,7 @@ function OrderDetail() {
         const handleStatusChanged = (payload) => {
 
             if (String(payload.orderId) === String(orderId)) {
+                toast.success(`Order status updated to ${payload.orderStatus}.`);
                 fetchOrder(true);
             }
 

@@ -1,7 +1,6 @@
 import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
-import * as NotificationService from "./NotificationService.js";
 
 const VALID_DELIVERY_TYPES = ["Delivery", "Dine In", "Takeaway"];
 const VALID_PAYMENT_METHODS = ["Cash", "Card", "UPI"];
@@ -57,7 +56,6 @@ export const createOrder = async (order) => {
         const createdOrder = await OrderRepository.createOrder(order);
 
         await RealtimeService.publishOrderCreated(createdOrder);
-        await NotificationService.notifyOrderCreated(createdOrder);
 
         return { success: true, message: "Order placed successfully.", data: createdOrder };
 
@@ -122,7 +120,6 @@ export const updateOrderStatus = async (id, orderStatus) => {
         const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus);
 
         await RealtimeService.publishOrderStatusChanged(updatedOrder);
-        await NotificationService.notifyOrderStatusChanged(updatedOrder);
 
         return { success: true, message: "Order status updated successfully.", data: updatedOrder };
 
@@ -163,8 +160,6 @@ export const cancelOrder = async (orderId) => {
         await RealtimeService.publishOrderStatusChanged(cancelledOrder);
 
         const refundResult = await PaymentService.refundPaymentForOrder(orderId);
-
-        await NotificationService.notifyOrderCancelled(cancelledOrder, refundResult.refunded);
 
         const message = refundResult.refunded
             ? "Order cancelled and payment refunded successfully."

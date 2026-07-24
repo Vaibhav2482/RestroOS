@@ -126,7 +126,12 @@ function Orders() {
         if (pusher && customer.CustomerId) {
 
             channel = pusher.subscribe(`private-customer-${customer.CustomerId}`);
-            channel.bind("order:status-changed", () => load(true));
+
+            channel.bind("order:status-changed", (payload) => {
+                toast.success(`Order #${payload.orderId} is now ${payload.orderStatus}.`);
+                load(true);
+            });
+
             channel.bind("order:created", () => load(true));
 
         }
