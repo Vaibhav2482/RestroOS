@@ -36,6 +36,9 @@ beforeEach(() => {
 
     process.env.TWILIO_SMS_FROM_NUMBER = "+15551234567";
     process.env.TWILIO_WHATSAPP_FROM_NUMBER = "+14155238886";
+    process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CONFIRMED = "HX_confirmed";
+    process.env.TWILIO_WHATSAPP_TEMPLATE_STATUS_CHANGED = "HX_status";
+    process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CANCELLED = "HX_cancelled";
 
 });
 
@@ -54,7 +57,33 @@ describe("NotificationService.notifyOrderCreated", () => {
         const whatsappCall = createMessageMock.mock.calls.find((call) => call[0].to === `whatsapp:${customer.Phone}`);
 
         expect(smsCall[0]).toMatchObject({ from: "+15551234567", to: customer.Phone });
-        expect(whatsappCall[0]).toMatchObject({ from: "whatsapp:+14155238886", to: `whatsapp:${customer.Phone}` });
+        expect(smsCall[0].body).toContain("#62");
+
+        // WhatsApp business-initiated messages require a pre-approved
+        // Content Template (ContentSid + numbered variables), not a free-form
+        // body - Twilio only accepts free text within 24h of the customer
+        // themselves messaging in, which an order notification never is.
+        expect(whatsappCall[0]).toMatchObject({
+            from: "whatsapp:+14155238886",
+            to: `whatsapp:${customer.Phone}`,
+            contentSid: "HX_confirmed"
+        });
+        expect(JSON.parse(whatsappCall[0].contentVariables)).toEqual({
+            1: customer.FullName,
+            2: "62",
+            3: "Rs. 105.00"
+        });
+
+    });
+
+    it("skips WhatsApp (but still sends SMS) when that message's template isn't configured", async () => {
+
+        delete process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CONFIRMED;
+
+        await NotificationService.notifyOrderCreated(order);
+
+        expect(createMessageMock).toHaveBeenCalledTimes(1);
+        expect(createMessageMock.mock.calls[0][0].to).toBe(customer.Phone);
 
     });
 
@@ -104,15 +133,17 @@ describe("NotificationService.notifyOrderCreated", () => {
 
 describe("NotificationService.notifyOrderCancelled", () => {
 
-    it("omits the refund note for cash orders", async () => {
+    it("says no refund is needed for cash orders, rather than leaving the note blank", async () => {
 
         await NotificationService.notifyOrderCancelled(order, false);
 
+        // A blank/omitted template variable renders as a visible gap on
+        // WhatsApp and reads as broken - the note must always say something.
         const [emailArgs] = sendEmailMock.mock.calls[0];
-        expect(emailArgs.html).not.toMatch(/refund/i);
+        expect(emailArgs.html).toMatch(/no refund is needed/i);
 
-        const smsCall = createMessageMock.mock.calls.find((call) => call[0].to === customer.Phone);
-        expect(smsCall[0].body).not.toMatch(/refund/i);
+        const whatsappCall = createMessageMock.mock.calls.find((call) => call[0].to === `whatsapp:${customer.Phone}`);
+        expect(JSON.parse(whatsappCall[0].contentVariables)[3]).toMatch(/no refund is needed/i);
 
     });
 

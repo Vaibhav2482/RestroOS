@@ -44,29 +44,36 @@ const sendSms = async (to, body) => {
 
 };
 
-// Twilio's WhatsApp Business API reuses the same client/credentials as SMS -
-// only the "from"/"to" values change, prefixed with "whatsapp:". The sender
-// number is the sandbox number during testing, and a Meta-approved
-// WhatsApp Business number once that verification is done.
-const sendWhatsApp = async (to, body) => {
+// Unlike SMS, WhatsApp will only accept free-form text (a plain "body")
+// inside the 24-hour window after the customer themselves last messaged in -
+// which an order notification, being business-initiated, never is. Outside
+// that window Twilio/Meta require a pre-approved Content Template
+// (ContentSid) with numbered {{1}}, {{2}}... placeholders instead, so this
+// sends contentSid + contentVariables rather than a body. templateEnvVar
+// names which env var holds that message type's ContentSid - not set means
+// that template hasn't been created/approved yet, so WhatsApp is skipped
+// for it (same "optional, silently skip" pattern as every other channel).
+const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
 
     const client = getTwilioClient();
+    const contentSid = process.env[templateEnvVar];
 
-    if (!client || !to || !process.env.TWILIO_WHATSAPP_FROM_NUMBER) {
+    if (!client || !to || !contentSid || !process.env.TWILIO_WHATSAPP_FROM_NUMBER) {
         return;
     }
 
     try {
 
         await client.messages.create({
-            body,
+            contentSid,
+            contentVariables: JSON.stringify(contentVariables),
             from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM_NUMBER}`,
             to: `whatsapp:${to}`
         });
 
     } catch (error) {
 
-        console.error(`WhatsApp notification failed (-> ${to}): ${error.message}`);
+        console.error(`WhatsApp notification failed (${templateEnvVar} -> ${to}): ${error.message}`);
 
     }
 
@@ -78,18 +85,9 @@ const formatMoney = (value) => `Rs. ${Number(value ?? 0).toFixed(2)}`;
 // status update never fail to save, just because a notification couldn't be
 // sent. Every notify* function below fans out to every configured channel
 // (email/SMS/WhatsApp) at once rather than picking one - each channel is
-// independently best-effort and silently skips itself if its provider isn't
-// configured or the customer has no email/phone on file.
-const notifyCustomer = async (customer, { subject, emailBody, textBody }) => {
-
-    await Promise.all([
-        sendEmail(customer.Email, subject, emailBody),
-        sendSms(customer.Phone, textBody),
-        sendWhatsApp(customer.Phone, textBody)
-    ]);
-
-};
-
+// independently best-effort and silently skips itself if its provider (or,
+// for WhatsApp, that specific message's approved template) isn't
+// configured, or the customer has no email/phone on file.
 export const notifyOrderCreated = async (order) => {
 
     const customer = await CustomerRepository.getCustomerById(order.CustomerId);
@@ -98,14 +96,27 @@ export const notifyOrderCreated = async (order) => {
         return;
     }
 
-    await notifyCustomer(customer, {
-        subject: `Order #${order.OrderId} confirmed`,
-        emailBody: `<p>Hi ${customer.FullName},</p>
+    const total = formatMoney(order.TotalAmount);
+
+    await Promise.all([
+        sendEmail(
+            customer.Email,
+            `Order #${order.OrderId} confirmed`,
+            `<p>Hi ${customer.FullName},</p>
                <p>Your order <strong>#${order.OrderId}</strong> has been placed successfully.</p>
-               <p>Total: <strong>${formatMoney(order.TotalAmount)}</strong></p>
-               <p>We'll notify you as it moves through the kitchen.</p>`,
-        textBody: `Hi ${customer.FullName}, your order #${order.OrderId} (${formatMoney(order.TotalAmount)}) has been placed successfully. We'll update you as it moves through the kitchen.`
-    });
+               <p>Total: <strong>${total}</strong></p>
+               <p>We'll notify you as it moves through the kitchen.</p>`
+        ),
+        sendSms(
+            customer.Phone,
+            `Hi ${customer.FullName}, your order #${order.OrderId} (${total}) has been placed successfully. We'll update you as it moves through the kitchen.`
+        ),
+        sendWhatsApp(customer.Phone, "TWILIO_WHATSAPP_TEMPLATE_ORDER_CONFIRMED", {
+            1: customer.FullName,
+            2: String(order.OrderId),
+            3: total
+        })
+    ]);
 
 };
 
@@ -117,12 +128,23 @@ export const notifyOrderStatusChanged = async (order) => {
         return;
     }
 
-    await notifyCustomer(customer, {
-        subject: `Order #${order.OrderId} is now ${order.OrderStatus}`,
-        emailBody: `<p>Hi ${customer.FullName},</p>
-               <p>Your order <strong>#${order.OrderId}</strong> status has been updated to <strong>${order.OrderStatus}</strong>.</p>`,
-        textBody: `Hi ${customer.FullName}, your order #${order.OrderId} is now ${order.OrderStatus}.`
-    });
+    await Promise.all([
+        sendEmail(
+            customer.Email,
+            `Order #${order.OrderId} is now ${order.OrderStatus}`,
+            `<p>Hi ${customer.FullName},</p>
+               <p>Your order <strong>#${order.OrderId}</strong> status has been updated to <strong>${order.OrderStatus}</strong>.</p>`
+        ),
+        sendSms(
+            customer.Phone,
+            `Hi ${customer.FullName}, your order #${order.OrderId} is now ${order.OrderStatus}.`
+        ),
+        sendWhatsApp(customer.Phone, "TWILIO_WHATSAPP_TEMPLATE_STATUS_CHANGED", {
+            1: customer.FullName,
+            2: String(order.OrderId),
+            3: order.OrderStatus
+        })
+    ]);
 
 };
 
@@ -134,24 +156,32 @@ export const notifyOrderCancelled = async (order, refunded) => {
         return;
     }
 
-    const refundNoteHtml = order.PaymentMethod === "Cash"
-        ? ""
-        : `<p>${refunded
-            ? `A refund of <strong>${formatMoney(order.TotalAmount)}</strong> has been initiated and should reflect in 5-7 business days.`
-            : "Our team will process your refund shortly."}</p>`;
-
-    const refundNoteText = order.PaymentMethod === "Cash"
-        ? ""
-        : ` ${refunded
+    // Always a concrete sentence, never blank - a WhatsApp template variable
+    // left empty renders as a visible gap and reads as broken to Meta's
+    // review and to the customer alike.
+    const refundNote = order.PaymentMethod === "Cash"
+        ? "No refund is needed since payment was made in cash."
+        : refunded
             ? `A refund of ${formatMoney(order.TotalAmount)} has been initiated and should reflect in 5-7 business days.`
-            : "Our team will process your refund shortly."}`;
+            : "Our team will process your refund shortly.";
 
-    await notifyCustomer(customer, {
-        subject: `Order #${order.OrderId} cancelled`,
-        emailBody: `<p>Hi ${customer.FullName},</p>
+    await Promise.all([
+        sendEmail(
+            customer.Email,
+            `Order #${order.OrderId} cancelled`,
+            `<p>Hi ${customer.FullName},</p>
                <p>Your order <strong>#${order.OrderId}</strong> has been cancelled.</p>
-               ${refundNoteHtml}`,
-        textBody: `Hi ${customer.FullName}, your order #${order.OrderId} has been cancelled.${refundNoteText}`
-    });
+               <p>${refundNote}</p>`
+        ),
+        sendSms(
+            customer.Phone,
+            `Hi ${customer.FullName}, your order #${order.OrderId} has been cancelled. ${refundNote}`
+        ),
+        sendWhatsApp(customer.Phone, "TWILIO_WHATSAPP_TEMPLATE_ORDER_CANCELLED", {
+            1: customer.FullName,
+            2: String(order.OrderId),
+            3: refundNote
+        })
+    ]);
 
 };
