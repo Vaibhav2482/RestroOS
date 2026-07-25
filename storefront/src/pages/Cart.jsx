@@ -37,7 +37,18 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
 
         <Paper elevation={0} sx={{ p: 2.5, border: "1px solid #E5E7EB" }}>
 
-            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+            {/* Fixed grid tracks, not a two-item flex row - with only "name"
+                and "everything else" as flex children, a longer item name or
+                an options line nudges the stepper/price/delete as a block
+                instead of them staying pinned to the same x on every row. */}
+            <Box
+                sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 104px 80px 40px",
+                    alignItems: "center",
+                    columnGap: 2
+                }}
+            >
 
                 <Box sx={{ minWidth: 0 }}>
 
@@ -57,56 +68,53 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
 
                 </Box>
 
-                <Stack direction="row" alignItems="center" spacing={1.5}>
+                {/* MUI's default IconButton padding made this read as three
+                    loose, unevenly-spaced elements rather than one grouped
+                    control - tight p:0.75 + a real pill radius fixes that. */}
+                <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25, width: "100%" }}
+                >
 
-                    {/* MUI's default IconButton padding made this read as three
-                        loose, unevenly-spaced elements rather than one grouped
-                        control - tight p:0.75 + a real pill radius fixes that. */}
-                    <Stack
-                        direction="row"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        sx={{ border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25 }}
+                    <IconButton
+                        size="small"
+                        onClick={() => onQuantityChange(item, item.Quantity - 1)}
+                        sx={{ p: 0.75 }}
                     >
+                        <RemoveIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
 
-                        <IconButton
-                            size="small"
-                            onClick={() => onQuantityChange(item, item.Quantity - 1)}
-                            sx={{ p: 0.75 }}
-                        >
-                            <RemoveIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-
-                        <Typography fontWeight={600} sx={{ minWidth: 20, textAlign: "center" }}>
-                            {item.Quantity}
-                        </Typography>
-
-                        <IconButton
-                            size="small"
-                            onClick={() => onQuantityChange(item, item.Quantity + 1)}
-                            sx={{ p: 0.75 }}
-                        >
-                            <AddIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-
-                    </Stack>
-
-                    <Typography fontWeight={700} sx={{ minWidth: 80, textAlign: "right" }}>
-                        {formatCurrency(item.TotalPrice)}
+                    <Typography fontWeight={600} sx={{ minWidth: 20, textAlign: "center" }}>
+                        {item.Quantity}
                     </Typography>
 
                     <IconButton
                         size="small"
-                        color="error"
-                        onClick={() => onRemove(item)}
-                        aria-label={`Remove ${item.ItemName}`}
+                        onClick={() => onQuantityChange(item, item.Quantity + 1)}
+                        sx={{ p: 0.75 }}
                     >
-                        <DeleteOutlineIcon fontSize="small" />
+                        <AddIcon sx={{ fontSize: 18 }} />
                     </IconButton>
 
                 </Stack>
 
-            </Stack>
+                <Typography fontWeight={700} sx={{ textAlign: "right" }}>
+                    {formatCurrency(item.TotalPrice)}
+                </Typography>
+
+                <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => onRemove(item)}
+                    aria-label={`Remove ${item.ItemName}`}
+                    sx={{ justifySelf: "end" }}
+                >
+                    <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+
+            </Box>
 
         </Paper>
 
