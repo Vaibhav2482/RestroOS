@@ -248,6 +248,7 @@ function Tenants() {
                                                         size="small"
                                                         onClick={() => setConfirmResetTenant(tenant)}
                                                         disabled={resettingTenantId === tenant.TenantId}
+                                                        aria-label={`Reset owner password for ${tenant.TenantName}`}
                                                     >
                                                         <LockResetRoundedIcon fontSize="small" />
                                                     </IconButton>
