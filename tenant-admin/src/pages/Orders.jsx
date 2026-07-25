@@ -1,21 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import {
     Box,
+    Button,
     Chip,
     CircularProgress,
     FormControl,
+    InputAdornment,
     InputLabel,
     MenuItem,
     Paper,
     Select,
+    Stack,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
+    TextField,
     Typography
 } from "@mui/material";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
@@ -23,7 +28,12 @@ import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
 import OrderDetailsDialog from "./OrderDetailsDialog";
-import { formatCurrency, getStatusChipColor } from "./orderStatusUtils";
+import { formatCurrency, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
+
+// "All" first, then the sequence a Delivery order actually moves through -
+// Dine In/Takeaway orders just never hit "Out For Delivery", which is fine
+// since it'll always have a zero count for them rather than being confusing.
+const STATUS_FILTERS = ["All", "Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered", "Cancelled"];
 
 function Orders() {
 
@@ -38,6 +48,10 @@ function Orders() {
 
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
+
+    const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("All");
+    const [advancingOrderId, setAdvancingOrderId] = useState(null);
 
     // Only the very first load (nothing on screen yet) shows the blocking
     // spinner. Every reload after that - after advancing a status, after
@@ -182,6 +196,65 @@ function Orders() {
         setSelectedOrderId(null);
     };
 
+    // A single-tap way to clear the most common step (front-of-house handing
+    // a Ready order off as Delivered/Out For Delivery) without opening the
+    // full details dialog just for that - stopPropagation keeps the click
+    // from also triggering the row's own onClick, which would pop the dialog
+    // right back open underneath it.
+    const handleQuickAdvance = async (event, order, nextStatus) => {
+
+        event.stopPropagation();
+
+        try {
+
+            setAdvancingOrderId(order.OrderId);
+
+            const response = await orderService.updateOrderStatus(order.OrderId, nextStatus);
+
+            if (!response.success) {
+                toast.error(response.message || "Failed to update order status.");
+                return;
+            }
+
+            toast.success(response.message || "Order status updated.");
+            await loadOrders(true);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update order status.");
+
+        } finally {
+
+            setAdvancingOrderId(null);
+
+        }
+
+    };
+
+    const statusCounts = orders.reduce((counts, order) => {
+        counts[order.OrderStatus] = (counts[order.OrderStatus] || 0) + 1;
+        return counts;
+    }, {});
+
+    const filteredOrders = orders.filter((order) => {
+
+        if (statusFilter !== "All" && order.OrderStatus !== statusFilter) {
+            return false;
+        }
+
+        const query = search.trim().toLowerCase();
+
+        if (!query) {
+            return true;
+        }
+
+        const matchesId = String(order.OrderId).includes(query);
+        const matchesCustomer = (order.CustomerName || "").toLowerCase().includes(query);
+
+        return matchesId || matchesCustomer;
+
+    });
+
     return (
 
         <Box>
@@ -219,6 +292,49 @@ function Orders() {
 
             </Box>
 
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+
+                <TextField
+                    size="small"
+                    placeholder="Search by order # or customer..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    sx={{ flexGrow: 1, maxWidth: { sm: 320 } }}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRoundedIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                                </InputAdornment>
+                            )
+                        }
+                    }}
+                />
+
+                <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: { xs: 0.5, sm: 0 } }}>
+
+                    {STATUS_FILTERS.map((status) => {
+
+                        const count = status === "All" ? orders.length : (statusCounts[status] || 0);
+                        const selected = statusFilter === status;
+
+                        return (
+                            <Chip
+                                key={status}
+                                label={`${status} (${count})`}
+                                onClick={() => setStatusFilter(status)}
+                                color={selected ? (status === "All" ? "primary" : getStatusChipColor(status)) : "default"}
+                                variant={selected ? "filled" : "outlined"}
+                                sx={{ flexShrink: 0 }}
+                            />
+                        );
+
+                    })}
+
+                </Stack>
+
+            </Stack>
+
             <Paper elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
 
                 {loading ? (
@@ -243,61 +359,93 @@ function Orders() {
                                     <TableCell align="right">Total</TableCell>
                                     <TableCell>Status</TableCell>
                                     <TableCell>Date</TableCell>
+                                    <TableCell align="right">Actions</TableCell>
                                 </TableRow>
 
                             </TableHead>
 
                             <TableBody>
 
-                                {orders.length === 0 ? (
+                                {filteredOrders.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={ownerMode ? 7 : 6} align="center" sx={{ py: 6 }}>
-                                            <Typography color="text.secondary">No orders found.</Typography>
+                                        <TableCell colSpan={ownerMode ? 8 : 7} align="center" sx={{ py: 6 }}>
+                                            <Typography color="text.secondary">
+                                                {orders.length === 0
+                                                    ? "No orders found."
+                                                    : "No orders match your search/filter."}
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
 
                                 ) : (
 
-                                    orders.map((order) => (
+                                    filteredOrders.map((order) => {
 
-                                        <TableRow
-                                            key={order.OrderId}
-                                            hover
-                                            onClick={() => handleRowClick(order.OrderId)}
-                                            sx={{ cursor: "pointer" }}
-                                        >
+                                        // Pending is the one status that always needs a human to
+                                        // notice it right now - a new order sitting unhandled is
+                                        // the costliest thing to miss in this list, so it gets a
+                                        // visual flag the plain status chip doesn't provide.
+                                        const needsAttention = order.OrderStatus === "Pending";
+                                        const nextStatus = getNextStatuses(order.OrderStatus, order.DeliveryType)[0];
 
-                                            <TableCell>#{order.OrderId}</TableCell>
+                                        return (
 
-                                            <TableCell>
-                                                {order.CustomerName || "Guest"}
-                                            </TableCell>
+                                            <TableRow
+                                                key={order.OrderId}
+                                                hover
+                                                onClick={() => handleRowClick(order.OrderId)}
+                                                sx={{
+                                                    cursor: "pointer",
+                                                    borderLeft: needsAttention ? "3px solid #F59E0B" : "3px solid transparent"
+                                                }}
+                                            >
 
-                                            {ownerMode && <TableCell>{order.BranchName}</TableCell>}
+                                                <TableCell>#{order.OrderId}</TableCell>
 
-                                            <TableCell>
-                                                {order.DeliveryType}
-                                                {order.DeliveryType === "Dine In" && order.TableNumber ? ` (T-${order.TableNumber})` : ""}
-                                            </TableCell>
+                                                <TableCell>
+                                                    {order.CustomerName || "Guest"}
+                                                </TableCell>
 
-                                            <TableCell align="right">{formatCurrency(order.TotalAmount)}</TableCell>
+                                                {ownerMode && <TableCell>{order.BranchName}</TableCell>}
 
-                                            <TableCell>
-                                                <Chip
-                                                    label={order.OrderStatus}
-                                                    color={getStatusChipColor(order.OrderStatus)}
-                                                    size="small"
-                                                />
-                                            </TableCell>
+                                                <TableCell>
+                                                    {order.DeliveryType}
+                                                    {order.DeliveryType === "Dine In" && order.TableNumber ? ` (T-${order.TableNumber})` : ""}
+                                                </TableCell>
 
-                                            <TableCell>
-                                                {new Date(order.OrderDate).toLocaleString()}
-                                            </TableCell>
+                                                <TableCell align="right">{formatCurrency(order.TotalAmount)}</TableCell>
 
-                                        </TableRow>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={order.OrderStatus}
+                                                        color={getStatusChipColor(order.OrderStatus)}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
 
-                                    ))
+                                                <TableCell>
+                                                    {new Date(order.OrderDate).toLocaleString()}
+                                                </TableCell>
+
+                                                <TableCell align="right" onClick={(event) => event.stopPropagation()}>
+                                                    {!isTerminalStatus(order.OrderStatus) && nextStatus && (
+                                                        <Button
+                                                            size="small"
+                                                            variant="outlined"
+                                                            disabled={advancingOrderId === order.OrderId}
+                                                            onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
+                                                        >
+                                                            {advancingOrderId === order.OrderId ? "..." : `Mark ${nextStatus}`}
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+
+                                            </TableRow>
+
+                                        );
+
+                                    })
 
                                 )}
 
