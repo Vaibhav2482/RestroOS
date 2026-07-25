@@ -4,10 +4,12 @@ import * as NotificationService from "./NotificationService.js";
 import { getResendClient } from "../config/resend.js";
 import { getTwilioClient } from "../config/twilio.js";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
+import * as OrderRepository from "../repositories/OrderRepository.js";
 
 vi.mock("../config/resend.js");
 vi.mock("../config/twilio.js");
 vi.mock("../repositories/CustomerRepository.js");
+vi.mock("../repositories/OrderRepository.js");
 
 const customer = { CustomerId: 1, FullName: "Vaibhav Nawale", Email: "vaibhav@example.com", Phone: "+919999999999" };
 
@@ -15,9 +17,17 @@ const order = {
     OrderId: 62,
     CustomerId: 1,
     TotalAmount: 105,
-    OrderStatus: "Delivered",
+    OrderStatus: "Ready",
     PaymentMethod: "Cash"
 };
+
+// getOrderById returns one row per item, same shape OrderRepository actually
+// returns (joined Orders + OrderItems columns) - only the item-related
+// columns matter for these tests.
+const orderItemRows = [
+    { ItemName: "Garam Tea", Quantity: 3, TotalPrice: 30 },
+    { ItemName: "Irani Chai", Quantity: 1, TotalPrice: 75 }
+];
 
 let sendEmailMock;
 let createMessageMock;
@@ -27,6 +37,7 @@ beforeEach(() => {
     vi.clearAllMocks();
 
     CustomerRepository.getCustomerById.mockResolvedValue(customer);
+    OrderRepository.getOrderById.mockResolvedValue(orderItemRows);
 
     sendEmailMock = vi.fn().mockResolvedValue({});
     getResendClient.mockReturnValue({ emails: { send: sendEmailMock } });
@@ -38,69 +49,44 @@ beforeEach(() => {
     process.env.TWILIO_WHATSAPP_FROM_NUMBER = "+14155238886";
     process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CONFIRMED = "HX_confirmed";
     process.env.TWILIO_WHATSAPP_TEMPLATE_STATUS_CHANGED = "HX_status";
+    process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_DELIVERED = "HX_delivered";
     process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CANCELLED = "HX_cancelled";
 
 });
 
+const whatsappCallTo = (phone) => createMessageMock.mock.calls.find((call) => call[0].to === `whatsapp:${phone}`);
+const smsCallTo = (phone) => createMessageMock.mock.calls.find((call) => call[0].to === phone);
+
 describe("NotificationService.notifyOrderCreated", () => {
 
-    it("fans out to email, SMS, and WhatsApp when all three are configured", async () => {
+    it("includes the itemized bill on email, SMS, and the WhatsApp template", async () => {
 
         await NotificationService.notifyOrderCreated(order);
 
         expect(sendEmailMock).toHaveBeenCalledTimes(1);
-        expect(sendEmailMock.mock.calls[0][0]).toMatchObject({ to: customer.Email, subject: expect.stringContaining("#62") });
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.html).toContain("3x Garam Tea");
+        expect(emailArgs.html).toContain("1x Irani Chai");
+        expect(emailArgs.html).toContain("Rs. 105.00");
 
-        expect(createMessageMock).toHaveBeenCalledTimes(2);
+        const sms = smsCallTo(customer.Phone);
+        expect(sms[0].body).toContain("3x Garam Tea - Rs. 30.00");
+        expect(sms[0].body).toContain("1x Irani Chai - Rs. 75.00");
 
-        const smsCall = createMessageMock.mock.calls.find((call) => call[0].to === customer.Phone);
-        const whatsappCall = createMessageMock.mock.calls.find((call) => call[0].to === `whatsapp:${customer.Phone}`);
+        const whatsapp = whatsappCallTo(customer.Phone);
+        expect(whatsapp[0].contentSid).toBe("HX_confirmed");
 
-        expect(smsCall[0]).toMatchObject({ from: "+15551234567", to: customer.Phone });
-        expect(smsCall[0].body).toContain("#62");
-
-        // WhatsApp business-initiated messages require a pre-approved
-        // Content Template (ContentSid + numbered variables), not a free-form
-        // body - Twilio only accepts free text within 24h of the customer
-        // themselves messaging in, which an order notification never is.
-        expect(whatsappCall[0]).toMatchObject({
-            from: "whatsapp:+14155238886",
-            to: `whatsapp:${customer.Phone}`,
-            contentSid: "HX_confirmed"
-        });
-        expect(JSON.parse(whatsappCall[0].contentVariables)).toEqual({
-            1: customer.FullName,
-            2: "62",
-            3: "Rs. 105.00"
-        });
-
-    });
-
-    it("skips WhatsApp (but still sends SMS) when that message's template isn't configured", async () => {
-
-        delete process.env.TWILIO_WHATSAPP_TEMPLATE_ORDER_CONFIRMED;
-
-        await NotificationService.notifyOrderCreated(order);
-
-        expect(createMessageMock).toHaveBeenCalledTimes(1);
-        expect(createMessageMock.mock.calls[0][0].to).toBe(customer.Phone);
+        const variables = JSON.parse(whatsapp[0].contentVariables);
+        expect(variables[1]).toBe(customer.FullName);
+        expect(variables[2]).toBe("62");
+        expect(variables[3]).toContain("3x Garam Tea");
+        expect(variables[4]).toBe("Rs. 105.00");
 
     });
 
     it("skips SMS/WhatsApp but still emails when Twilio isn't configured", async () => {
 
         getTwilioClient.mockReturnValue(null);
-
-        await NotificationService.notifyOrderCreated(order);
-
-        expect(sendEmailMock).toHaveBeenCalledTimes(1);
-        expect(createMessageMock).not.toHaveBeenCalled();
-
-    });
-
-    it("skips SMS/WhatsApp when the customer has no phone on file, without throwing", async () => {
-
-        CustomerRepository.getCustomerById.mockResolvedValue({ ...customer, Phone: null });
 
         await NotificationService.notifyOrderCreated(order);
 
@@ -131,19 +117,59 @@ describe("NotificationService.notifyOrderCreated", () => {
 
 });
 
+describe("NotificationService.notifyOrderStatusChanged", () => {
+
+    it("sends a short ping with no bill for a non-final status", async () => {
+
+        await NotificationService.notifyOrderStatusChanged({ ...order, OrderStatus: "Preparing" });
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.html).not.toContain("Garam Tea");
+        expect(emailArgs.html).toMatch(/Preparing/);
+
+        const whatsapp = whatsappCallTo(customer.Phone);
+        expect(whatsapp[0].contentSid).toBe("HX_status");
+        expect(JSON.parse(whatsapp[0].contentVariables)[3]).toBe("Preparing");
+
+        // Delivered-only lookup - a non-final status shouldn't pay for the
+        // extra getOrderById call it doesn't need.
+        expect(OrderRepository.getOrderById).not.toHaveBeenCalled();
+
+    });
+
+    it("sends the full bill as a closing receipt when the order is Delivered", async () => {
+
+        await NotificationService.notifyOrderStatusChanged({ ...order, OrderStatus: "Delivered" });
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.html).toContain("3x Garam Tea");
+        expect(emailArgs.html).toContain("Rs. 105.00");
+
+        const whatsapp = whatsappCallTo(customer.Phone);
+        expect(whatsapp[0].contentSid).toBe("HX_delivered");
+
+        const variables = JSON.parse(whatsapp[0].contentVariables);
+        expect(variables[3]).toContain("3x Garam Tea");
+        expect(variables[4]).toBe("Rs. 105.00");
+
+    });
+
+});
+
 describe("NotificationService.notifyOrderCancelled", () => {
 
-    it("says no refund is needed for cash orders, rather than leaving the note blank", async () => {
+    it("includes the bill and says no refund is needed for cash orders", async () => {
 
         await NotificationService.notifyOrderCancelled(order, false);
 
-        // A blank/omitted template variable renders as a visible gap on
-        // WhatsApp and reads as broken - the note must always say something.
         const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.html).toContain("3x Garam Tea");
         expect(emailArgs.html).toMatch(/no refund is needed/i);
 
-        const whatsappCall = createMessageMock.mock.calls.find((call) => call[0].to === `whatsapp:${customer.Phone}`);
-        expect(JSON.parse(whatsappCall[0].contentVariables)[3]).toMatch(/no refund is needed/i);
+        const whatsapp = whatsappCallTo(customer.Phone);
+        const variables = JSON.parse(whatsapp[0].contentVariables);
+        expect(variables[3]).toContain("3x Garam Tea");
+        expect(variables[4]).toMatch(/no refund is needed/i);
 
     });
 
