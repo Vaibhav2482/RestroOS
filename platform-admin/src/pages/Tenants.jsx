@@ -6,6 +6,12 @@ import {
     Chip,
     CircularProgress,
     Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
+    IconButton,
     Table,
     TableBody,
     TableCell,
@@ -13,17 +19,20 @@ import {
     TableHead,
     TableRow,
     Toolbar,
+    Tooltip,
     Typography,
     Paper
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { getAllTenants, createTenant } from "../services/tenantService";
+import { getAllTenants, createTenant, resetOwnerPassword } from "../services/tenantService";
 import { clearStoredAuth, getStoredAuth } from "../utils/platformAuth";
 import TenantDialog from "./TenantDialog";
+import TemporaryPasswordDialog from "./TemporaryPasswordDialog";
 
 function Tenants() {
 
@@ -33,6 +42,9 @@ function Tenants() {
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [confirmResetTenant, setConfirmResetTenant] = useState(null);
+    const [resettingTenantId, setResettingTenantId] = useState(null);
+    const [credentialResult, setCredentialResult] = useState(null);
 
     // Only the first load shows the blocking spinner - reloading after
     // onboarding a tenant keeps the existing table visible instead of
@@ -83,8 +95,15 @@ function Tenants() {
                 return false;
             }
 
-            toast.success(response.message);
             setDialogOpen(false);
+            // The owner's one-time login password lives in this response and
+            // nowhere else retrievable - hand it off to the same dialog the
+            // reset-password action uses instead of letting the toast (which
+            // doesn't include it) be the only feedback.
+            setCredentialResult({
+                email: response.data.ownerAdmin.email,
+                temporaryPassword: response.data.ownerAdmin.temporaryPassword
+            });
             await loadTenants();
             return true;
 
@@ -92,6 +111,34 @@ function Tenants() {
 
             toast.error(error.response?.data?.message || "Failed to create tenant.");
             return false;
+
+        }
+
+    };
+
+    const handleResetPassword = async (tenant) => {
+
+        try {
+
+            setResettingTenantId(tenant.TenantId);
+
+            const response = await resetOwnerPassword(tenant.TenantId);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            setCredentialResult({ email: response.data.email, temporaryPassword: response.data.temporaryPassword });
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to reset password.");
+
+        } finally {
+
+            setResettingTenantId(null);
+            setConfirmResetTenant(null);
 
         }
 
@@ -159,6 +206,7 @@ function Tenants() {
                                     <TableCell>Plan</TableCell>
                                     <TableCell>Status</TableCell>
                                     <TableCell>Onboarded</TableCell>
+                                    <TableCell align="right">Actions</TableCell>
                                 </TableRow>
 
                             </TableHead>
@@ -168,7 +216,7 @@ function Tenants() {
                                 {tenants.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                             <Typography color="text.secondary">
                                                 No tenants yet. Onboard your first restaurant to get started.
                                             </Typography>
@@ -194,6 +242,17 @@ function Tenants() {
                                                 />
                                             </TableCell>
                                             <TableCell>{new Date(tenant.CreatedAt).toLocaleDateString()}</TableCell>
+                                            <TableCell align="right">
+                                                <Tooltip title="Reset owner password">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => setConfirmResetTenant(tenant)}
+                                                        disabled={resettingTenantId === tenant.TenantId}
+                                                    >
+                                                        <LockResetRoundedIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </TableCell>
                                         </TableRow>
 
                                     ))
@@ -214,6 +273,45 @@ function Tenants() {
                 open={dialogOpen}
                 onClose={() => setDialogOpen(false)}
                 onSave={handleCreate}
+            />
+
+            <Dialog open={Boolean(confirmResetTenant)} onClose={() => setConfirmResetTenant(null)}>
+
+                <DialogTitle>Reset password?</DialogTitle>
+
+                <DialogContent>
+                    <DialogContentText>
+                        This immediately invalidates {confirmResetTenant?.OwnerEmail}&apos;s current password for
+                        &quot;{confirmResetTenant?.TenantName}&quot;. A new temporary password will be generated and shown once.
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions>
+
+                    <Button
+                        onClick={() => setConfirmResetTenant(null)}
+                        disabled={resettingTenantId === confirmResetTenant?.TenantId}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        color="error"
+                        onClick={() => handleResetPassword(confirmResetTenant)}
+                        disabled={resettingTenantId === confirmResetTenant?.TenantId}
+                    >
+                        {resettingTenantId === confirmResetTenant?.TenantId ? "Resetting..." : "Reset Password"}
+                    </Button>
+
+                </DialogActions>
+
+            </Dialog>
+
+            <TemporaryPasswordDialog
+                open={Boolean(credentialResult)}
+                onClose={() => setCredentialResult(null)}
+                email={credentialResult?.email}
+                password={credentialResult?.temporaryPassword}
             />
 
         </Box>

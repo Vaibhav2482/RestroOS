@@ -72,3 +72,32 @@ export const deactivate = async (adminId) => {
     await pool.query(`UPDATE "Admins" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "AdminId" = $1`, [adminId]);
 
 };
+
+// Unlike getByTenantAndEmail, this doesn't filter on IsActive - a platform
+// admin resetting a password needs to find a deactivated account too (and
+// resetPassword below reactivates it), whereas login deliberately treats
+// "deactivated" and "doesn't exist" the same way.
+export const getByTenantAndEmailAny = async (tenantId, email) => {
+
+    const result = await pool.query(
+        `SELECT * FROM "Admins" WHERE "TenantId" = $1 AND "Email" = $2`,
+        [tenantId, email]
+    );
+
+    return result.rows[0];
+
+};
+
+export const resetPassword = async (adminId, hashedPassword) => {
+
+    const result = await pool.query(
+        `UPDATE "Admins"
+         SET "Password" = $1, "IsActive" = TRUE, "UpdatedAt" = NOW()
+         WHERE "AdminId" = $2
+         RETURNING "AdminId", "Email"`,
+        [hashedPassword, adminId]
+    );
+
+    return result.rows[0];
+
+};

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import * as TenantRepository from "../repositories/TenantRepository.js";
+import * as AdminRepository from "../repositories/AdminRepository.js";
 
 const slugify = (text) =>
     text
@@ -70,6 +71,37 @@ export const createTenant = async (tenant) => {
             ...createdTenant,
             ownerAdmin: { adminId: admin.AdminId, email: admin.Email, temporaryPassword }
         }
+    };
+
+};
+
+// There's no self-service "forgot password" for tenant-admin logins (this
+// app deliberately has no email channel) - a platform admin generating and
+// relaying a new one is the recovery path instead. Same "shown once, never
+// stored in plaintext" pattern as the temporary password from onboarding.
+export const resetOwnerPassword = async (tenantId) => {
+
+    const tenant = await TenantRepository.getById(tenantId);
+
+    if (!tenant) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    const admin = await AdminRepository.getByTenantAndEmailAny(tenant.TenantId, tenant.OwnerEmail);
+
+    if (!admin) {
+        return { success: false, message: "No admin account found for this restaurant's owner email." };
+    }
+
+    const temporaryPassword = crypto.randomBytes(9).toString("base64url");
+    const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+    await AdminRepository.resetPassword(admin.AdminId, hashedPassword);
+
+    return {
+        success: true,
+        message: "Password reset successfully.",
+        data: { adminId: admin.AdminId, email: admin.Email, temporaryPassword }
     };
 
 };

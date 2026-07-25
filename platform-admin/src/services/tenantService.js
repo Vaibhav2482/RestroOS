@@ -15,3 +15,11 @@ export const createTenant = async (tenant) => {
     return response.data;
 
 };
+
+export const resetOwnerPassword = async (tenantId) => {
+
+    const response = await axiosClient.post(`/platform-admin/tenants/${tenantId}/reset-password`);
+
+    return response.data;
+
+};
