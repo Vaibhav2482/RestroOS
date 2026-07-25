@@ -18,6 +18,7 @@ import {
     Table,
     TableBody,
     TableCell,
+    TableContainer,
     TableHead,
     TableRow,
     Typography
@@ -247,26 +248,32 @@ function OrderDetail() {
 
                         <Typography fontWeight={700} sx={{ mb: 2 }}>Items</Typography>
 
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Item</TableCell>
-                                    <TableCell align="right">Price</TableCell>
-                                    <TableCell align="right">Qty</TableCell>
-                                    <TableCell align="right">Total</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {order.Items.map((item) => (
-                                    <TableRow key={item.OrderItemId}>
-                                        <TableCell>{item.ItemName}</TableCell>
-                                        <TableCell align="right">{formatMoney(item.Price)}</TableCell>
-                                        <TableCell align="right">{item.Quantity}</TableCell>
-                                        <TableCell align="right">{formatMoney(item.TotalPrice)}</TableCell>
+                        {/* A long item name can push this table wider than a
+                            phone screen - scrolling the table itself keeps
+                            that overflow contained instead of the whole page
+                            gaining horizontal scroll. */}
+                        <TableContainer sx={{ overflowX: "auto" }}>
+                            <Table size="small" sx={{ minWidth: 420 }}>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell>Item</TableCell>
+                                        <TableCell align="right">Price</TableCell>
+                                        <TableCell align="right">Qty</TableCell>
+                                        <TableCell align="right">Total</TableCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHead>
+                                <TableBody>
+                                    {order.Items.map((item) => (
+                                        <TableRow key={item.OrderItemId}>
+                                            <TableCell>{item.ItemName}</TableCell>
+                                            <TableCell align="right">{formatMoney(item.Price)}</TableCell>
+                                            <TableCell align="right">{item.Quantity}</TableCell>
+                                            <TableCell align="right">{formatMoney(item.TotalPrice)}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
 
                         <Divider sx={{ my: 2 }} />
 

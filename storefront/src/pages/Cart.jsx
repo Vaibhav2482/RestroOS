@@ -40,17 +40,26 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
             {/* Fixed grid tracks, not a two-item flex row - with only "name"
                 and "everything else" as flex children, a longer item name or
                 an options line nudges the stepper/price/delete as a block
-                instead of them staying pinned to the same x on every row. */}
+                instead of them staying pinned to the same x on every row.
+                Below `sm` the fixed 104/80/40px control tracks would leave
+                the name column only ~30px wide, so those three drop to their
+                own full-width row underneath the name instead of squeezing
+                in beside it. */}
             <Box
                 sx={{
                     display: "grid",
-                    gridTemplateColumns: "1fr 104px 80px 40px",
+                    gridTemplateColumns: { xs: "auto 1fr auto", sm: "1fr 104px 80px 40px" },
+                    gridTemplateAreas: {
+                        xs: `"name name name" "stepper price delete"`,
+                        sm: `"name stepper price delete"`
+                    },
                     alignItems: "center",
-                    columnGap: 2
+                    columnGap: 2,
+                    rowGap: { xs: 1.5, sm: 0 }
                 }}
             >
 
-                <Box sx={{ minWidth: 0 }}>
+                <Box sx={{ gridArea: "name", minWidth: 0 }}>
 
                     <Typography fontWeight={700} noWrap>
                         {item.ItemName}
@@ -75,7 +84,7 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
                     direction="row"
                     alignItems="center"
                     justifyContent="space-between"
-                    sx={{ border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25, width: "100%" }}
+                    sx={{ gridArea: "stepper", border: "1px solid #E5E7EB", borderRadius: 5, px: 0.5, py: 0.25, width: "100%" }}
                 >
 
                     <IconButton
@@ -100,7 +109,7 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
 
                 </Stack>
 
-                <Typography fontWeight={700} sx={{ textAlign: "right" }}>
+                <Typography fontWeight={700} sx={{ gridArea: "price", textAlign: { xs: "left", sm: "right" } }}>
                     {formatCurrency(item.TotalPrice)}
                 </Typography>
 
@@ -109,7 +118,7 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
                     color="error"
                     onClick={() => onRemove(item)}
                     aria-label={`Remove ${item.ItemName}`}
-                    sx={{ justifySelf: "end" }}
+                    sx={{ gridArea: "delete", justifySelf: "end" }}
                 >
                     <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
