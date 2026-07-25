@@ -27,7 +27,7 @@ function formatCurrency(value) {
     return `₹${Number(value ?? 0).toFixed(2)}`;
 }
 
-function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
+function CartLineItem({ item, onQuantityChange, onRemove }) {
 
     const optionsSummary = item.SelectedOptions && item.SelectedOptions.length > 0
         ? item.SelectedOptions.map((option) => option.OptionName).join(", ")
@@ -71,7 +71,6 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
 
                         <IconButton
                             size="small"
-                            disabled={busy}
                             onClick={() => onQuantityChange(item, item.Quantity - 1)}
                             sx={{ p: 0.75 }}
                         >
@@ -84,7 +83,6 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
 
                         <IconButton
                             size="small"
-                            disabled={busy}
                             onClick={() => onQuantityChange(item, item.Quantity + 1)}
                             sx={{ p: 0.75 }}
                         >
@@ -100,7 +98,6 @@ function CartLineItem({ item, onQuantityChange, onRemove, busy }) {
                     <IconButton
                         size="small"
                         color="error"
-                        disabled={busy}
                         onClick={() => onRemove(item)}
                         aria-label={`Remove ${item.ItemName}`}
                     >
@@ -124,7 +121,6 @@ function Cart() {
 
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [busyCartId, setBusyCartId] = useState(null);
     const [clearing, setClearing] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -150,9 +146,6 @@ function Cart() {
 
             if (response.success) {
                 setItems(response.data);
-                // Same fetch also drives the header badge - no need for a
-                // second getCart round trip just to recompute this count.
-                setCartCount(response.data.reduce((sum, item) => sum + item.Quantity, 0));
             } else {
                 toast.error(response.message);
             }
@@ -168,73 +161,86 @@ function Cart() {
 
         }
 
-    }, [isLoggedIn, customer, setCartCount]);
+    }, [isLoggedIn, customer]);
 
     useEffect(() => {
         loadCart();
     }, [loadCart]);
 
-    const handleQuantityChange = async (item, newQuantity) => {
+    // Drives the header badge off the same local state the list renders, so
+    // it updates on the same tick as an optimistic change below instead of
+    // waiting on a dedicated getCart round trip.
+    useEffect(() => {
+        setCartCount(items.reduce((sum, item) => sum + item.Quantity, 0));
+    }, [items, setCartCount]);
 
-        try {
+    // Applies the new quantity to `items` immediately and fires the request
+    // in the background, rolling the line back to its pre-tap state if the
+    // request fails - the stepper shouldn't freeze for a round trip on every tap.
+    const handleQuantityChange = (item, newQuantity) => {
 
-            setBusyCartId(item.CartId);
-
-            const response = newQuantity <= 0
-                ? await cartService.removeCartItem(item.CartId)
-                : await cartService.updateCartQuantity(item.CartId, newQuantity);
-
-            if (!response.success) {
-                toast.error(response.message);
-                return;
-            }
-
-            // Not awaited - the mutation already succeeded, so re-enabling
-            // the stepper shouldn't wait on a second round trip just to
-            // refresh the displayed quantity/badge.
-            loadCart();
-
-        } catch (error) {
-
-            toast.error(error.response?.data?.message || "Failed to update cart.");
-
-        } finally {
-
-            setBusyCartId(null);
-
+        if (newQuantity <= 0) {
+            setItems((prev) => prev.filter((current) => current.CartId !== item.CartId));
+        } else {
+            setItems((prev) => prev.map((current) =>
+                current.CartId === item.CartId
+                    ? { ...current, Quantity: newQuantity, TotalPrice: Number(current.UnitPrice) * newQuantity }
+                    : current
+            ));
         }
+
+        const request = newQuantity <= 0
+            ? cartService.removeCartItem(item.CartId)
+            : cartService.updateCartQuantity(item.CartId, newQuantity);
+
+        request
+            .then((response) => {
+
+                if (!response.success) {
+                    throw new Error(response.message);
+                }
+
+            })
+            .catch((error) => {
+
+                setItems((prev) => prev.some((current) => current.CartId === item.CartId)
+                    ? prev.map((current) => (current.CartId === item.CartId ? item : current))
+                    : [...prev, item]);
+
+                toast.error(error.response?.data?.message || error.message || "Failed to update cart.");
+
+            });
 
     };
 
-    const handleRemove = async (item) => {
+    const handleRemove = (item) => {
 
-        try {
+        setItems((prev) => prev.filter((current) => current.CartId !== item.CartId));
+        toast.success("Item removed from cart.");
 
-            setBusyCartId(item.CartId);
+        cartService.removeCartItem(item.CartId)
+            .then((response) => {
 
-            const response = await cartService.removeCartItem(item.CartId);
+                if (!response.success) {
+                    throw new Error(response.message);
+                }
 
-            if (!response.success) {
-                toast.error(response.message);
-                return;
-            }
+            })
+            .catch((error) => {
 
-            toast.success("Item removed from cart.");
-            loadCart();
+                setItems((prev) => [...prev, item]);
+                toast.error(error.response?.data?.message || error.message || "Failed to remove item.");
 
-        } catch (error) {
-
-            toast.error(error.response?.data?.message || "Failed to remove item.");
-
-        } finally {
-
-            setBusyCartId(null);
-
-        }
+            });
 
     };
 
     const handleClearCart = async () => {
+
+        const previousItems = items;
+
+        setItems([]);
+        setConfirmOpen(false);
 
         try {
 
@@ -243,21 +249,19 @@ function Cart() {
             const response = await cartService.clearCart(customer.CustomerId);
 
             if (!response.success) {
-                toast.error(response.message);
-                return;
+                throw new Error(response.message);
             }
 
             toast.success("Cart cleared.");
-            loadCart();
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to clear cart.");
+            setItems(previousItems);
+            toast.error(error.response?.data?.message || error.message || "Failed to clear cart.");
 
         } finally {
 
             setClearing(false);
-            setConfirmOpen(false);
 
         }
 
@@ -358,7 +362,6 @@ function Cart() {
                         item={item}
                         onQuantityChange={handleQuantityChange}
                         onRemove={handleRemove}
-                        busy={busyCartId === item.CartId}
                     />
                 ))}
 

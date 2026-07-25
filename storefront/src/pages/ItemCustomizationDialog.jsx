@@ -267,7 +267,7 @@ function ItemCustomizationDialog({ open, item, onClose }) {
             }
 
             // No refreshCartCount() here - closing with onClose(true) already
-            // triggers the parent's refreshCartLines(), which updates the
+            // triggers the parent's loadCartLines(), which updates the
             // header badge from that same fetch. A call here would just be
             // a second, redundant getCart for data we're about to refetch anyway.
             toast.success(`${displayItem.ItemName} added to cart`);

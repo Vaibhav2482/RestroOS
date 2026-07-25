@@ -227,7 +227,6 @@ function Home() {
     const [activeCategoryId, setActiveCategoryId] = useState(null);
     const [search, setSearch] = useState("");
     const [cartLines, setCartLines] = useState([]);
-    const [busyMenuItemId, setBusyMenuItemId] = useState(null);
     const [customizingItem, setCustomizingItem] = useState(null);
 
     const sectionRefs = useRef({});
@@ -307,11 +306,11 @@ function Home() {
 
     }, [selectedBranchId]);
 
-    // Keeps the +/- stepper an honest reflection of the real cart, not a
-    // page-local counter that resets (or drifts) the moment you navigate
-    // away and back - this used to silently diverge from what was actually
-    // in the cart, including on decrement, which never called the API at all.
-    const refreshCartLines = useCallback(async () => {
+    // Loads the cart once (mount, and whenever the logged-in customer
+    // changes) - individual add/increment/decrement/remove actions below
+    // update `cartLines` optimistically instead of re-fetching, so the
+    // stepper reacts the instant you tap it rather than after a round trip.
+    const loadCartLines = useCallback(async () => {
 
         if (!isLoggedIn || !customer?.CustomerId) {
             setCartLines([]);
@@ -324,9 +323,6 @@ function Home() {
 
             if (response.success) {
                 setCartLines(response.data);
-                // Same fetch also drives the header badge - no need for a
-                // second getCart round trip just to recompute this count.
-                setCartCount(response.data.reduce((sum, line) => sum + line.Quantity, 0));
             }
 
         } catch {
@@ -335,11 +331,18 @@ function Home() {
 
         }
 
-    }, [isLoggedIn, customer, setCartCount]);
+    }, [isLoggedIn, customer]);
 
     useEffect(() => {
-        refreshCartLines();
-    }, [refreshCartLines]);
+        loadCartLines();
+    }, [loadCartLines]);
+
+    // Drives the header badge off the same local state the stepper reads,
+    // so it updates on the same tick as an optimistic add/increment/decrement
+    // instead of waiting on a dedicated getCart round trip.
+    useEffect(() => {
+        setCartCount(cartLines.reduce((sum, line) => sum + line.Quantity, 0));
+    }, [cartLines, setCartCount]);
 
     // Only plain (no customization) cart lines are ever addressed directly
     // from this page's stepper - a customizable item always goes through
@@ -347,6 +350,12 @@ function Home() {
     // which a single +/- control can't represent.
     const getPlainCartLine = (menuItemId) =>
         cartLines.find((line) => line.MenuItemId === menuItemId && (!line.SelectedOptions || line.SelectedOptions.length === 0));
+
+    // A newly-added line gets this placeholder id until the server responds
+    // with a real CartId - increment/decrement can't address it yet, so the
+    // stepper briefly ignores +/- taps on it rather than firing a request
+    // against an id the server has never heard of.
+    const isPendingCartId = (cartId) => typeof cartId === "string" && cartId.startsWith("temp-");
 
     const availableItems = useMemo(
         () => menuItems.filter((item) => item.IsAvailable && item.IsActive),
@@ -515,9 +524,23 @@ function Home() {
             return;
         }
 
-        try {
+        // Shown immediately so the stepper replaces the Add button on this
+        // tap, instead of waiting on the round trip that assigns a real CartId.
+        const tempCartId = `temp-${item.MenuItemId}-${Date.now()}`;
+        const optimisticLine = {
+            CartId: tempCartId,
+            MenuItemId: item.MenuItemId,
+            ItemName: item.ItemName,
+            Quantity: 1,
+            UnitPrice: Number(item.Price),
+            TotalPrice: Number(item.Price),
+            SelectedOptions: []
+        };
 
-            setBusyMenuItemId(item.MenuItemId);
+        setCartLines((prev) => [...prev, optimisticLine]);
+        toast.success(`${item.ItemName} added to cart`);
+
+        try {
 
             const response = await cartService.addToCart({
                 customerId: customer.CustomerId,
@@ -526,94 +549,89 @@ function Home() {
             });
 
             if (!response.success) {
-                toast.error(response.message);
-                return;
+                throw new Error(response.message);
             }
 
-            toast.success(`${item.ItemName} added to cart`);
-            // Not awaited - the mutation already succeeded, so the toast and
-            // the button re-enabling shouldn't wait on a second round trip
-            // just to refresh the displayed quantity/badge.
-            refreshCartLines();
+            // Swap the placeholder for the server-assigned CartId that
+            // increment/decrement need to address this line directly.
+            setCartLines((prev) => prev.map((line) =>
+                line.CartId === tempCartId ? { ...line, CartId: response.data.CartId } : line
+            ));
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to add item to cart.");
-
-        } finally {
-
-            setBusyMenuItemId(null);
+            setCartLines((prev) => prev.filter((line) => line.CartId !== tempCartId));
+            toast.error(error.response?.data?.message || error.message || "Failed to add item to cart.");
 
         }
 
     };
 
-    const handleIncrement = async (item) => {
+    // Shared by increment and decrement - applies the new quantity to
+    // `cartLines` right away and fires the request in the background,
+    // rolling the line back to its pre-tap state if the request fails.
+    const updateLineQuantity = (line, newQuantity) => {
 
-        const line = getPlainCartLine(item.MenuItemId);
-
-        if (!line) {
-            await handleAdd(item);
-            return;
+        if (newQuantity <= 0) {
+            setCartLines((prev) => prev.filter((current) => current.CartId !== line.CartId));
+        } else {
+            setCartLines((prev) => prev.map((current) =>
+                current.CartId === line.CartId
+                    ? { ...current, Quantity: newQuantity, TotalPrice: Number(current.UnitPrice) * newQuantity }
+                    : current
+            ));
         }
 
-        try {
+        const request = newQuantity <= 0
+            ? cartService.removeCartItem(line.CartId)
+            : cartService.updateCartQuantity(line.CartId, newQuantity);
 
-            setBusyMenuItemId(item.MenuItemId);
+        request
+            .then((response) => {
 
-            const response = await cartService.updateCartQuantity(line.CartId, line.Quantity + 1);
+                if (!response.success) {
+                    throw new Error(response.message);
+                }
 
-            if (!response.success) {
-                toast.error(response.message);
-                return;
-            }
+            })
+            .catch((error) => {
 
-            refreshCartLines();
+                setCartLines((prev) => prev.some((current) => current.CartId === line.CartId)
+                    ? prev.map((current) => (current.CartId === line.CartId ? line : current))
+                    : [...prev, line]);
 
-        } catch (error) {
+                toast.error(error.response?.data?.message || error.message || "Failed to update cart.");
 
-            toast.error(error.response?.data?.message || "Failed to update cart.");
-
-        } finally {
-
-            setBusyMenuItemId(null);
-
-        }
+            });
 
     };
 
-    const handleDecrement = async (item) => {
+    const handleIncrement = (item) => {
 
         const line = getPlainCartLine(item.MenuItemId);
 
         if (!line) {
+            handleAdd(item);
             return;
         }
 
-        try {
-
-            setBusyMenuItemId(item.MenuItemId);
-
-            const response = line.Quantity <= 1
-                ? await cartService.removeCartItem(line.CartId)
-                : await cartService.updateCartQuantity(line.CartId, line.Quantity - 1);
-
-            if (!response.success) {
-                toast.error(response.message);
-                return;
-            }
-
-            refreshCartLines();
-
-        } catch (error) {
-
-            toast.error(error.response?.data?.message || "Failed to update cart.");
-
-        } finally {
-
-            setBusyMenuItemId(null);
-
+        if (isPendingCartId(line.CartId)) {
+            return;
         }
+
+        updateLineQuantity(line, line.Quantity + 1);
+
+    };
+
+    const handleDecrement = (item) => {
+
+        const line = getPlainCartLine(item.MenuItemId);
+
+        if (!line || isPendingCartId(line.CartId)) {
+            return;
+        }
+
+        updateLineQuantity(line, line.Quantity - 1);
 
     };
 
@@ -622,7 +640,7 @@ function Home() {
     const handleCustomizationDialogClose = (wasAdded) => {
         setCustomizingItem(null);
         if (wasAdded) {
-            refreshCartLines();
+            loadCartLines();
         }
     };
 
@@ -758,7 +776,7 @@ function Home() {
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}
-                                                busy={busyMenuItemId === item.MenuItemId}
+                                                busy={isPendingCartId(plainLine?.CartId)}
                                                 onAdd={() => handleAdd(item)}
                                                 onIncrement={() => handleIncrement(item)}
                                                 onDecrement={() => handleDecrement(item)}
