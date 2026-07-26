@@ -21,7 +21,9 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Typography
+    Typography,
+    useMediaQuery,
+    useTheme
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -60,6 +62,8 @@ function OrderDetail() {
     const { orderId } = useParams();
     const { tenantSlug, customer } = useStorefront();
     const navigate = useNavigate();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -229,7 +233,13 @@ function OrderDetail() {
             ) : (
 
                 <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E5E7EB" }}>
-                    <Stepper activeStep={activeStep} alternativeLabel>
+                    {/* alternativeLabel packs each label into an equal-width
+                        column - fine on desktop, but 6 steps (some as long as
+                        "Out For Delivery") don't fit that on a phone screen,
+                        so labels wrap and visually bleed into their
+                        neighbors. Vertical avoids the cramming entirely
+                        instead of trying to shrink text to fit. */}
+                    <Stepper activeStep={activeStep} alternativeLabel={!isMobile} orientation={isMobile ? "vertical" : "horizontal"}>
                         {steps.map((step) => (
                             <Step key={step}>
                                 <StepLabel>{step}</StepLabel>
