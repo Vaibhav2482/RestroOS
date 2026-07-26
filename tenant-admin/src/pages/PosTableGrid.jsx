@@ -26,9 +26,17 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
 
             {tables.map((table) => {
 
-                const activeOrder = activeOrdersByTable.get(table.TableName);
-                const isOccupied = Boolean(activeOrder);
-                const nextStatus = isOccupied ? getPosForwardStatuses(activeOrder.OrderStatus)[0] : null;
+                const orders = activeOrdersByTable.get(table.TableName) || [];
+                const isOccupied = orders.length > 0;
+                const hasMultipleOrders = orders.length > 1;
+                // The card can only summarize one status at a glance - with
+                // more than one active order at the table, the quick-advance
+                // shortcut is ambiguous (which order?), so it's only offered
+                // for the single-order case; multiple orders route through
+                // the table's chooser dialog instead.
+                const primaryOrder = orders[0];
+                const nextStatus = isOccupied && !hasMultipleOrders ? getPosForwardStatuses(primaryOrder.OrderStatus)[0] : null;
+                const combinedTotal = orders.reduce((sum, order) => sum + Number(order.TotalAmount), 0);
 
                 return (
 
@@ -43,7 +51,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                             centered status zone keeps every card identical
                             regardless of what's happening at that table. */}
                         <Card
-                            onClick={() => onTableClick(table, activeOrder)}
+                            onClick={() => onTableClick(table, orders)}
                             sx={{
                                 height: 208,
                                 cursor: "pointer",
@@ -89,17 +97,31 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                 }}
                             >
 
-                                {isOccupied ? (
+                                {hasMultipleOrders ? (
 
                                     <>
                                         <Chip
-                                            label={activeOrder.OrderStatus}
-                                            color={POS_STATUS_COLOR[activeOrder.OrderStatus] || "default"}
+                                            label={`${orders.length} Orders`}
+                                            color="warning"
                                             size="small"
                                         />
 
                                         <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
-                                            #{activeOrder.OrderId} &middot; {formatCurrency(activeOrder.TotalAmount)}
+                                            {formatCurrency(combinedTotal)} total
+                                        </Typography>
+                                    </>
+
+                                ) : isOccupied ? (
+
+                                    <>
+                                        <Chip
+                                            label={primaryOrder.OrderStatus}
+                                            color={POS_STATUS_COLOR[primaryOrder.OrderStatus] || "default"}
+                                            size="small"
+                                        />
+
+                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
+                                            #{primaryOrder.OrderId} &middot; {formatCurrency(primaryOrder.TotalAmount)}
                                         </Typography>
 
                                         {nextStatus && (
@@ -110,7 +132,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                                 endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
-                                                    onQuickAdvance(activeOrder.OrderId, nextStatus);
+                                                    onQuickAdvance(primaryOrder.OrderId, nextStatus);
                                                 }}
                                                 sx={{ mt: 0.25, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
                                             >

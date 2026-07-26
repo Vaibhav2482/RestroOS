@@ -12,6 +12,7 @@ import { playNotificationSound } from "../utils/notificationSound";
 import PosTableGrid from "./PosTableGrid";
 import PosOrderBuilder from "./PosOrderBuilder";
 import PosOrderDetails from "./PosOrderDetails";
+import PosTableOrdersDialog from "./PosTableOrdersDialog";
 
 function Pos() {
 
@@ -28,6 +29,11 @@ function Pos() {
     const [mode, setMode] = useState("grid");
     const [pendingTable, setPendingTable] = useState(null);
     const [detailsOrder, setDetailsOrder] = useState(null);
+    // A table with more than one still-active order (e.g. a second round
+    // ordered after the first is already being prepared) needs a chooser -
+    // clicking straight into whichever order happened to load last would
+    // silently hide the other one from the staff member.
+    const [tableOrdersView, setTableOrdersView] = useState(null);
 
     useEffect(() => {
 
@@ -153,33 +159,65 @@ function Pos() {
 
     };
 
-    const activeOrdersByTable = new Map(activeOrders.map((order) => [order.TableNumber, order]));
+    // A table can have more than one active order at once (a dine-in table
+    // orders starters, those go into the kitchen, then the same table
+    // orders dessert before the first round is even delivered) - grouping
+    // into an array here instead of overwriting by TableNumber keeps every
+    // one of them visible instead of the newest silently hiding the rest.
+    const activeOrdersByTable = new Map();
 
-    const handleTableClick = async (table, activeOrder) => {
+    activeOrders.forEach((order) => {
+        const existing = activeOrdersByTable.get(order.TableNumber) || [];
+        activeOrdersByTable.set(order.TableNumber, [...existing, order]);
+    });
 
-        if (activeOrder) {
+    const openOrderDetails = async (orderId) => {
 
-            try {
+        try {
 
-                const response = await orderService.getOrderById(activeOrder.OrderId);
+            const response = await orderService.getOrderById(orderId);
 
-                if (response.success) {
-                    setDetailsOrder(response.data);
-                }
-
-            } catch {
-
-                toast.error("Failed to load order details.");
-
+            if (response.success) {
+                setDetailsOrder(response.data);
             }
 
-            return;
+        } catch {
+
+            toast.error("Failed to load order details.");
 
         }
 
+    };
+
+    const handleTableClick = (table, orders) => {
+
+        if (!orders || orders.length === 0) {
+            setPendingTable(table);
+            setMode("dine-in");
+            return;
+        }
+
+        // Always the chooser, even for a single order - the only way to
+        // start another round on an already-occupied table (a customer
+        // ordering dessert after mains are already out) is through the
+        // "Start Another Order" button in here, so a lone active order
+        // can't be allowed to shortcut straight to its details.
+        setTableOrdersView({ table, orders });
+
+    };
+
+    const handleSelectTableOrder = async (orderId) => {
+        setTableOrdersView(null);
+        await openOrderDetails(orderId);
+    };
+
+    // Same "start a fresh order" flow used for an empty table - the backend
+    // has no rule against a second Dine In order on an already-occupied
+    // table, this was purely a missing entry point in the UI.
+    const handleAddAnotherOrder = (table) => {
+        setTableOrdersView(null);
         setPendingTable(table);
         setMode("dine-in");
-
     };
 
     const handleTakeaway = () => {
@@ -351,6 +389,15 @@ function Pos() {
                 onClose={() => setDetailsOrder(null)}
                 onAdvanceStatus={handleAdvanceStatus}
                 onCancelOrder={handleCancelOrder}
+            />
+
+            <PosTableOrdersDialog
+                open={Boolean(tableOrdersView)}
+                table={tableOrdersView?.table}
+                orders={tableOrdersView?.orders || []}
+                onSelectOrder={handleSelectTableOrder}
+                onAddAnotherOrder={() => handleAddAnotherOrder(tableOrdersView.table)}
+                onClose={() => setTableOrdersView(null)}
             />
 
         </Box>
