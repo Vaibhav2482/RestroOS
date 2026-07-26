@@ -26,6 +26,7 @@ import UploadRoutes from "./routes/UploadRoutes.js";
 import RealtimeRoutes from "./routes/RealtimeRoutes.js";
 import IntegrationRoutes from "./routes/IntegrationRoutes.js";
 import AnalyticsRoutes from "./routes/AnalyticsRoutes.js";
+import { runMigrations } from "./config/migrate.js";
 
 const app = express();
 
@@ -41,6 +42,21 @@ app.get("/api/v1/health", (req, res) => {
         success: true,
         message: "RestroOS API is running successfully."
     });
+});
+
+// No separate migration step exists in this deployment pipeline - this is
+// a no-op after the first successful run per cold start (see
+// config/migrate.js), so the cost of checking on every request is one
+// boolean read, not a real DB round trip once warm.
+app.use(async (req, res, next) => {
+
+    try {
+        await runMigrations();
+        next();
+    } catch (error) {
+        next(error);
+    }
+
 });
 
 app.use("/api/v1/platform-admin/auth", PlatformAdminRoutes);
