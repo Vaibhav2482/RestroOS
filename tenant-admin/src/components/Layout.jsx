@@ -23,6 +23,7 @@ import PointOfSaleOutlinedIcon from "@mui/icons-material/PointOfSaleOutlined";
 import KitchenOutlinedIcon from "@mui/icons-material/KitchenOutlined";
 import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import StoreOutlinedIcon from "@mui/icons-material/StoreOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
@@ -45,6 +46,7 @@ const NAV_ITEMS = [
     { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },
     { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> },
     { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
+    { label: "Inventory", to: "/inventory", icon: <Inventory2OutlinedIcon /> },
     { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> },
     { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, ownerOnly: true },
     { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },

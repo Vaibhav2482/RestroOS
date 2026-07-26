@@ -32,6 +32,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
+import ListAltOutlinedIcon from "@mui/icons-material/ListAltOutlined";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -40,6 +41,7 @@ import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import MenuItemDialog from "./MenuItemDialog";
 import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
+import MenuItemRecipeDialog from "./MenuItemRecipeDialog";
 
 function ItemThumbnail({ imageUrl, itemName }) {
 
@@ -106,6 +108,9 @@ function Menu() {
 
     const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
     const [optionsTarget, setOptionsTarget] = useState(null);
+
+    const [recipeDialogOpen, setRecipeDialogOpen] = useState(false);
+    const [recipeTarget, setRecipeTarget] = useState(null);
 
     // Only the first load shows the blocking spinner - reloading after a
     // create/edit/delete (or switching branches) keeps the existing table
@@ -314,6 +319,16 @@ function Menu() {
     const handleOptionsDialogClose = () => {
         setOptionsDialogOpen(false);
         setOptionsTarget(null);
+    };
+
+    const handleManageRecipeClick = (item) => {
+        setRecipeTarget(item);
+        setRecipeDialogOpen(true);
+    };
+
+    const handleRecipeDialogClose = () => {
+        setRecipeDialogOpen(false);
+        setRecipeTarget(null);
     };
 
     const handleDeleteConfirm = async () => {
@@ -609,6 +624,14 @@ function Menu() {
                                                         </IconButton>
                                                     </Tooltip>
 
+                                                    {owner && (
+                                                        <Tooltip title="Recipe">
+                                                            <IconButton size="small" onClick={() => handleManageRecipeClick(item)}>
+                                                                <ListAltOutlinedIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    )}
+
                                                     <Tooltip title="Edit">
                                                         <IconButton size="small" onClick={() => handleEditClick(item)}>
                                                             <EditRoundedIcon fontSize="small" />
@@ -654,6 +677,12 @@ function Menu() {
                 open={optionsDialogOpen}
                 onClose={handleOptionsDialogClose}
                 menuItem={optionsTarget}
+            />
+
+            <MenuItemRecipeDialog
+                open={recipeDialogOpen}
+                onClose={handleRecipeDialogClose}
+                menuItem={recipeTarget}
             />
 
             <Dialog open={Boolean(deleteTarget)} onClose={() => (!deleting ? setDeleteTarget(null) : null)}>

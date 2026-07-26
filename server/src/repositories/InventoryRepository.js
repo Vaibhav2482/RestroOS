@@ -93,31 +93,34 @@ export const hasTransactionForReference = async (client, referenceType, referenc
 
 export const getTransactions = async (branchId, filters = {}) => {
 
-    const conditions = [`"BranchId" = $1`];
+    // Every column here is qualified with T. - Admins also has a BranchId
+    // column and Ingredients also has an IngredientId column, so left
+    // unqualified these are ambiguous once both are joined in below.
+    const conditions = [`T."BranchId" = $1`];
     const params = [branchId];
 
     if (filters.ingredientId) {
         params.push(filters.ingredientId);
-        conditions.push(`"IngredientId" = $${params.length}`);
+        conditions.push(`T."IngredientId" = $${params.length}`);
     }
 
     if (filters.transactionType) {
         params.push(filters.transactionType);
-        conditions.push(`"TransactionType" = $${params.length}`);
+        conditions.push(`T."TransactionType" = $${params.length}`);
     }
 
     if (filters.from) {
         params.push(filters.from);
-        conditions.push(`"CreatedAt" >= $${params.length}`);
+        conditions.push(`T."CreatedAt" >= $${params.length}`);
     }
 
     if (filters.to) {
         params.push(filters.to);
-        conditions.push(`"CreatedAt" < $${params.length}`);
+        conditions.push(`T."CreatedAt" < $${params.length}`);
     }
 
     const result = await pool.query(
-        `SELECT T.*, I."Name" AS "IngredientName", A."FullName" AS "ActorName"
+        `SELECT T.*, I."Name" AS "IngredientName", I."BaseUnit", A."FullName" AS "ActorName"
          FROM "InventoryTransactions" T
          INNER JOIN "Ingredients" I ON I."IngredientId" = T."IngredientId"
          LEFT JOIN "Admins" A ON A."AdminId" = T."ActorAdminId"
@@ -145,7 +148,7 @@ export const getDashboardSummary = async (branchId) => {
     );
 
     const recent = await pool.query(
-        `SELECT T.*, I."Name" AS "IngredientName"
+        `SELECT T.*, I."Name" AS "IngredientName", I."BaseUnit"
          FROM "InventoryTransactions" T
          INNER JOIN "Ingredients" I ON I."IngredientId" = T."IngredientId"
          WHERE T."BranchId" = $1
