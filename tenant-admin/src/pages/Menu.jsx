@@ -16,6 +16,7 @@ import {
     Paper,
     Select,
     Stack,
+    Switch,
     Table,
     TableBody,
     TableCell,
@@ -87,6 +88,12 @@ function Menu() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    // Marking an item out of stock used to require opening the full edit
+    // dialog and resubmitting every field just to flip one checkbox - too
+    // slow for "we just ran out of X, hide it now." This tracks which row's
+    // switch is mid-request so a second tap can't fire before the first
+    // one resolves.
+    const [togglingItemId, setTogglingItemId] = useState(null);
 
     const [searchText, setSearchText] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -247,6 +254,49 @@ function Menu() {
         } finally {
 
             setSaving(false);
+
+        }
+
+    };
+
+    const handleToggleAvailability = async (item) => {
+
+        if (togglingItemId) {
+            return;
+        }
+
+        try {
+
+            setTogglingItemId(item.MenuItemId);
+
+            const nextAvailable = !item.IsAvailable;
+
+            const response = await menuService.updateMenuItem(item.MenuItemId, {
+                categoryId: item.CategoryId,
+                itemName: item.ItemName,
+                description: item.Description,
+                price: item.Price,
+                imageUrl: item.ImageUrl,
+                isVeg: item.IsVeg,
+                isAvailable: nextAvailable,
+                isPopular: item.IsPopular,
+                isActive: item.IsActive
+            });
+
+            if (response.success) {
+                toast.success(nextAvailable ? `${item.ItemName} marked available.` : `${item.ItemName} marked out of stock.`);
+                await loadMenuItems(owner ? selectedBranchId : undefined);
+            } else {
+                toast.error(response.message);
+            }
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update availability.");
+
+        } finally {
+
+            setTogglingItemId(null);
 
         }
 
@@ -520,14 +570,21 @@ function Menu() {
 
                                                 <TableCell>
 
-                                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
 
-                                                        <Chip
-                                                            size="small"
-                                                            label={item.IsAvailable ? "Available" : "Unavailable"}
-                                                            color={item.IsAvailable ? "success" : "default"}
-                                                            variant={item.IsAvailable ? "filled" : "outlined"}
-                                                        />
+                                                        <Tooltip title={item.IsAvailable ? "Mark out of stock" : "Mark available"}>
+                                                            <Box sx={{ display: "flex", alignItems: "center" }}>
+                                                                <Switch
+                                                                    size="small"
+                                                                    checked={item.IsAvailable}
+                                                                    disabled={togglingItemId === item.MenuItemId}
+                                                                    onChange={() => handleToggleAvailability(item)}
+                                                                />
+                                                                <Typography variant="caption" color={item.IsAvailable ? "success.main" : "text.secondary"} sx={{ minWidth: 76 }}>
+                                                                    {item.IsAvailable ? "Available" : "Out of stock"}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Tooltip>
 
                                                         {item.IsPopular && (
                                                             <Chip size="small" label="Popular" color="warning" />
