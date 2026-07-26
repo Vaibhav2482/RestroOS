@@ -2,6 +2,7 @@ import * as MenuOptionService from "../services/MenuOptionService.js";
 import * as MenuOptionRepository from "../repositories/MenuOptionRepository.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
+import { branchMismatch } from "../utils/branchScope.js";
 
 export const getGroupsForMenuItem = asyncHandler(async (req, res) => {
 
@@ -17,9 +18,9 @@ export const createGroup = asyncHandler(async (req, res) => {
 
     const { menuItemId } = req.body;
 
-    const tenantId = await MenuOptionRepository.getMenuItemTenantId(menuItemId);
+    const menuItem = await MenuOptionRepository.getMenuItemTenantId(menuItemId);
 
-    if (!tenantId || tenantId !== req.user.tenantId) {
+    if (!menuItem || menuItem.TenantId !== req.user.tenantId || branchMismatch(req, menuItem.BranchId)) {
         return errorResponse(res, "Menu item not found.", 404);
     }
 
@@ -39,7 +40,7 @@ export const updateGroup = asyncHandler(async (req, res) => {
 
     const existing = await MenuOptionRepository.getGroupWithTenant(id);
 
-    if (!existing || existing.TenantId !== req.user.tenantId) {
+    if (!existing || existing.TenantId !== req.user.tenantId || branchMismatch(req, existing.BranchId)) {
         return errorResponse(res, "Option group not found.", 404);
     }
 
@@ -59,7 +60,7 @@ export const deleteGroup = asyncHandler(async (req, res) => {
 
     const existing = await MenuOptionRepository.getGroupWithTenant(id);
 
-    if (!existing || existing.TenantId !== req.user.tenantId) {
+    if (!existing || existing.TenantId !== req.user.tenantId || branchMismatch(req, existing.BranchId)) {
         return errorResponse(res, "Option group not found.", 404);
     }
 
@@ -75,7 +76,7 @@ export const createOption = asyncHandler(async (req, res) => {
 
     const existing = await MenuOptionRepository.getGroupWithTenant(groupId);
 
-    if (!existing || existing.TenantId !== req.user.tenantId) {
+    if (!existing || existing.TenantId !== req.user.tenantId || branchMismatch(req, existing.BranchId)) {
         return errorResponse(res, "Option group not found.", 404);
     }
 
@@ -95,7 +96,7 @@ export const updateOption = asyncHandler(async (req, res) => {
 
     const existing = await MenuOptionRepository.getOptionWithTenant(id);
 
-    if (!existing || existing.TenantId !== req.user.tenantId) {
+    if (!existing || existing.TenantId !== req.user.tenantId || branchMismatch(req, existing.BranchId)) {
         return errorResponse(res, "Option not found.", 404);
     }
 
@@ -115,7 +116,7 @@ export const deleteOption = asyncHandler(async (req, res) => {
 
     const existing = await MenuOptionRepository.getOptionWithTenant(id);
 
-    if (!existing || existing.TenantId !== req.user.tenantId) {
+    if (!existing || existing.TenantId !== req.user.tenantId || branchMismatch(req, existing.BranchId)) {
         return errorResponse(res, "Option not found.", 404);
     }
 

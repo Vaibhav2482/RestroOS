@@ -264,6 +264,12 @@ function Home() {
     // up one toast per straggler). This blocks a new tap on a line from
     // firing until its previous request has actually resolved.
     const [pendingLineIds, setPendingLineIds] = useState(() => new Set());
+    // MenuItemIds currently mid-add - a plain item has no CartId yet to key
+    // off of until the request resolves, so a rapid double-tap on "Add"
+    // (which renders identically for both taps, since neither has committed
+    // a cart line yet) used to fire two separate POST /cart calls and
+    // create two distinct lines for the same item.
+    const [pendingAddItemIds, setPendingAddItemIds] = useState(() => new Set());
 
     const sectionRefs = useRef({});
     const chipRefs = useRef({});
@@ -560,6 +566,12 @@ function Home() {
             return;
         }
 
+        if (pendingAddItemIds.has(item.MenuItemId)) {
+            return;
+        }
+
+        setPendingAddItemIds((prev) => new Set(prev).add(item.MenuItemId));
+
         // Shown immediately so the stepper replaces the Add button on this
         // tap, instead of waiting on the round trip that assigns a real CartId.
         const tempCartId = `temp-${item.MenuItemId}-${Date.now()}`;
@@ -598,6 +610,14 @@ function Home() {
 
             setCartLines((prev) => prev.filter((line) => line.CartId !== tempCartId));
             toast.error(error.response?.data?.message || error.message || "Failed to add item to cart.");
+
+        } finally {
+
+            setPendingAddItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(item.MenuItemId);
+                return next;
+            });
 
         }
 
@@ -831,7 +851,7 @@ function Home() {
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}
-                                                busy={isPendingCartId(plainLine?.CartId) || pendingLineIds.has(plainLine?.CartId)}
+                                                busy={isPendingCartId(plainLine?.CartId) || pendingLineIds.has(plainLine?.CartId) || pendingAddItemIds.has(item.MenuItemId)}
                                                 onAdd={() => handleAdd(item)}
                                                 onIncrement={() => handleIncrement(item)}
                                                 onDecrement={() => handleDecrement(item)}

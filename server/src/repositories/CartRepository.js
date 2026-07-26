@@ -10,7 +10,7 @@ export const addToCart = async (cart) => {
         await client.query("BEGIN");
 
         const customerCheck = await client.query(
-            `SELECT 1 FROM "Customers" WHERE "CustomerId" = $1 AND "IsActive" = TRUE`,
+            `SELECT "TenantId" FROM "Customers" WHERE "CustomerId" = $1 AND "IsActive" = TRUE`,
             [cart.customerId]
         );
 
@@ -18,14 +18,23 @@ export const addToCart = async (cart) => {
             throw new Error("Customer not found.");
         }
 
+        const customerTenantId = customerCheck.rows[0].TenantId;
+
+        // TenantId pulled in via the Branch join so a cross-tenant menuItemId
+        // (guessed/enumerated) can be rejected below - without this, a
+        // customer at Tenant A could add Tenant B's menu items to their cart,
+        // leaking Tenant B's item names/prices into Tenant A's cart response.
         const menuItemCheck = await client.query(
-            `SELECT "BranchId", "Price" FROM "MenuItems" WHERE "MenuItemId" = $1 AND "IsAvailable" = TRUE`,
+            `SELECT M."BranchId", M."Price", B."TenantId"
+             FROM "MenuItems" M
+             INNER JOIN "Branches" B ON M."BranchId" = B."BranchId"
+             WHERE M."MenuItemId" = $1 AND M."IsAvailable" = TRUE`,
             [cart.menuItemId]
         );
 
         const newItemBranchId = menuItemCheck.rows[0]?.BranchId;
 
-        if (!newItemBranchId) {
+        if (!newItemBranchId || menuItemCheck.rows[0].TenantId !== customerTenantId) {
             throw new Error("Menu item not found.");
         }
 

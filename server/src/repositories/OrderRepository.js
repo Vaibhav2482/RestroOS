@@ -342,7 +342,7 @@ export const updateOrderItems = async (orderId, items) => {
         await client.query("BEGIN");
 
         const orderCheck = await client.query(
-            `SELECT "OrderStatus", "BranchId" FROM "Orders" WHERE "OrderId" = $1`,
+            `SELECT "OrderStatus", "BranchId", "DiscountAmount" FROM "Orders" WHERE "OrderId" = $1`,
             [orderId]
         );
 
@@ -352,6 +352,7 @@ export const updateOrderItems = async (orderId, items) => {
 
         const orderStatus = orderCheck.rows[0].OrderStatus;
         const branchId = orderCheck.rows[0].BranchId;
+        const discountAmount = Number(orderCheck.rows[0].DiscountAmount || 0);
 
         if (orderStatus !== "Pending") {
             throw new Error("Only pending orders can have their items edited.");
@@ -413,9 +414,17 @@ export const updateOrderItems = async (orderId, items) => {
         }
 
         const subTotal = pricedItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-        const cgstAmount = roundGst(subTotal);
-        const sgstAmount = roundGst(subTotal);
-        const totalAmount = subTotal + cgstAmount + sgstAmount;
+
+        // The order's existing coupon discount (if any) was silently dropped
+        // here before - tax/total were recomputed off the raw new subtotal
+        // while the DiscountAmount column still claimed a discount applied,
+        // overcharging the customer relative to what they were promised at
+        // checkout. Clamped at 0 in case the edit shrinks the order below
+        // the discount amount.
+        const discountedSubTotal = Math.max(0, subTotal - discountAmount);
+        const cgstAmount = roundGst(discountedSubTotal);
+        const sgstAmount = roundGst(discountedSubTotal);
+        const totalAmount = discountedSubTotal + cgstAmount + sgstAmount;
 
         await client.query(
             `UPDATE "Orders" SET "SubTotal" = $1, "CgstAmount" = $2, "SgstAmount" = $3, "TotalAmount" = $4 WHERE "OrderId" = $5`,

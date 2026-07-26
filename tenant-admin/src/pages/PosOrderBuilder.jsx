@@ -63,6 +63,45 @@ function ItemThumbnail({ imageUrl, itemName }) {
 
 }
 
+// Was a plain controlled input tied straight to the committed cart
+// quantity - every keystroke (including a mid-edit backspace-to-clear)
+// committed immediately, so clearing "3" to type "13" fired a commit of 0
+// after the first backspace and deleted the line before the second digit
+// was ever typed. Keeping its own text buffer lets staff clear/retype
+// freely; the real quantity only updates on blur or Enter.
+function QuantityInput({ value, onCommit, sx }) {
+
+    const [text, setText] = useState(String(value));
+
+    useEffect(() => {
+        setText(String(value));
+    }, [value]);
+
+    const commit = () => {
+        const next = Math.max(0, Math.floor(Number(text) || 0));
+        onCommit(next);
+        setText(String(next));
+    };
+
+    return (
+        <InputBase
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onFocus={(event) => event.target.select()}
+            onBlur={commit}
+            onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                    event.target.blur();
+                }
+            }}
+            type="number"
+            inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } }}
+            sx={{ "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 }, ...sx }}
+        />
+    );
+
+}
+
 // The order-builder half of the POS flow: browse menu, build a cart, attach
 // a customer (or fall back to the shared guest placeholder), pick a payment
 // method and submit. GST is computed server-side, so only a pre-tax
@@ -629,13 +668,10 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                                             <RemoveRoundedIcon sx={{ fontSize: 18 }} />
                                         </IconButton>
 
-                                        <InputBase
+                                        <QuantityInput
                                             value={quantity}
-                                            onChange={(event) => handleSetLineQuantity(String(item.MenuItemId), event.target.value)}
-                                            onFocus={(event) => event.target.select()}
-                                            type="number"
-                                            inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } }}
-                                            sx={{ width: 28, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
+                                            onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
+                                            sx={{ width: 28 }}
                                         />
 
                                         <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
@@ -785,13 +821,10 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
                                             <Typography variant="body2" color="text.secondary">&times;</Typography>
 
-                                            <InputBase
+                                            <QuantityInput
                                                 value={line.quantity}
-                                                onChange={(event) => handleSetLineQuantity(line.lineKey, event.target.value)}
-                                                onFocus={(event) => event.target.select()}
-                                                type="number"
-                                                inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 600, MozAppearance: "textfield" } }}
-                                                sx={{ width: 28, "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 } }}
+                                                onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
+                                                sx={{ width: 28 }}
                                             />
 
                                             <Typography variant="body2" fontWeight={600}>

@@ -83,7 +83,7 @@ function OrderTicket({ order, column, onAdvance, advancing }) {
 
             <Stack spacing={0.75}>
 
-                {order.Items.map((item) => (
+                {(order.Items || []).map((item) => (
 
                     <Box key={item.OrderItemId}>
 

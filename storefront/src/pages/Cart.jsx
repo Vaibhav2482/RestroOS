@@ -270,8 +270,14 @@ function Cart() {
 
     const handleRemove = (item) => {
 
+        if (pendingItemIds.has(item.CartId)) {
+            return;
+        }
+
         setItems((prev) => prev.filter((current) => current.CartId !== item.CartId));
         toast.success("Item removed from cart.");
+
+        setPendingItemIds((prev) => new Set(prev).add(item.CartId));
 
         cartService.removeCartItem(item.CartId)
             .then((response) => {
@@ -283,8 +289,17 @@ function Cart() {
             })
             .catch((error) => {
 
-                setItems((prev) => [...prev, item]);
-                toast.error(error.response?.data?.message || error.message || "Failed to remove item.");
+                setItems((prev) => prev.some((current) => current.CartId === item.CartId) ? prev : [...prev, item]);
+                toast.error(error.response?.data?.message || error.message || "Failed to remove item.", { id: `cart-line-${item.CartId}` });
+
+            })
+            .finally(() => {
+
+                setPendingItemIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(item.CartId);
+                    return next;
+                });
 
             });
 

@@ -7,21 +7,21 @@ import pool from "../config/db.js";
 export const getMenuItemTenantId = async (menuItemId) => {
 
     const result = await pool.query(
-        `SELECT B."TenantId"
+        `SELECT M."BranchId", B."TenantId"
          FROM "MenuItems" M
          INNER JOIN "Branches" B ON M."BranchId" = B."BranchId"
          WHERE M."MenuItemId" = $1`,
         [menuItemId]
     );
 
-    return result.rows[0]?.TenantId;
+    return result.rows[0];
 
 };
 
 export const getGroupWithTenant = async (groupId) => {
 
     const result = await pool.query(
-        `SELECT G."GroupId", G."MenuItemId", B."TenantId"
+        `SELECT G."GroupId", G."MenuItemId", M."BranchId", B."TenantId"
          FROM "MenuItemOptionGroups" G
          INNER JOIN "MenuItems" M ON G."MenuItemId" = M."MenuItemId"
          INNER JOIN "Branches" B ON M."BranchId" = B."BranchId"
@@ -36,7 +36,7 @@ export const getGroupWithTenant = async (groupId) => {
 export const getOptionWithTenant = async (optionId) => {
 
     const result = await pool.query(
-        `SELECT O."OptionId", O."GroupId", B."TenantId"
+        `SELECT O."OptionId", O."GroupId", M."BranchId", B."TenantId"
          FROM "MenuItemOptions" O
          INNER JOIN "MenuItemOptionGroups" G ON O."GroupId" = G."GroupId"
          INNER JOIN "MenuItems" M ON G."MenuItemId" = M."MenuItemId"
