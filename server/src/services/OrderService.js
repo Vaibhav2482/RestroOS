@@ -1,7 +1,21 @@
+import { waitUntil } from "@vercel/functions";
+
 import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
+
+// Not awaited at any call site below - a slow WhatsApp/SMS/email provider
+// must never make an order-placing/status-changing request hang. waitUntil
+// (not a bare un-awaited call) is what actually matters here: this runs as
+// a Vercel serverless function, which can freeze right after the response
+// is sent, so the platform needs an explicit signal to keep the invocation
+// alive until the notification finishes. The .catch is a safety net for
+// errors outside NotificationService's own per-channel try/catch (e.g. the
+// customer/order lookups it does internally).
+const notifyInBackground = (promise, label) => {
+    waitUntil(promise.catch((error) => console.error(`${label} failed: ${error.message}`)));
+};
 
 const VALID_DELIVERY_TYPES = ["Delivery", "Dine In", "Takeaway"];
 const VALID_PAYMENT_METHODS = ["Cash", "Card", "UPI"];
@@ -57,7 +71,7 @@ export const createOrder = async (order) => {
         const createdOrder = await OrderRepository.createOrder(order);
 
         await RealtimeService.publishOrderCreated(createdOrder);
-        await NotificationService.notifyOrderCreated(createdOrder);
+        notifyInBackground(NotificationService.notifyOrderCreated(createdOrder), "notifyOrderCreated");
 
         return { success: true, message: "Order placed successfully.", data: createdOrder };
 
@@ -134,7 +148,7 @@ export const updateOrderStatus = async (id, orderStatus) => {
         const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus);
 
         await RealtimeService.publishOrderStatusChanged(updatedOrder);
-        await NotificationService.notifyOrderStatusChanged(updatedOrder);
+        notifyInBackground(NotificationService.notifyOrderStatusChanged(updatedOrder), "notifyOrderStatusChanged");
 
         return { success: true, message: "Order status updated successfully.", data: updatedOrder };
 
@@ -176,7 +190,7 @@ export const cancelOrder = async (orderId) => {
 
         const refundResult = await PaymentService.refundPaymentForOrder(orderId);
 
-        await NotificationService.notifyOrderCancelled(cancelledOrder, refundResult.refunded);
+        notifyInBackground(NotificationService.notifyOrderCancelled(cancelledOrder, refundResult.refunded), "notifyOrderCancelled");
 
         const message = refundResult.refunded
             ? "Order cancelled and payment refunded successfully."
