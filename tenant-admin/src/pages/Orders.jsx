@@ -27,6 +27,7 @@ import * as orderService from "../services/orderService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
+import { playNotificationSound } from "../utils/notificationSound";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 import { formatCurrency, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
 
@@ -111,6 +112,7 @@ function Orders() {
         const handleStatusChange = () => loadOrders(true);
 
         const handleCreated = (payload) => {
+            playNotificationSound();
             toast.success(`New order #${payload.orderId} received.`);
             loadOrders(true);
         };

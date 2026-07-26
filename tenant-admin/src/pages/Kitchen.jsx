@@ -20,6 +20,7 @@ import * as branchService from "../services/branchService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
+import { playNotificationSound } from "../utils/notificationSound";
 
 // The kitchen's job ends at Ready - Delivered/Out For Delivery is
 // front-of-house's concern, handled from Orders/POS instead. Pending jumps
@@ -236,11 +237,16 @@ function Kitchen() {
         const channel = pusher.subscribe(`private-branch-${selectedBranchId}`);
         const handleUpdate = () => loadOrders(selectedBranchId, true);
 
-        channel.bind("order:created", handleUpdate);
+        const handleCreated = () => {
+            playNotificationSound();
+            loadOrders(selectedBranchId, true);
+        };
+
+        channel.bind("order:created", handleCreated);
         channel.bind("order:status-changed", handleUpdate);
 
         return () => {
-            channel.unbind("order:created", handleUpdate);
+            channel.unbind("order:created", handleCreated);
             channel.unbind("order:status-changed", handleUpdate);
             pusher.unsubscribe(channel.name);
         };

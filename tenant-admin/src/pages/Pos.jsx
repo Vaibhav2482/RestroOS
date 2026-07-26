@@ -7,6 +7,7 @@ import * as tableService from "../services/tableService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
+import { playNotificationSound } from "../utils/notificationSound";
 
 import PosTableGrid from "./PosTableGrid";
 import PosOrderBuilder from "./PosOrderBuilder";
@@ -98,6 +99,7 @@ function Pos() {
         const handleStatusChange = () => loadTableState(selectedBranchId, true);
 
         const handleCreated = (payload) => {
+            playNotificationSound();
             toast.success(`New order #${payload.orderId} received.`);
             loadTableState(selectedBranchId, true);
         };
