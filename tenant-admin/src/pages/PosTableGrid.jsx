@@ -3,6 +3,7 @@ import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRound
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
+import { formatCurrency } from "./orderStatusUtils";
 
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
@@ -76,7 +77,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                         />
 
                                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                                            #{activeOrder.OrderId} &middot; ₹ {Number(activeOrder.TotalAmount).toFixed(2)}
+                                            #{activeOrder.OrderId} &middot; {formatCurrency(activeOrder.TotalAmount)}
                                         </Typography>
 
                                         {nextStatus && (
