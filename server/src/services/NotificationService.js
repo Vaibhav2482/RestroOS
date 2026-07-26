@@ -25,21 +25,42 @@ const sendEmail = async (to, subject, html) => {
 
 };
 
+// Every phone number this app has ever collected is a bare 10-digit Indian
+// mobile number - the registration/profile forms have no country-code
+// field. Twilio requires full E.164 for both SMS and WhatsApp: a raw
+// "9405672482" gets treated as a different, unverified number for SMS
+// (silently fails on trial accounts) and rejected outright as an "Invalid
+// Parameter" for WhatsApp. Numbers that already start with "+" pass through
+// untouched, so this stays correct if international numbers get collected
+// later without needing to change every call site.
+const toE164 = (phone) => {
+
+    if (!phone) {
+        return phone;
+    }
+
+    const trimmed = phone.trim();
+
+    return trimmed.startsWith("+") ? trimmed : `+91${trimmed.replace(/\D/g, "")}`;
+
+};
+
 const sendSms = async (to, body) => {
 
     const client = getTwilioClient();
+    const formattedTo = toE164(to);
 
-    if (!client || !to || !process.env.TWILIO_SMS_FROM_NUMBER) {
+    if (!client || !formattedTo || !process.env.TWILIO_SMS_FROM_NUMBER) {
         return;
     }
 
     try {
 
-        await client.messages.create({ body, from: process.env.TWILIO_SMS_FROM_NUMBER, to });
+        await client.messages.create({ body, from: process.env.TWILIO_SMS_FROM_NUMBER, to: formattedTo });
 
     } catch (error) {
 
-        console.error(`SMS notification failed (-> ${to}): ${error.message}`);
+        console.error(`SMS notification failed (-> ${formattedTo}): ${error.message}`);
 
     }
 
@@ -58,8 +79,9 @@ const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
 
     const client = getTwilioClient();
     const contentSid = process.env[templateEnvVar];
+    const formattedTo = toE164(to);
 
-    if (!client || !to || !contentSid || !process.env.TWILIO_WHATSAPP_FROM_NUMBER) {
+    if (!client || !formattedTo || !contentSid || !process.env.TWILIO_WHATSAPP_FROM_NUMBER) {
         return;
     }
 
@@ -69,12 +91,12 @@ const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
             contentSid,
             contentVariables: JSON.stringify(contentVariables),
             from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM_NUMBER}`,
-            to: `whatsapp:${to}`
+            to: `whatsapp:${formattedTo}`
         });
 
     } catch (error) {
 
-        console.error(`WhatsApp notification failed (${templateEnvVar} -> ${to}): ${error.message}`);
+        console.error(`WhatsApp notification failed (${templateEnvVar} -> ${formattedTo}): ${error.message}`);
 
     }
 

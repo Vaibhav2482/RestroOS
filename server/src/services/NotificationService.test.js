@@ -84,6 +84,24 @@ describe("NotificationService.notifyOrderCreated", () => {
 
     });
 
+    it("formats a bare 10-digit phone number to E.164 before sending", async () => {
+
+        // Every phone number this app has ever collected is a bare 10-digit
+        // number with no country code (confirmed against a real production
+        // failure: Twilio treated "9405672482" as a different, unverified
+        // number for SMS and rejected it outright for WhatsApp).
+        CustomerRepository.getCustomerById.mockResolvedValue({ ...customer, Phone: "9405672482" });
+
+        await NotificationService.notifyOrderCreated(order);
+
+        const sms = smsCallTo("+919405672482");
+        expect(sms).toBeDefined();
+
+        const whatsapp = whatsappCallTo("+919405672482");
+        expect(whatsapp).toBeDefined();
+
+    });
+
     it("skips SMS/WhatsApp but still emails when Twilio isn't configured", async () => {
 
         getTwilioClient.mockReturnValue(null);
