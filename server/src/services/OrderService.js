@@ -4,6 +4,7 @@ import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
+import * as InventoryService from "./InventoryService.js";
 
 // Not awaited at any call site below - a slow WhatsApp/SMS/email provider
 // must never make an order-placing/status-changing request hang. waitUntil
@@ -162,7 +163,16 @@ export const updateOrderStatus = async (id, orderStatus) => {
 
     try {
 
-        const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus);
+        // Consumption fires once, on the transition into "Preparing" - that's
+        // when the kitchen actually starts using ingredients, for both the
+        // Delivery and the Dine In/Takeaway status sequences.
+        const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus, async (client, order) => {
+
+            if (order.OrderStatus === "Preparing") {
+                await InventoryService.consumeForOrder(client, order.OrderId, order.BranchId);
+            }
+
+        });
 
         await RealtimeService.publishOrderStatusChanged(updatedOrder);
         notifyInBackground(NotificationService.notifyOrderStatusChanged(updatedOrder), "notifyOrderStatusChanged");
@@ -208,7 +218,9 @@ export const cancelOrder = async (orderId, role) => {
 
         const allowedStatuses = role === "customer" ? CUSTOMER_CANCELLABLE_STATUSES : STAFF_CANCELLABLE_STATUSES;
 
-        const cancelledOrder = await OrderRepository.cancelOrder(orderId, allowedStatuses);
+        const cancelledOrder = await OrderRepository.cancelOrder(orderId, allowedStatuses, async (client, order) => {
+            await InventoryService.reverseConsumptionForOrder(client, order.OrderId, order.BranchId);
+        });
 
         await RealtimeService.publishOrderStatusChanged(cancelledOrder);
 

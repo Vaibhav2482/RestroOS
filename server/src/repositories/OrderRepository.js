@@ -299,9 +299,10 @@ export const getOrdersByCustomer = async (customerId) => {
 // SELECT ... FOR UPDATE below locks the row for the duration of this
 // transaction; a second concurrent call blocks until the first commits,
 // then re-reads the now-current status and correctly rejects an
-// already-invalid transition instead of racing it. `onValidated` is an
-// extension point for Inventory consumption (FRS B7) to run in the same
-// transaction as the status write, once that lands - not used yet.
+// already-invalid transition instead of racing it. `onValidated` runs
+// Inventory consumption (FRS B7 - InventoryService.consumeForOrder) in the
+// same transaction as the status write, so a consumption failure rolls
+// back the status change too rather than leaving them inconsistent.
 export const updateOrderStatus = async (id, orderStatus, onValidated) => {
 
     const client = await pool.connect();
@@ -494,8 +495,10 @@ export const updateOrderItems = async (orderId, items) => {
 // is caller-supplied so the two roles' rules live in the service layer,
 // not duplicated here. Row-locked for the same reason updateOrderStatus
 // is (FRS A5) - a cancel racing a simultaneous status advance must not
-// silently let both "succeed".
-export const cancelOrder = async (orderId, allowedStatuses) => {
+// silently let both "succeed". `onValidated` runs Inventory reversal
+// (FRS B8 - InventoryService.reverseConsumptionForOrder) in the same
+// transaction as the cancel.
+export const cancelOrder = async (orderId, allowedStatuses, onValidated) => {
 
     const client = await pool.connect();
 
@@ -520,6 +523,10 @@ export const cancelOrder = async (orderId, allowedStatuses) => {
              RETURNING "OrderId", "BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate"`,
             [orderId]
         );
+
+        if (onValidated) {
+            await onValidated(client, result.rows[0]);
+        }
 
         await client.query("COMMIT");
 

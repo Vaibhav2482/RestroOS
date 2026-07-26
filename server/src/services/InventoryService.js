@@ -57,6 +57,133 @@ const convertToIngredientBase = async (unitCode, quantity, ingredientBaseUnit) =
 
 };
 
+// FRS B7 - automatic consumption. Called from OrderRepository.updateOrderStatus's
+// onValidated hook, inside the SAME transaction and row lock as the status
+// write, so a duplicate/retried status request can never consume twice -
+// hasTransactionForReference is checked first, under that same lock.
+// Ingredients and branch here are already-trusted internal data (a
+// MenuItemRecipes row only ever references the tenant's own ingredients,
+// enforced when the recipe was saved), so this skips the cross-tenant
+// checks the user-facing InventoryService functions above do. Negative
+// stock is allowed, never blocked (Step 3 decision) - the resulting
+// negative CurrentQuantityBase is exactly what the dashboard's
+// out-of-stock count already surfaces, so no separate "flag" column exists.
+export const consumeForOrder = async (client, orderId, branchId) => {
+
+    const alreadyConsumed = await InventoryRepository.hasTransactionForReference(client, "ORDER", orderId, "CONSUMPTION");
+
+    if (alreadyConsumed.length > 0) {
+        return;
+    }
+
+    const branchResult = await client.query(`SELECT "TenantId" FROM "Branches" WHERE "BranchId" = $1`, [branchId]);
+    const tenantId = branchResult.rows[0]?.TenantId;
+
+    if (!tenantId) {
+        return;
+    }
+
+    const linesResult = await client.query(
+        `SELECT R."IngredientId", R."Quantity" AS "RecipeQuantity", R."Unit" AS "RecipeUnit",
+                OI."Quantity" AS "OrderQuantity", I."BaseUnit"
+         FROM "OrderItems" OI
+         INNER JOIN "MenuItemRecipes" R ON R."MenuItemId" = OI."MenuItemId"
+         INNER JOIN "Ingredients" I ON I."IngredientId" = R."IngredientId"
+         WHERE OI."OrderId" = $1`,
+        [orderId]
+    );
+
+    // Items with no recipe attached yet simply don't join above - onboarding
+    // recipes gradually across a menu must not block orders for items that
+    // don't have one configured.
+    const neededByIngredient = new Map();
+
+    for (const line of linesResult.rows) {
+
+        const conversion = await convertToIngredientBase(
+            line.RecipeUnit, Number(line.RecipeQuantity) * Number(line.OrderQuantity), line.BaseUnit
+        );
+
+        if (conversion.error) {
+            continue;
+        }
+
+        const existing = neededByIngredient.get(line.IngredientId) || { quantityBase: 0, baseUnit: line.BaseUnit };
+        existing.quantityBase += conversion.quantityBase;
+        neededByIngredient.set(line.IngredientId, existing);
+
+    }
+
+    for (const [ingredientId, { quantityBase, baseUnit }] of neededByIngredient) {
+
+        const priorBalance = await InventoryRepository.getIngredientBalance(client, branchId, ingredientId);
+        const consumedBase = -quantityBase;
+
+        await InventoryRepository.recordTransaction(client, {
+            tenantId,
+            branchId,
+            ingredientId,
+            transactionType: "CONSUMPTION",
+            quantityBase: consumedBase,
+            enteredUnit: baseUnit,
+            enteredQuantity: quantityBase,
+            priorQuantityBase: priorBalance,
+            postQuantityBase: priorBalance + consumedBase,
+            referenceType: "ORDER",
+            referenceId: orderId,
+            actorType: "System"
+        });
+
+    }
+
+};
+
+// FRS B8 - if consumption already happened (order reached Preparing before
+// being cancelled), credit every consumed ingredient back via an explicit
+// REVERSAL row that references the original CONSUMPTION transaction - the
+// original row is never edited or deleted (insert-only ledger, FRS B4).
+// A no-op if consumption never happened (order was cancelled from Pending
+// or Accepted, before the kitchen started). Also called under the same row
+// lock as the cancel itself, from OrderRepository.cancelOrder's
+// onValidated hook, so it can't double-reverse a duplicate/retried cancel.
+export const reverseConsumptionForOrder = async (client, orderId, branchId) => {
+
+    const alreadyReversed = await InventoryRepository.hasTransactionForReference(client, "ORDER", orderId, "REVERSAL");
+
+    if (alreadyReversed.length > 0) {
+        return;
+    }
+
+    const consumptionResult = await client.query(
+        `SELECT * FROM "InventoryTransactions" WHERE "ReferenceType" = 'ORDER' AND "ReferenceId" = $1 AND "TransactionType" = 'CONSUMPTION'`,
+        [orderId]
+    );
+
+    for (const consumption of consumptionResult.rows) {
+
+        const priorBalance = await InventoryRepository.getIngredientBalance(client, branchId, consumption.IngredientId);
+        const creditBase = Math.abs(Number(consumption.QuantityBase));
+
+        await InventoryRepository.recordTransaction(client, {
+            tenantId: consumption.TenantId,
+            branchId,
+            ingredientId: consumption.IngredientId,
+            transactionType: "REVERSAL",
+            quantityBase: creditBase,
+            enteredUnit: consumption.EnteredUnit,
+            enteredQuantity: consumption.EnteredQuantity,
+            priorQuantityBase: priorBalance,
+            postQuantityBase: priorBalance + creditBase,
+            referenceType: "ORDER",
+            referenceId: orderId,
+            reversalOfTransactionId: consumption.TransactionId,
+            actorType: "System"
+        });
+
+    }
+
+};
+
 export const getBranchInventory = async (branchId, tenantId) => {
 
     if (!(await assertBranchBelongsToTenant(branchId, tenantId))) {
