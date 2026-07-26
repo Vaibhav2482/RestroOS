@@ -257,6 +257,13 @@ function Home() {
     const [search, setSearch] = useState("");
     const [cartLines, setCartLines] = useState([]);
     const [customizingItem, setCustomizingItem] = useState(null);
+    // CartIds with an increment/decrement request currently in flight - a
+    // rapid string of taps on the same stepper used to fire one request per
+    // tap, so a straggler request could land after the line was already
+    // removed by an earlier one and come back "Cart item not found" (piling
+    // up one toast per straggler). This blocks a new tap on a line from
+    // firing until its previous request has actually resolved.
+    const [pendingLineIds, setPendingLineIds] = useState(() => new Set());
 
     const sectionRefs = useRef({});
     const chipRefs = useRef({});
@@ -611,6 +618,8 @@ function Home() {
             ));
         }
 
+        setPendingLineIds((prev) => new Set(prev).add(line.CartId));
+
         const request = newQuantity <= 0
             ? cartService.removeCartItem(line.CartId)
             : cartService.updateCartQuantity(line.CartId, newQuantity);
@@ -629,7 +638,18 @@ function Home() {
                     ? prev.map((current) => (current.CartId === line.CartId ? line : current))
                     : [...prev, line]);
 
-                toast.error(error.response?.data?.message || error.message || "Failed to update cart.");
+                // Stable id collapses repeat failures for the same line into
+                // one toast instead of stacking a new one per straggler.
+                toast.error(error.response?.data?.message || error.message || "Failed to update cart.", { id: `cart-line-${line.CartId}` });
+
+            })
+            .finally(() => {
+
+                setPendingLineIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(line.CartId);
+                    return next;
+                });
 
             });
 
@@ -644,7 +664,7 @@ function Home() {
             return;
         }
 
-        if (isPendingCartId(line.CartId)) {
+        if (isPendingCartId(line.CartId) || pendingLineIds.has(line.CartId)) {
             return;
         }
 
@@ -656,7 +676,7 @@ function Home() {
 
         const line = getPlainCartLine(item.MenuItemId);
 
-        if (!line || isPendingCartId(line.CartId)) {
+        if (!line || isPendingCartId(line.CartId) || pendingLineIds.has(line.CartId)) {
             return;
         }
 
@@ -811,7 +831,7 @@ function Home() {
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}
-                                                busy={isPendingCartId(plainLine?.CartId)}
+                                                busy={isPendingCartId(plainLine?.CartId) || pendingLineIds.has(plainLine?.CartId)}
                                                 onAdd={() => handleAdd(item)}
                                                 onIncrement={() => handleIncrement(item)}
                                                 onDecrement={() => handleDecrement(item)}

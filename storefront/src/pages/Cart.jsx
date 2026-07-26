@@ -27,7 +27,7 @@ function formatCurrency(value) {
     return `₹${Number(value ?? 0).toFixed(2)}`;
 }
 
-function CartLineItem({ item, onQuantityChange, onRemove }) {
+function CartLineItem({ item, busy, onQuantityChange, onRemove }) {
 
     const optionsSummary = item.SelectedOptions && item.SelectedOptions.length > 0
         ? item.SelectedOptions.map((option) => option.OptionName).join(", ")
@@ -89,6 +89,7 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
 
                     <IconButton
                         size="small"
+                        disabled={busy}
                         onClick={() => onQuantityChange(item, item.Quantity - 1)}
                         sx={{ p: 0.75 }}
                     >
@@ -116,6 +117,7 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
 
                     <IconButton
                         size="small"
+                        disabled={busy}
                         onClick={() => onQuantityChange(item, item.Quantity + 1)}
                         sx={{ p: 0.75 }}
                     >
@@ -155,6 +157,12 @@ function Cart() {
     const [loading, setLoading] = useState(true);
     const [clearing, setClearing] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    // CartIds with a quantity request currently in flight - blocks a rapid
+    // second tap on the same stepper from firing before the first request
+    // resolves, so a straggler request can't land on a line that an earlier
+    // tap already had removed (which used to come back "Cart item not
+    // found" and stack up one toast per straggler).
+    const [pendingItemIds, setPendingItemIds] = useState(() => new Set());
 
     // Only the first load shows the blocking spinner - reloading after a
     // quantity change/remove/clear keeps the existing list visible instead
@@ -211,6 +219,10 @@ function Cart() {
     // request fails - the stepper shouldn't freeze for a round trip on every tap.
     const handleQuantityChange = (item, newQuantity) => {
 
+        if (pendingItemIds.has(item.CartId)) {
+            return;
+        }
+
         if (newQuantity <= 0) {
             setItems((prev) => prev.filter((current) => current.CartId !== item.CartId));
         } else {
@@ -220,6 +232,8 @@ function Cart() {
                     : current
             ));
         }
+
+        setPendingItemIds((prev) => new Set(prev).add(item.CartId));
 
         const request = newQuantity <= 0
             ? cartService.removeCartItem(item.CartId)
@@ -239,7 +253,16 @@ function Cart() {
                     ? prev.map((current) => (current.CartId === item.CartId ? item : current))
                     : [...prev, item]);
 
-                toast.error(error.response?.data?.message || error.message || "Failed to update cart.");
+                toast.error(error.response?.data?.message || error.message || "Failed to update cart.", { id: `cart-line-${item.CartId}` });
+
+            })
+            .finally(() => {
+
+                setPendingItemIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(item.CartId);
+                    return next;
+                });
 
             });
 
@@ -399,6 +422,7 @@ function Cart() {
                     <CartLineItem
                         key={item.CartId}
                         item={item}
+                        busy={pendingItemIds.has(item.CartId)}
                         onQuantityChange={handleQuantityChange}
                         onRemove={handleRemove}
                     />
