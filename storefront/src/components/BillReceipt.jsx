@@ -55,7 +55,7 @@ function BillReceipt({ order, restaurantName, isCancelled }) {
                 </Box>
 
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                    <StorefrontOutlinedIcon sx={{ color: "#4F46E5" }} />
+                    <StorefrontOutlinedIcon sx={{ color: "primary.main" }} />
                     <Typography fontWeight={700}>{restaurantName}{order.BranchName ? ` · ${order.BranchName}` : ""}</Typography>
                 </Box>
 
@@ -102,8 +102,8 @@ function BillReceipt({ order, restaurantName, isCancelled }) {
                 <Divider sx={{ my: 1.5 }} />
 
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>Total Bill</Typography>
-                    <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>{formatMoney(order.TotalAmount)}</Typography>
+                    <Typography variant="h6" fontWeight={800} sx={{ color: "primary.main" }}>Total Bill</Typography>
+                    <Typography variant="h6" fontWeight={800} sx={{ color: "primary.main" }}>{formatMoney(order.TotalAmount)}</Typography>
                 </Box>
 
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.25 }}>

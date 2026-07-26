@@ -396,7 +396,7 @@ function OrderDetail() {
 
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                 <Typography fontWeight={700}>Total</Typography>
-                                <Typography fontWeight={700} sx={{ color: "#4F46E5" }}>{formatMoney(order.TotalAmount)}</Typography>
+                                <Typography fontWeight={700} sx={{ color: "primary.main" }}>{formatMoney(order.TotalAmount)}</Typography>
                             </Box>
 
                         </Box>

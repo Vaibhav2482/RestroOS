@@ -82,15 +82,30 @@ function Layout({ children }) {
 
                 <Toolbar sx={{ gap: 2 }}>
 
-                    <Typography
+                    <Box
                         component={RouterLink}
                         to={`/${tenantSlug}`}
-                        variant="h6"
-                        fontWeight={800}
-                        sx={{ color: "#4F46E5", textDecoration: "none", flexShrink: 0 }}
+                        sx={{ display: "flex", alignItems: "center", gap: 1, textDecoration: "none", flexShrink: 0 }}
                     >
-                        {tenant?.TenantName || "RestroOS"}
-                    </Typography>
+
+                        {tenant?.LogoUrl && (
+                            <Box
+                                component="img"
+                                src={tenant.LogoUrl}
+                                alt=""
+                                sx={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+                            />
+                        )}
+
+                        <Typography
+                            variant="h6"
+                            fontWeight={800}
+                            sx={{ color: "primary.main" }}
+                        >
+                            {tenant?.TenantName || "RestroOS"}
+                        </Typography>
+
+                    </Box>
 
                     {/* BottomNav (Menu/Cart/Orders/Profile) is hidden above md,
                         and the logo being clickable back to the menu isn't an

@@ -12,14 +12,29 @@ export const getAll = async () => {
 
 };
 
-// Public storefront lookup - only ever expose these three columns here.
+// Public storefront lookup - only ever expose these columns here.
 // OwnerEmail/OwnerPhone/PlanType are internal and must never reach an
 // unauthenticated caller.
 export const getPublicBySlug = async (slug) => {
 
     const result = await pool.query(
-        `SELECT "TenantId", "TenantName", "Slug" FROM "Tenants" WHERE "Slug" = $1 AND "IsActive" = TRUE`,
+        `SELECT "TenantId", "TenantName", "Slug", "LogoUrl", "PrimaryColor"
+         FROM "Tenants" WHERE "Slug" = $1 AND "IsActive" = TRUE`,
         [slug]
+    );
+
+    return result.rows[0];
+
+};
+
+export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
+
+    const result = await pool.query(
+        `UPDATE "Tenants"
+         SET "LogoUrl" = $1, "PrimaryColor" = $2, "UpdatedAt" = NOW()
+         WHERE "TenantId" = $3
+         RETURNING "TenantId", "TenantName", "Slug", "LogoUrl", "PrimaryColor"`,
+        [logoUrl || null, primaryColor || null, tenantId]
     );
 
     return result.rows[0];

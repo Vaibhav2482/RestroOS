@@ -1,13 +1,15 @@
 import { createTheme } from "@mui/material/styles";
 
-const theme = createTheme({
+const DEFAULT_PRIMARY_COLOR = "#4F46E5";
+
+const baseThemeOptions = {
 
     palette: {
 
         mode: "light",
 
         primary: {
-            main: "#4F46E5"
+            main: DEFAULT_PRIMARY_COLOR
         },
 
         secondary: {
@@ -118,6 +120,19 @@ const theme = createTheme({
 
     }
 
+};
+
+const theme = createTheme(baseThemeOptions);
+
+// Each tenant can pick their own theme color (Settings > Branding in
+// tenant-admin) - everything else about the look stays the same, just the
+// primary color swaps out.
+export const buildTenantTheme = (primaryColor) => createTheme({
+    ...baseThemeOptions,
+    palette: {
+        ...baseThemeOptions.palette,
+        primary: { main: primaryColor || DEFAULT_PRIMARY_COLOR }
+    }
 });
 
 export default theme;

@@ -13,3 +13,29 @@ export const getPublicTenant = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message);
 
 });
+
+export const getOwnTenant = asyncHandler(async (req, res) => {
+
+    const result = await TenantService.getOwnTenant(req.user.tenantId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const updateBranding = asyncHandler(async (req, res) => {
+
+    const { logoUrl, primaryColor } = req.body;
+
+    const result = await TenantService.updateBranding(req.user.tenantId, { logoUrl, primaryColor });
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

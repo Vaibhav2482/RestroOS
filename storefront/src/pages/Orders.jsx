@@ -201,7 +201,7 @@ function Orders() {
                             border: "1px solid #E5E7EB",
                             cursor: "pointer",
                             transition: "border-color 0.15s",
-                            "&:hover": { borderColor: "#4F46E5" }
+                            "&:hover": { borderColor: "primary.main" }
                         }}
                     >
 
@@ -225,7 +225,7 @@ function Orders() {
 
                             </Box>
 
-                            <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>
+                            <Typography variant="h6" fontWeight={700} sx={{ color: "primary.main" }}>
                                 &#8377;{Number(order.TotalAmount).toFixed(2)}
                             </Typography>
 

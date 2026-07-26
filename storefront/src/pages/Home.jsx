@@ -121,7 +121,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                     {item.ItemName}
                 </Typography>
 
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "#4F46E5", mt: 0.5 }}>
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "primary.main", mt: 0.5 }}>
                     ₹{Number(item.Price).toFixed(2)}
                 </Typography>
 
@@ -133,7 +133,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                             <Box
                                 component="span"
                                 onClick={() => setExpanded((prev) => !prev)}
-                                sx={{ color: "#4F46E5", fontWeight: 600, cursor: "pointer" }}
+                                sx={{ color: "primary.main", fontWeight: 600, cursor: "pointer" }}
                             >
                                 {expanded ? "less" : "more"}
                             </Box>
@@ -173,7 +173,9 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                 justifyContent="space-between"
                                 sx={{
                                     bgcolor: "#FFFFFF",
-                                    border: "1px solid #4F46E5",
+                                    borderWidth: 1,
+                                    borderStyle: "solid",
+                                    borderColor: "primary.main",
                                     borderRadius: 5,
                                     px: 0.5,
                                     py: 0.25,
@@ -186,7 +188,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     narrow, which is what made the whole control look off-center -
                                     p:0.75 keeps a real tap target without breaking the layout. */}
                                 <IconButton size="small" onClick={onDecrement} disabled={busy} sx={{ p: 0.75 }}>
-                                    <RemoveIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
+                                    <RemoveIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
                                 {/* key={quantity} restarts the pulse animation on every
@@ -196,7 +198,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     key={quantity}
                                     fontWeight={700}
                                     sx={{
-                                        color: "#4F46E5",
+                                        color: "primary.main",
                                         minWidth: 16,
                                         textAlign: "center",
                                         animation: "qtyPulse 0.2s ease-out",
@@ -210,7 +212,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                 </Typography>
 
                                 <IconButton size="small" onClick={onIncrement} disabled={busy} sx={{ p: 0.75 }}>
-                                    <AddIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
+                                    <AddIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
                             </Stack>
@@ -847,7 +849,7 @@ function Home() {
                         transform: "translateX(-50%)",
                         width: { xs: "calc(100% - 32px)", sm: 480 },
                         maxWidth: "calc(100% - 32px)",
-                        bgcolor: "#4F46E5",
+                        bgcolor: "primary.main",
                         color: "#fff",
                         borderRadius: 3,
                         boxShadow: "0 10px 30px rgba(79,70,229,.35)",

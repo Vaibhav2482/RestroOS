@@ -22,6 +22,32 @@ export const getPublicTenant = async (slug) => {
 
 };
 
+export const getOwnTenant = async (tenantId) => {
+
+    const tenant = await TenantRepository.getById(tenantId);
+
+    if (!tenant) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    return { success: true, message: "Restaurant found.", data: tenant };
+
+};
+
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
+
+export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
+
+    if (primaryColor && !HEX_COLOR.test(primaryColor)) {
+        return { success: false, message: "Theme color must be a hex code like #4F46E5." };
+    }
+
+    const tenant = await TenantRepository.updateBranding(tenantId, { logoUrl, primaryColor });
+
+    return { success: true, message: "Branding updated.", data: tenant };
+
+};
+
 export const getAllTenants = async () => {
 
     const tenants = await TenantRepository.getAll();

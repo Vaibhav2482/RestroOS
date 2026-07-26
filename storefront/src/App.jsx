@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { ThemeProvider } from "@mui/material";
 
-import { StorefrontProvider } from "./context/StorefrontContext";
+import { StorefrontProvider, useStorefront } from "./context/StorefrontContext";
+import { buildTenantTheme } from "./theme/theme";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -14,11 +17,17 @@ import Orders from "./pages/Orders";
 import OrderDetail from "./pages/OrderDetail";
 import Addresses from "./pages/Addresses";
 
-function TenantApp() {
+function TenantThemedApp() {
+
+    const { tenant } = useStorefront();
+
+    // Recreated only when the tenant's chosen color actually changes, not
+    // on every render - createTheme() isn't cheap enough to redo per paint.
+    const tenantTheme = useMemo(() => buildTenantTheme(tenant?.PrimaryColor), [tenant?.PrimaryColor]);
 
     return (
 
-        <StorefrontProvider>
+        <ThemeProvider theme={tenantTheme}>
 
             <Layout>
 
@@ -40,6 +49,18 @@ function TenantApp() {
 
             </Layout>
 
+        </ThemeProvider>
+
+    );
+
+}
+
+function TenantApp() {
+
+    return (
+
+        <StorefrontProvider>
+            <TenantThemedApp />
         </StorefrontProvider>
 
     );

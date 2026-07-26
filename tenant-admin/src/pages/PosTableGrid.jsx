@@ -46,6 +46,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
+                                height: "100%",
                                 minHeight: 160,
                                 "&:hover": { transform: "translateY(-2px)" }
                             }}

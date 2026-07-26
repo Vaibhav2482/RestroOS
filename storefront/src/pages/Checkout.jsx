@@ -16,7 +16,8 @@ import {
     TextField,
     ToggleButton,
     ToggleButtonGroup,
-    Typography
+    Typography,
+    useTheme
 } from "@mui/material";
 import LocalMallOutlinedIcon from "@mui/icons-material/LocalMallOutlined";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
@@ -97,6 +98,7 @@ function Checkout() {
     const { tenantSlug } = useParams();
     const navigate = useNavigate();
     const { customer, refreshCartCount } = useStorefront();
+    const theme = useTheme();
 
     const [cartItems, setCartItems] = useState([]);
     const [addresses, setAddresses] = useState([]);
@@ -315,7 +317,7 @@ function Checkout() {
                     email: customer.Email,
                     contact: customer.Phone
                 },
-                theme: { color: "#4F46E5" },
+                theme: { color: theme.palette.primary.main },
                 handler: async (response) => {
 
                     try {
@@ -410,8 +412,8 @@ function Checkout() {
                                         fontWeight: 600,
                                         "&.Mui-selected": {
                                             bgcolor: "#EEF2FF",
-                                            color: "#4F46E5",
-                                            borderColor: "#4F46E5",
+                                            color: "primary.main",
+                                            borderColor: "primary.main",
                                             "&:hover": { bgcolor: "#E0E7FF" }
                                         }
                                     }
@@ -487,7 +489,7 @@ function Checkout() {
                                             </TextField>
 
                                             <Typography variant="body2" sx={{ mt: 1.5 }}>
-                                                <RouterLink to={`/${tenantSlug}/addresses`} style={{ color: "#4F46E5", fontWeight: 600 }}>
+                                                <RouterLink to={`/${tenantSlug}/addresses`} style={{ color: theme.palette.primary.main, fontWeight: 600 }}>
                                                     Manage addresses
                                                 </RouterLink>
                                             </Typography>
@@ -521,7 +523,7 @@ function Checkout() {
                                                 alignItems: "center",
                                                 gap: 1,
                                                 border: "1px solid",
-                                                borderColor: paymentMethod === method.value ? "#4F46E5" : "#E5E7EB",
+                                                borderColor: paymentMethod === method.value ? "primary.main" : "#E5E7EB",
                                                 bgcolor: paymentMethod === method.value ? "#EEF2FF" : "transparent",
                                                 borderRadius: 2,
                                                 px: 1.5,
