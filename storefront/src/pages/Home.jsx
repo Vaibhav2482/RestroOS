@@ -31,6 +31,12 @@ import ItemCustomizationDialog from "./ItemCustomizationDialog";
 // AppBar's rendered height at each breakpoint or the two would overlap.
 const APPBAR_HEIGHT = { xs: 56, sm: 64 };
 
+const FILTER_CHIPS = [
+    { id: "veg", label: "Pure Veg", dotColor: "#0B8A3D" },
+    { id: "nonveg", label: "Non-Veg", dotColor: "#943126" },
+    { id: "bestseller", label: "Bestseller", dotColor: null }
+];
+
 function VegIndicator({ isVeg }) {
 
     const color = isVeg ? "#0B8A3D" : "#943126";
@@ -255,6 +261,10 @@ function Home() {
     const [menuLoading, setMenuLoading] = useState(true);
     const [activeCategoryId, setActiveCategoryId] = useState(null);
     const [search, setSearch] = useState("");
+    // "veg" and "nonveg" are mutually exclusive as far as filtering goes -
+    // both on (or both off) means "no veg-type restriction," not "show
+    // nothing," which is what a naive independent-exclude check would do.
+    const [filters, setFilters] = useState([]);
     const [cartLines, setCartLines] = useState([]);
     const [customizingItem, setCustomizingItem] = useState(null);
     // CartIds with an increment/decrement request currently in flight - a
@@ -404,17 +414,40 @@ function Home() {
         [menuItems]
     );
 
+    const toggleFilter = (id) => {
+        setFilters((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+    };
+
     const searchedItems = useMemo(() => {
 
-        if (!search.trim()) {
-            return availableItems;
-        }
-
         const term = search.trim().toLowerCase();
+        const vegOn = filters.includes("veg");
+        const nonVegOn = filters.includes("nonveg");
+        const bestsellerOn = filters.includes("bestseller");
 
-        return availableItems.filter((item) => item.ItemName.toLowerCase().includes(term));
+        return availableItems.filter((item) => {
 
-    }, [availableItems, search]);
+            if (term && !item.ItemName.toLowerCase().includes(term)) {
+                return false;
+            }
+
+            if (vegOn && !nonVegOn && !item.IsVeg) {
+                return false;
+            }
+
+            if (nonVegOn && !vegOn && item.IsVeg) {
+                return false;
+            }
+
+            if (bestsellerOn && !item.IsPopular) {
+                return false;
+            }
+
+            return true;
+
+        });
+
+    }, [availableItems, search, filters]);
 
     const categoriesInMenu = useMemo(() => {
 
@@ -760,6 +793,32 @@ function Home() {
                 }}
             />
 
+            <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5 }}>
+
+                {FILTER_CHIPS.map((filter) => {
+
+                    const active = filters.includes(filter.id);
+
+                    return (
+
+                        <Chip
+                            key={filter.id}
+                            label={filter.label}
+                            onClick={() => toggleFilter(filter.id)}
+                            color={active ? "primary" : "default"}
+                            variant={active ? "filled" : "outlined"}
+                            icon={filter.dotColor ? (
+                                <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: filter.dotColor, ml: "8px !important" }} />
+                            ) : undefined}
+                            sx={{ flexShrink: 0 }}
+                        />
+
+                    );
+
+                })}
+
+            </Stack>
+
             {sections.length > 0 && (
 
                 <Stack
@@ -812,7 +871,7 @@ function Home() {
 
                 <Box sx={{ textAlign: "center", py: 8 }}>
                     <Typography variant="h6" color="text.secondary">
-                        No items match your search.
+                        No items match your search or filters.
                     </Typography>
                 </Box>
 
