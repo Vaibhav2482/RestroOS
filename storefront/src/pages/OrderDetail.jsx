@@ -21,9 +21,7 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Typography,
-    useMediaQuery,
-    useTheme
+    Typography
 } from "@mui/material";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -34,6 +32,19 @@ import { getPusherClient } from "../lib/pusherClient";
 
 const DELIVERY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
+
+// Shown on the stepper only - order.OrderStatus/DELIVERY_STEPS/DINE_IN_STEPS
+// stay as the real backend values (activeStep is computed from those), this
+// is purely cosmetic so 6 steps' worth of labels can sit on one line each
+// without wrapping into their neighbor on a ~375px phone.
+const STEP_DISPLAY_LABELS = {
+    Pending: "Pending",
+    Accepted: "Accepted",
+    Preparing: "Preparing",
+    Ready: "Ready",
+    "Out For Delivery": "On the way",
+    Delivered: "Delivered"
+};
 
 const CANCELLABLE_STATUSES = ["Pending", "Accepted", "Preparing"];
 
@@ -62,8 +73,6 @@ function OrderDetail() {
     const { orderId } = useParams();
     const { tenantSlug, customer } = useStorefront();
     const navigate = useNavigate();
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -234,15 +243,30 @@ function OrderDetail() {
 
                 <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E5E7EB" }}>
                     {/* alternativeLabel packs each label into an equal-width
-                        column - fine on desktop, but 6 steps (some as long as
-                        "Out For Delivery") don't fit that on a phone screen,
-                        so labels wrap and visually bleed into their
-                        neighbors. Vertical avoids the cramming entirely
-                        instead of trying to shrink text to fit. */}
-                    <Stepper activeStep={activeStep} alternativeLabel={!isMobile} orientation={isMobile ? "vertical" : "horizontal"}>
+                        column - 6 columns leaves ~55px each on a phone, not
+                        enough for text at normal size, which is what wrapped
+                        and bled into neighboring steps before. Shrinking the
+                        label font/icon and using shorter display text (see
+                        STEP_DISPLAY_LABELS) keeps every label to one line
+                        within its own column instead. */}
+                    <Stepper
+                        activeStep={activeStep}
+                        alternativeLabel
+                        sx={{
+                            "& .MuiStepLabel-label": {
+                                fontSize: { xs: "0.65rem", sm: "0.875rem" },
+                                mt: 0.5,
+                                lineHeight: 1.2,
+                                whiteSpace: "nowrap"
+                            },
+                            "& .MuiStepIcon-root": {
+                                fontSize: { xs: "1.35rem", sm: "1.5rem" }
+                            }
+                        }}
+                    >
                         {steps.map((step) => (
                             <Step key={step}>
-                                <StepLabel>{step}</StepLabel>
+                                <StepLabel>{STEP_DISPLAY_LABELS[step]}</StepLabel>
                             </Step>
                         ))}
                     </Stepper>
@@ -258,12 +282,44 @@ function OrderDetail() {
 
                         <Typography fontWeight={700} sx={{ mb: 2 }}>Items</Typography>
 
-                        {/* A long item name can push this table wider than a
-                            phone screen - scrolling the table itself keeps
-                            that overflow contained instead of the whole page
-                            gaining horizontal scroll. */}
-                        <TableContainer sx={{ overflowX: "auto" }}>
-                            <Table size="small" sx={{ minWidth: 420 }}>
+                        {/* A 4-column table needs ~420px to show Item/Price/Qty/
+                            Total without squeezing the item name - a phone
+                            screen doesn't have that, so scrolling the table
+                            just hid the name/total off-screen by default
+                            instead of actually fixing anything. Below sm this
+                            drops the table for a stacked list (name + line
+                            total up top, unit price x qty underneath) that
+                            needs no horizontal scroll at all; sm+ keeps the
+                            table since there's room for it there. */}
+                        <Box sx={{ display: { xs: "block", sm: "none" } }}>
+
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+
+                                {order.Items.map((item) => (
+
+                                    <Box key={item.OrderItemId} sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+
+                                        <Box sx={{ minWidth: 0 }}>
+                                            <Typography noWrap>{item.ItemName}</Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                                {formatMoney(item.Price)} × {item.Quantity}
+                                            </Typography>
+                                        </Box>
+
+                                        <Typography fontWeight={600} sx={{ flexShrink: 0 }}>
+                                            {formatMoney(item.TotalPrice)}
+                                        </Typography>
+
+                                    </Box>
+
+                                ))}
+
+                            </Box>
+
+                        </Box>
+
+                        <TableContainer sx={{ display: { xs: "none", sm: "block" } }}>
+                            <Table size="small">
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>Item</TableCell>
