@@ -20,9 +20,12 @@ import {
     Typography
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
+import { getStoredAuth } from "../utils/adminAuth";
 import {
     formatCurrency,
     getNextStatuses,
@@ -32,9 +35,12 @@ import {
 
 function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
+    const auth = getStoredAuth();
+
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [emailingBill, setEmailingBill] = useState(false);
 
     useEffect(() => {
 
@@ -128,6 +134,33 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
         } finally {
 
             setActionLoading(false);
+
+        }
+
+    };
+
+    const handleEmailBill = async () => {
+
+        try {
+
+            setEmailingBill(true);
+
+            const response = await orderService.emailBill(orderId);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            toast.success(response.message || "Bill emailed.");
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to email the bill.");
+
+        } finally {
+
+            setEmailingBill(false);
 
         }
 
@@ -255,6 +288,29 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                             </Typography>
                         </Box>
 
+                        <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<PrintOutlinedIcon />}
+                                onClick={() => window.print()}
+                            >
+                                Print Bill
+                            </Button>
+
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<EmailOutlinedIcon />}
+                                disabled={emailingBill}
+                                onClick={handleEmailBill}
+                            >
+                                {emailingBill ? "Sending..." : "Email Bill"}
+                            </Button>
+
+                        </Box>
+
                         {terminal ? (
 
                             <Typography color="text.secondary">
@@ -307,6 +363,72 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
             <DialogActions>
                 <Button onClick={onClose}>Close</Button>
             </DialogActions>
+
+            {/* Rendered off-screen at all times (see print.css); window.print()
+                above is what actually shows it. */}
+            {order && (
+
+                <Box className="print-only" sx={{ p: 3 }}>
+
+                    <Typography variant="h6" fontWeight={700}>Detailed Bill</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {new Date(order.OrderDate).toLocaleString()}
+                    </Typography>
+
+                    <Divider sx={{ mb: 2 }} />
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
+                        <Typography variant="body2" color="text.secondary">Order ID</Typography>
+                        <Typography variant="body2">#{order.OrderId}</Typography>
+                    </Box>
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+                        <Typography variant="body2" color="text.secondary">Order Type</Typography>
+                        <Typography variant="body2">
+                            {order.DeliveryType}
+                            {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
+                        </Typography>
+                    </Box>
+
+                    <Typography fontWeight={700} sx={{ mb: 1.5 }}>
+                        {auth?.admin?.tenantName} · {order.BranchName}
+                    </Typography>
+
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>Item</TableCell>
+                                <TableCell align="right">Qty.</TableCell>
+                                <TableCell align="right">Price</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {(order.Items || []).map((item) => (
+                                <TableRow key={item.OrderItemId}>
+                                    <TableCell>{item.ItemName}</TableCell>
+                                    <TableCell align="right">x{item.Quantity}</TableCell>
+                                    <TableCell align="right">{formatCurrency(item.TotalPrice)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                        <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>Total Bill</Typography>
+                        <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>{formatCurrency(order.TotalAmount)}</Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">Inclusive of taxes & charges</Typography>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    <Typography variant="body2">Payment Method: {order.PaymentMethod || "-"}</Typography>
+                    <Typography variant="body2">Status: {order.OrderStatus}</Typography>
+
+                </Box>
+
+            )}
 
         </Dialog>
 

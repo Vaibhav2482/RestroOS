@@ -199,6 +199,30 @@ export const updateOrderItems = asyncHandler(async (req, res) => {
 
 });
 
+export const emailBill = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const existing = await OrderService.getOrderById(id);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessOrder(req, existing.data)) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    const result = await OrderService.emailBill(id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const cancelOrder = asyncHandler(async (req, res) => {
 
     const { id } = req.params;

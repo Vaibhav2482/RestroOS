@@ -1,0 +1,28 @@
+/* Standard "print only this element" isolation technique. .print-only is
+   fully hidden on screen (no layout impact); on print, everything else is
+   made invisible (still occupies space, but nothing shows) while .print-only
+   is revealed and positioned to fill the page. */
+.print-only {
+    display: none;
+}
+
+@media print {
+
+    body * {
+        visibility: hidden;
+    }
+
+    .print-only,
+    .print-only * {
+        visibility: visible;
+    }
+
+    .print-only {
+        display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+    }
+
+}

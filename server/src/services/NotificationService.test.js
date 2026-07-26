@@ -202,3 +202,59 @@ describe("NotificationService.notifyOrderCancelled", () => {
     });
 
 });
+
+describe("NotificationService.emailBill", () => {
+
+    it("sends the bill regardless of order status and reports success", async () => {
+
+        const result = await NotificationService.emailBill(order);
+
+        expect(result.success).toBe(true);
+        expect(result.message).toContain(customer.Email);
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.to).toBe(customer.Email);
+        expect(emailArgs.subject).toContain("#62");
+        expect(emailArgs.html).toContain("3x Garam Tea");
+        expect(emailArgs.html).toContain("Rs. 105.00");
+
+        // On-demand, not tied to any order event - SMS/WhatsApp weren't asked
+        // for here ("send on the mail"), only email should fire.
+        expect(createMessageMock).not.toHaveBeenCalled();
+
+    });
+
+    it("fails cleanly when the customer has no email on file", async () => {
+
+        CustomerRepository.getCustomerById.mockResolvedValue({ ...customer, Email: null });
+
+        const result = await NotificationService.emailBill(order);
+
+        expect(result.success).toBe(false);
+        expect(sendEmailMock).not.toHaveBeenCalled();
+
+    });
+
+    it("fails cleanly when email isn't configured for this tenant", async () => {
+
+        getResendClient.mockReturnValue(null);
+
+        const result = await NotificationService.emailBill(order);
+
+        expect(result.success).toBe(false);
+        expect(sendEmailMock).not.toHaveBeenCalled();
+
+    });
+
+    it("fails cleanly when the customer no longer exists", async () => {
+
+        CustomerRepository.getCustomerById.mockResolvedValue(undefined);
+
+        const result = await NotificationService.emailBill(order);
+
+        expect(result.success).toBe(false);
+        expect(sendEmailMock).not.toHaveBeenCalled();
+
+    });
+
+});

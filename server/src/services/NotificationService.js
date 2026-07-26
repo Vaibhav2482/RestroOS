@@ -230,6 +230,42 @@ export const notifyOrderStatusChanged = async (order) => {
 
 };
 
+// On-demand, unlike every notify* function above - triggered by a customer
+// or staff member clicking "Email Bill", not by an order event. Reuses the
+// same bill formatting, but always sends regardless of order status (a
+// cancelled or years-old order can still have its receipt re-sent).
+export const emailBill = async (order) => {
+
+    const [customer, items] = await Promise.all([
+        CustomerRepository.getCustomerById(order.CustomerId),
+        getOrderItems(order.OrderId)
+    ]);
+
+    if (!customer) {
+        return { success: false, message: "Customer not found." };
+    }
+
+    if (!customer.Email) {
+        return { success: false, message: "This customer has no email on file." };
+    }
+
+    if (!getResendClient()) {
+        return { success: false, message: "Email isn't configured for this restaurant yet." };
+    }
+
+    await sendEmail(
+        customer.Email,
+        `Your bill for Order #${order.OrderId}`,
+        `<p>Hi ${customer.FullName},</p>
+               <p>Here's your bill for order <strong>#${order.OrderId}</strong>:</p>
+               ${formatBillHtml(items)}
+               <p>Total: <strong>${formatMoney(order.TotalAmount)}</strong></p>`
+    );
+
+    return { success: true, message: `Bill emailed to ${customer.Email}.` };
+
+};
+
 export const notifyOrderCancelled = async (order, refunded) => {
 
     const [customer, items] = await Promise.all([

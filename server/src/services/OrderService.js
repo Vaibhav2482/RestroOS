@@ -129,6 +129,23 @@ export const getOrderById = async (orderId) => {
 
 };
 
+// On-demand - the controller has already checked the order exists and the
+// caller (customer or admin) is allowed to see it, same as any other
+// single-order action, so this just needs the order itself to hand to
+// NotificationService.
+export const emailBill = async (orderId) => {
+
+    const rows = await OrderRepository.getOrderById(orderId);
+    const order = shapeOrder(rows);
+
+    if (!order) {
+        return { success: false, message: "Order not found." };
+    }
+
+    return NotificationService.emailBill(order);
+
+};
+
 export const getOrdersByCustomer = async (customerId) => {
 
     const orders = await OrderRepository.getOrdersByCustomer(customerId);

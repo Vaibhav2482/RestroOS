@@ -9,7 +9,8 @@ import {
     getOrdersByCustomer,
     updateOrderStatus,
     updateOrderItems,
-    cancelOrder
+    cancelOrder,
+    emailBill
 } from "../controllers/OrderController.js";
 import { authenticate, authorize } from "../middleware/Auth.js";
 
@@ -26,5 +27,6 @@ router.get("/customer/:customerId", getOrdersByCustomer);
 router.put("/:id/status", authorize("admin"), updateOrderStatus);
 router.put("/:id/items", authorize("admin"), updateOrderItems);
 router.put("/:id/cancel", cancelOrder);
+router.post("/:id/email-bill", emailBill);
 
 export default router;

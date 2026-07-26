@@ -41,3 +41,8 @@ export const cancelOrder = async (id) => {
     const response = await axiosClient.put(`/orders/${id}/cancel`);
     return response.data;
 };
+
+export const emailBill = async (id) => {
+    const response = await axiosClient.post(`/orders/${id}/email-bill`);
+    return response.data;
+};
