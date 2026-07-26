@@ -5,6 +5,7 @@ import {
     Card,
     Chip,
     Grid,
+    Grow,
     IconButton,
     InputAdornment,
     Skeleton,
@@ -157,52 +158,78 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 
                 <Box sx={{ position: "absolute", left: "50%", bottom: -14, transform: "translateX(-50%)", width: "84%", display: "flex", justifyContent: "center" }}>
 
+                    {/* A plain ternary here swaps Button for Stack in a single
+                        instant DOM replacement - combined with the optimistic
+                        update firing on the same tick as the click, that gave
+                        zero visible feedback that the tap registered at all.
+                        Grow (re-triggered on every mount via the key) eases
+                        each swap in instead of hard-cutting to it. */}
                     {quantity > 0 ? (
 
-                        <Stack
-                            direction="row"
-                            alignItems="center"
-                            justifyContent="space-between"
-                            sx={{
-                                bgcolor: "#FFFFFF",
-                                border: "1px solid #4F46E5",
-                                borderRadius: 5,
-                                px: 0.5,
-                                py: 0.25,
-                                width: 104,
-                                opacity: busy ? 0.6 : 1
-                            }}
-                        >
+                        <Grow in key="stepper">
+                            <Stack
+                                direction="row"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                sx={{
+                                    bgcolor: "#FFFFFF",
+                                    border: "1px solid #4F46E5",
+                                    borderRadius: 5,
+                                    px: 0.5,
+                                    py: 0.25,
+                                    width: 104,
+                                    opacity: busy ? 0.6 : 1
+                                }}
+                            >
 
-                            {/* MUI's default IconButton padding is oversized for a pill this
-                                narrow, which is what made the whole control look off-center -
-                                p:0.75 keeps a real tap target without breaking the layout. */}
-                            <IconButton size="small" onClick={onDecrement} disabled={busy} sx={{ p: 0.75 }}>
-                                <RemoveIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
-                            </IconButton>
+                                {/* MUI's default IconButton padding is oversized for a pill this
+                                    narrow, which is what made the whole control look off-center -
+                                    p:0.75 keeps a real tap target without breaking the layout. */}
+                                <IconButton size="small" onClick={onDecrement} disabled={busy} sx={{ p: 0.75 }}>
+                                    <RemoveIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
+                                </IconButton>
 
-                            <Typography fontWeight={700} sx={{ color: "#4F46E5", minWidth: 16, textAlign: "center" }}>
-                                {quantity}
-                            </Typography>
+                                {/* key={quantity} restarts the pulse animation on every
+                                    +/- tap, not just on the button->stepper swap, so
+                                    incrementing/decrementing has its own tactile beat. */}
+                                <Typography
+                                    key={quantity}
+                                    fontWeight={700}
+                                    sx={{
+                                        color: "#4F46E5",
+                                        minWidth: 16,
+                                        textAlign: "center",
+                                        animation: "qtyPulse 0.2s ease-out",
+                                        "@keyframes qtyPulse": {
+                                            "0%": { transform: "scale(1.4)" },
+                                            "100%": { transform: "scale(1)" }
+                                        }
+                                    }}
+                                >
+                                    {quantity}
+                                </Typography>
 
-                            <IconButton size="small" onClick={onIncrement} disabled={busy} sx={{ p: 0.75 }}>
-                                <AddIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
-                            </IconButton>
+                                <IconButton size="small" onClick={onIncrement} disabled={busy} sx={{ p: 0.75 }}>
+                                    <AddIcon sx={{ fontSize: 18, color: "#4F46E5" }} />
+                                </IconButton>
 
-                        </Stack>
+                            </Stack>
+                        </Grow>
 
                     ) : (
 
-                        <Button
-                            fullWidth
-                            variant="contained"
-                            size="small"
-                            onClick={onAdd}
-                            disabled={busy}
-                            sx={{ borderRadius: 2, minWidth: 0, px: 1 }}
-                        >
-                            Add
-                        </Button>
+                        <Grow in key="add-button">
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                size="small"
+                                onClick={onAdd}
+                                disabled={busy}
+                                sx={{ borderRadius: 2, minWidth: 0, px: 1 }}
+                            >
+                                Add
+                            </Button>
+                        </Grow>
 
                     )}
 
