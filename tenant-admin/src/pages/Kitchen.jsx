@@ -36,6 +36,27 @@ function elapsedMinutes(dateString) {
     return Math.max(0, Math.floor((Date.now() - new Date(dateString).getTime()) / 60000));
 }
 
+// A ticket sitting in "Ready" for days (stale demo data, or just missed)
+// would otherwise show something like "7118m" - a wide, unreadable chip
+// that also squeezed the order-number/chip row together since Stack's
+// space-between had almost no room left to distribute. Collapsing to
+// hours/days past 60 minutes keeps the label short at any age.
+function formatElapsed(minutes) {
+
+    if (minutes < 60) {
+        return `${minutes}m`;
+    }
+
+    const hours = Math.floor(minutes / 60);
+
+    if (hours < 24) {
+        return `${hours}h`;
+    }
+
+    return `${Math.floor(hours / 24)}d`;
+
+}
+
 function OrderTicket({ order, column, onAdvance, advancing }) {
 
     const minutes = elapsedMinutes(order.OrderDate);
@@ -44,10 +65,10 @@ function OrderTicket({ order, column, onAdvance, advancing }) {
 
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #E5E7EB" }}>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ width: "100%", mb: 0.5 }}>
                 <Typography fontWeight={700}>#{order.OrderId}</Typography>
                 <Chip
-                    label={`${minutes}m`}
+                    label={formatElapsed(minutes)}
                     size="small"
                     color={minutes >= 15 ? "error" : minutes >= 8 ? "warning" : "default"}
                 />
