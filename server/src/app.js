@@ -24,6 +24,7 @@ import PaymentRoutes from "./routes/PaymentRoutes.js";
 import CouponRoutes from "./routes/CouponRoutes.js";
 import UploadRoutes from "./routes/UploadRoutes.js";
 import RealtimeRoutes from "./routes/RealtimeRoutes.js";
+import IntegrationRoutes from "./routes/IntegrationRoutes.js";
 
 const app = express();
 
@@ -61,6 +62,7 @@ app.use("/api/v1/payments", PaymentRoutes);
 app.use("/api/v1/coupons", CouponRoutes);
 app.use("/api/v1/uploads", UploadRoutes);
 app.use("/api/v1/realtime", RealtimeRoutes);
+app.use("/api/v1/integrations", IntegrationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
