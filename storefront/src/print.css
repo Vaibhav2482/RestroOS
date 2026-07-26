@@ -1,30 +1,43 @@
-/* Standard "print only this element" isolation technique. .print-only is
-   fully hidden on screen (no layout impact); on print, everything else is
-   made invisible (still occupies space, but nothing shows) while .print-only
-   is revealed and positioned to fill the page. Scoped this way instead of a
-   dedicated print route/window so it stays in sync with whatever order is
-   already loaded on screen, with no extra navigation or popup involved. */
-.print-only {
-    display: none;
-}
-
+/* The bill preview is an MUI Dialog, which portals outside #root (straight
+   onto <body>) - so hiding #root for print removes the whole app in one
+   shot, leaving just the dialog's own content height. This avoids the
+   "extra blank page" bug that a visibility:hidden approach has, since
+   hidden-but-still-in-flow content behind the dialog no longer inflates
+   the page height being printed. */
 @media print {
 
-    body * {
-        visibility: hidden;
+    #root {
+        display: none !important;
     }
 
-    .print-only,
-    .print-only * {
-        visibility: visible;
+    /* Guards against any other dialog (e.g. the cancel-order confirm) also
+       being portaled to <body> at the same time - only the modal root that
+       actually contains the bill gets shown back. */
+    .MuiModal-root {
+        display: none !important;
     }
 
-    .print-only {
+    .MuiModal-root:has(.bill-receipt-print) {
         display: block !important;
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
+    }
+
+    .MuiBackdrop-root {
+        display: none !important;
+    }
+
+    .MuiDialogActions-root {
+        display: none !important;
+    }
+
+    .MuiDialog-paper {
+        box-shadow: none !important;
+        max-height: none !important;
+        margin: 0 !important;
+    }
+
+    .MuiDialogContent-root {
+        overflow: visible !important;
+        max-height: none !important;
     }
 
 }

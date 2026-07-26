@@ -31,6 +31,7 @@ import toast from "react-hot-toast";
 import * as orderService from "../services/orderService";
 import { useStorefront } from "../context/StorefrontContext";
 import { getPusherClient } from "../lib/pusherClient";
+import BillReceipt from "../components/BillReceipt";
 
 const DELIVERY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -81,6 +82,7 @@ function OrderDetail() {
     const [cancelling, setCancelling] = useState(false);
     const [emailingBill, setEmailingBill] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [billOpen, setBillOpen] = useState(false);
 
     const fetchOrder = useCallback(async (silent = false) => {
 
@@ -468,10 +470,10 @@ function OrderDetail() {
                             fullWidth
                             variant="outlined"
                             startIcon={<PrintOutlinedIcon />}
-                            onClick={() => window.print()}
+                            onClick={() => setBillOpen(true)}
                             sx={{ height: 44 }}
                         >
-                            Print Bill
+                            View / Print Bill
                         </Button>
 
                         <Button
@@ -532,90 +534,24 @@ function OrderDetail() {
 
             </Dialog>
 
-            {/* Rendered off-screen at all times (see print.css); window.print()
-                above is what actually shows it - kept separate from the on-screen
-                layout so print output doesn't drag along the stepper, nav, etc. */}
-            <Box className="print-only" sx={{ p: 3, fontFamily: "inherit" }}>
+            <Dialog open={billOpen} onClose={() => setBillOpen(false)} maxWidth="xs" fullWidth>
 
-                <Typography variant="h6" fontWeight={700}>Detailed Bill</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{formatDate(order.OrderDate)}</Typography>
+                <DialogContent sx={{ pt: 3 }}>
+                    <BillReceipt order={order} restaurantName={tenant?.TenantName} isCancelled={isCancelled} />
+                </DialogContent>
 
-                <Divider sx={{ mb: 2 }} />
+                <DialogActions>
+                    <Button onClick={() => setBillOpen(false)}>Close</Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<PrintOutlinedIcon />}
+                        onClick={() => window.print()}
+                    >
+                        Print
+                    </Button>
+                </DialogActions>
 
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary">Order ID</Typography>
-                    <Typography variant="body2">#{order.OrderId}</Typography>
-                </Box>
-
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2" color="text.secondary">Order Type</Typography>
-                    <Typography variant="body2">
-                        {order.DeliveryType}
-                        {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
-                    </Typography>
-                </Box>
-
-                <Typography fontWeight={700} sx={{ mb: 1.5 }}>{tenant?.TenantName} · {order.BranchName}</Typography>
-
-                <Table size="small">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Item</TableCell>
-                            <TableCell align="right">Qty.</TableCell>
-                            <TableCell align="right">Price</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {order.Items.map((item) => (
-                            <TableRow key={item.OrderItemId}>
-                                <TableCell>{item.ItemName}</TableCell>
-                                <TableCell align="right">x{item.Quantity}</TableCell>
-                                <TableCell align="right">{formatMoney(item.TotalPrice)}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-
-                <Divider sx={{ my: 1.5 }} />
-
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                    <Typography variant="body2">{formatMoney(order.SubTotal)}</Typography>
-                </Box>
-
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                    <Typography variant="body2" color="text.secondary">CGST</Typography>
-                    <Typography variant="body2">{formatMoney(order.CgstAmount)}</Typography>
-                </Box>
-
-                <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1.5 }}>
-                    <Typography variant="body2" color="text.secondary">SGST</Typography>
-                    <Typography variant="body2">{formatMoney(order.SgstAmount)}</Typography>
-                </Box>
-
-                <Divider sx={{ mb: 1.5 }} />
-
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>Total Bill</Typography>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>{formatMoney(order.TotalAmount)}</Typography>
-                </Box>
-                <Typography variant="caption" color="text.secondary">Inclusive of taxes & charges</Typography>
-
-                <Divider sx={{ my: 2 }} />
-
-                <Typography fontWeight={700} sx={{ mb: 1 }}>Payment Info</Typography>
-
-                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                    <Typography variant="body2">
-                        Paid Amount: <strong>{formatMoney(order.TotalAmount)}</strong>
-                    </Typography>
-                    <Typography variant="body2" color="success.main" fontWeight={600}>
-                        {isCancelled ? "Cancelled" : "Success"}
-                    </Typography>
-                </Box>
-                <Typography variant="body2" color="text.secondary">By: {order.PaymentMethod}</Typography>
-
-            </Box>
+            </Dialog>
 
         </Box>
 

@@ -26,6 +26,7 @@ import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
 import { getStoredAuth } from "../utils/adminAuth";
+import BillReceipt from "../components/BillReceipt";
 import {
     formatCurrency,
     getNextStatuses,
@@ -41,6 +42,7 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [emailingBill, setEmailingBill] = useState(false);
+    const [billOpen, setBillOpen] = useState(false);
 
     useEffect(() => {
 
@@ -294,9 +296,9 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                                 size="small"
                                 variant="outlined"
                                 startIcon={<PrintOutlinedIcon />}
-                                onClick={() => window.print()}
+                                onClick={() => setBillOpen(true)}
                             >
-                                Print Bill
+                                View / Print Bill
                             </Button>
 
                             <Button
@@ -364,69 +366,26 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                 <Button onClick={onClose}>Close</Button>
             </DialogActions>
 
-            {/* Rendered off-screen at all times (see print.css); window.print()
-                above is what actually shows it. */}
             {order && (
 
-                <Box className="print-only" sx={{ p: 3 }}>
+                <Dialog open={billOpen} onClose={() => setBillOpen(false)} maxWidth="xs" fullWidth>
 
-                    <Typography variant="h6" fontWeight={700}>Detailed Bill</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {new Date(order.OrderDate).toLocaleString()}
-                    </Typography>
+                    <DialogContent sx={{ pt: 3 }}>
+                        <BillReceipt order={order} restaurantName={auth?.admin?.tenantName} />
+                    </DialogContent>
 
-                    <Divider sx={{ mb: 2 }} />
+                    <DialogActions>
+                        <Button onClick={() => setBillOpen(false)}>Close</Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<PrintOutlinedIcon />}
+                            onClick={() => window.print()}
+                        >
+                            Print
+                        </Button>
+                    </DialogActions>
 
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 0.5 }}>
-                        <Typography variant="body2" color="text.secondary">Order ID</Typography>
-                        <Typography variant="body2">#{order.OrderId}</Typography>
-                    </Box>
-
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-                        <Typography variant="body2" color="text.secondary">Order Type</Typography>
-                        <Typography variant="body2">
-                            {order.DeliveryType}
-                            {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
-                        </Typography>
-                    </Box>
-
-                    <Typography fontWeight={700} sx={{ mb: 1.5 }}>
-                        {auth?.admin?.tenantName} · {order.BranchName}
-                    </Typography>
-
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>Item</TableCell>
-                                <TableCell align="right">Qty.</TableCell>
-                                <TableCell align="right">Price</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {(order.Items || []).map((item) => (
-                                <TableRow key={item.OrderItemId}>
-                                    <TableCell>{item.ItemName}</TableCell>
-                                    <TableCell align="right">x{item.Quantity}</TableCell>
-                                    <TableCell align="right">{formatCurrency(item.TotalPrice)}</TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>Total Bill</Typography>
-                        <Typography variant="h6" fontWeight={700} sx={{ color: "#4F46E5" }}>{formatCurrency(order.TotalAmount)}</Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">Inclusive of taxes & charges</Typography>
-
-                    <Divider sx={{ my: 2 }} />
-
-                    <Typography variant="body2">Payment Method: {order.PaymentMethod || "-"}</Typography>
-                    <Typography variant="body2">Status: {order.OrderStatus}</Typography>
-
-                </Box>
+                </Dialog>
 
             )}
 
