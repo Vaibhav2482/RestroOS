@@ -706,7 +706,7 @@ function Checkout() {
 
                         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                             <Typography fontWeight={700}>
-                                {appliedCoupon ? "Estimated Total" : "Estimated Total"}
+                                Estimated Total
                             </Typography>
                             <Typography variant="h6" fontWeight={800}>
                                 {formatCurrency(estimatedTotalAfterDiscount)}

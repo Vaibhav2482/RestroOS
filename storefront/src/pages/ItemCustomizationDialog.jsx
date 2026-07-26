@@ -524,13 +524,16 @@ function ItemCustomizationDialog({ open, item, onClose }) {
                                             ₹{Number(rec.Price).toFixed(2)}
                                         </Typography>
 
+                                        {/* 22px was under a comfortable tap-target size for a
+                                            phone - 32px is still small enough for this compact
+                                            card but easier to actually hit. */}
                                         <IconButton
                                             size="small"
                                             disabled={Boolean(addingRecId) || submitting}
                                             onClick={() => handleQuickAddRecommendation(rec)}
-                                            sx={{ border: "1px solid #E5E7EB", width: 22, height: 22 }}
+                                            sx={{ border: "1px solid #E5E7EB", width: 32, height: 32 }}
                                         >
-                                            <AddIcon sx={{ fontSize: 14 }} />
+                                            <AddIcon sx={{ fontSize: 16 }} />
                                         </IconButton>
 
                                     </Stack>

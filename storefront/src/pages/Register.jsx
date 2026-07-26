@@ -69,7 +69,7 @@ function Register() {
 
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 6 }}>
 
-            <Paper elevation={0} sx={{ width: 420, maxWidth: "100%", p: 5, border: "1px solid #E5E7EB" }} component="form" onSubmit={handleSubmit}>
+            <Paper elevation={0} sx={{ width: 420, maxWidth: "100%", p: { xs: 3, sm: 5 }, border: "1px solid #E5E7EB" }} component="form" onSubmit={handleSubmit}>
 
                 <Typography variant="h5" fontWeight={800} textAlign="center" sx={{ color: "#4F46E5" }}>
                     {tenant?.TenantName || "Create Account"}

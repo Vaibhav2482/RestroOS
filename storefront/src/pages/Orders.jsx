@@ -174,7 +174,11 @@ function Orders() {
 
     return (
 
-        <Box sx={{ py: 2 }}>
+        // Matches Cart.jsx's maxWidth:720 - each row already uses its full
+        // width well (name/status on the left, price on the right), so this
+        // caps the line length instead of switching to a card grid, which
+        // would fit a "record list" like order history worse than a menu.
+        <Box sx={{ py: 2, maxWidth: 720, mx: "auto" }}>
 
             <Typography variant="h5" sx={{ mb: 3 }}>
                 My Orders

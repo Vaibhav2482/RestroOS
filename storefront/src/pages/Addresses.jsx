@@ -165,7 +165,10 @@ function Addresses() {
 
     return (
 
-        <Box>
+        // Same maxWidth:720 pattern as Cart.jsx/Orders.jsx - without it,
+        // each address card stretched to the full desktop container width,
+        // leaving a lot of empty space next to the title/address text.
+        <Box sx={{ maxWidth: 720, mx: "auto" }}>
 
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
 
