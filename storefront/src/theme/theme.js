@@ -1,6 +1,9 @@
 import { createTheme } from "@mui/material/styles";
 
-const DEFAULT_PRIMARY_COLOR = "#4F46E5";
+// A warm terracotta rather than a generic SaaS indigo - this is only the
+// fallback for a tenant who hasn't picked their own color yet (Settings >
+// Branding); buildTenantTheme below always overrides it once they do.
+const DEFAULT_PRIMARY_COLOR = "#D33C33";
 
 const baseThemeOptions = {
 
@@ -17,7 +20,7 @@ const baseThemeOptions = {
         },
 
         background: {
-            default: "#F5F6FA",
+            default: "#FCFAF6",
             paper: "#FFFFFF"
         },
 
@@ -82,7 +85,7 @@ const baseThemeOptions = {
 
         MuiCssBaseline: {
             styleOverrides: {
-                body: { backgroundColor: "#F5F6FA" }
+                body: { backgroundColor: "#FCFAF6" }
             }
         },
 

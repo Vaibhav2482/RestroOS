@@ -10,6 +10,7 @@ import ImageUploadField from "../components/ImageUploadField";
 // storefront looking deliberately designed (readable text/button contrast
 // already checked) instead of accidentally landing on something illegible.
 const THEME_PRESETS = [
+    { name: "Terracotta", color: "#D33C33" },
     { name: "Indigo", color: "#4F46E5" },
     { name: "Teal", color: "#0F766E" },
     { name: "Amber", color: "#D97706" },

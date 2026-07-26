@@ -89,7 +89,7 @@ function ItemImage({ item, size = 116 }) {
                 borderRadius: 2,
                 flexShrink: 0,
                 border: "1px solid #E5E7EB",
-                bgcolor: "#F5F6FA",
+                bgcolor: "#F4EFE9",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center"
