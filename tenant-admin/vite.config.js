@@ -19,6 +19,12 @@ export default defineConfig({
           if (id.includes("react-router-dom") || id.includes("/react/") || id.includes("/react-dom/")) {
             return "vendor-react";
           }
+          // Only the (lazy-loaded) Analytics page imports this - carved out
+          // of vendor-mui so its ~230KB gzipped d3-based rendering layer
+          // stays out of every other page's initial bundle.
+          if (id.includes("@mui/x-charts") || id.includes("@mui/x-internals") || id.includes("d3-")) {
+            return "vendor-charts";
+          }
           if (id.includes("@mui") || id.includes("@emotion")) {
             return "vendor-mui";
           }

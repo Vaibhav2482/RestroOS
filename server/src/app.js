@@ -25,6 +25,7 @@ import CouponRoutes from "./routes/CouponRoutes.js";
 import UploadRoutes from "./routes/UploadRoutes.js";
 import RealtimeRoutes from "./routes/RealtimeRoutes.js";
 import IntegrationRoutes from "./routes/IntegrationRoutes.js";
+import AnalyticsRoutes from "./routes/AnalyticsRoutes.js";
 
 const app = express();
 
@@ -63,6 +64,7 @@ app.use("/api/v1/coupons", CouponRoutes);
 app.use("/api/v1/uploads", UploadRoutes);
 app.use("/api/v1/realtime", RealtimeRoutes);
 app.use("/api/v1/integrations", IntegrationRoutes);
+app.use("/api/v1/analytics", AnalyticsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
