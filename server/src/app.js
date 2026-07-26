@@ -29,6 +29,7 @@ import AnalyticsRoutes from "./routes/AnalyticsRoutes.js";
 import IngredientRoutes from "./routes/IngredientRoutes.js";
 import InventoryRoutes from "./routes/InventoryRoutes.js";
 import MenuItemRecipeRoutes from "./routes/MenuItemRecipeRoutes.js";
+import { runMigrations } from "./config/migrate.js";
 
 const app = express();
 
@@ -44,6 +45,21 @@ app.get("/api/v1/health", (req, res) => {
         success: true,
         message: "RestroOS API is running successfully."
     });
+});
+
+// SQL lives in config/migrations.js as plain JS now, not read from disk at
+// runtime - see that file's own comment for why the previous version of
+// this broke production. No-op after the first successful run per warm
+// instance (config/migrate.js).
+app.use(async (req, res, next) => {
+
+    try {
+        await runMigrations();
+        next();
+    } catch (error) {
+        next(error);
+    }
+
 });
 
 app.use("/api/v1/platform-admin/auth", PlatformAdminRoutes);
