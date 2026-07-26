@@ -506,12 +506,17 @@ function Checkout() {
 
                         <SectionCard title="Payment Method">
 
+                            {/* A horizontal row of 3 to match Delivery Type's
+                                compact toggle right above it - three stacked
+                                full-width rows for the same "pick one of a
+                                few options" choice looked inconsistent and
+                                cost 3x the vertical space for no real benefit. */}
                             <RadioGroup
                                 value={paymentMethod}
                                 onChange={(event) => setPaymentMethod(event.target.value)}
                             >
 
-                                <Stack spacing={1}>
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
 
                                     {PAYMENT_METHODS.map((method) => (
 
@@ -519,15 +524,17 @@ function Checkout() {
                                             key={method.value}
                                             onClick={() => setPaymentMethod(method.value)}
                                             sx={{
+                                                flex: 1,
                                                 display: "flex",
                                                 alignItems: "center",
+                                                justifyContent: { xs: "flex-start", sm: "center" },
                                                 gap: 1,
                                                 border: "1px solid",
                                                 borderColor: paymentMethod === method.value ? "primary.main" : "#E5E7EB",
                                                 bgcolor: paymentMethod === method.value ? "#EEF2FF" : "transparent",
                                                 borderRadius: 2,
                                                 px: 1.5,
-                                                py: 1,
+                                                py: 1.25,
                                                 cursor: "pointer",
                                                 transition: "border-color .15s ease, background-color .15s ease"
                                             }}
@@ -542,7 +549,7 @@ function Checkout() {
                                                         <Typography fontWeight={600}>{method.label}</Typography>
                                                     </Stack>
                                                 }
-                                                sx={{ m: 0, flex: 1 }}
+                                                sx={{ m: 0 }}
                                             />
 
                                         </Box>
