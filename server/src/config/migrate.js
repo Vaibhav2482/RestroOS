@@ -1,21 +1,14 @@
-import { readdirSync, readFileSync } from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
 import pool from "./db.js";
+import { MIGRATIONS } from "./migrations.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Arbitrary fixed key for a Postgres advisory lock - just needs to be a
+// consistent number every instance of this app agrees on. Serializes
+// concurrent cold starts against each other: without this, two instances
+// warming up at once could both pass "table doesn't exist yet" before
+// either commits its CREATE TABLE, which is exactly what caused a real
+// production outage (pg_type catalog conflict) the first time this ran.
+const MIGRATION_LOCK_KEY = 918273645;
 
-// server/src/config -> up to the repo root, then into database/migrations.
-const MIGRATIONS_DIR = path.join(__dirname, "..", "..", "..", "database", "migrations");
-
-// There's no other path to production DDL in this deployment (no shell
-// access to the database, no separate migration step in the deploy
-// pipeline) - this runs once per cold start, guarded by `applied` so it's
-// a cheap no-op on every request after the first. Each file runs in its
-// own transaction and is recorded in MigrationsApplied only on success, so
-// a failed migration can be fixed and re-deployed without needing to hand-
-// edit any tracking state.
 let applied = false;
 
 export const runMigrations = async () => {
@@ -24,50 +17,52 @@ export const runMigrations = async () => {
         return;
     }
 
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS "MigrationsApplied" (
-            "MigrationId" VARCHAR(255) NOT NULL,
-            "AppliedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
-            PRIMARY KEY ("MigrationId")
-        )
-    `);
+    const client = await pool.connect();
 
-    const appliedResult = await pool.query(`SELECT "MigrationId" FROM "MigrationsApplied"`);
-    const appliedSet = new Set(appliedResult.rows.map((row) => row.MigrationId));
+    try {
 
-    const files = readdirSync(MIGRATIONS_DIR)
-        .filter((file) => file.endsWith(".sql"))
-        .sort();
+        await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK_KEY]);
 
-    for (const file of files) {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS "MigrationsApplied" (
+                "MigrationId" VARCHAR(255) NOT NULL,
+                "AppliedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY ("MigrationId")
+            )
+        `);
 
-        if (appliedSet.has(file)) {
-            continue;
-        }
+        const appliedResult = await client.query(`SELECT "MigrationId" FROM "MigrationsApplied"`);
+        const appliedSet = new Set(appliedResult.rows.map((row) => row.MigrationId));
 
-        const sql = readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
-        const client = await pool.connect();
+        for (const migration of MIGRATIONS) {
 
-        try {
+            if (appliedSet.has(migration.id)) {
+                continue;
+            }
 
-            await client.query("BEGIN");
-            await client.query(sql);
-            await client.query(`INSERT INTO "MigrationsApplied" ("MigrationId") VALUES ($1)`, [file]);
-            await client.query("COMMIT");
+            try {
 
-        } catch (error) {
+                await client.query("BEGIN");
+                await client.query(migration.sql);
+                await client.query(`INSERT INTO "MigrationsApplied" ("MigrationId") VALUES ($1)`, [migration.id]);
+                await client.query("COMMIT");
 
-            await client.query("ROLLBACK");
-            throw new Error(`Migration ${file} failed: ${error.message}`);
+            } catch (error) {
 
-        } finally {
+                await client.query("ROLLBACK");
+                throw new Error(`Migration ${migration.id} failed: ${error.message}`);
 
-            client.release();
+            }
 
         }
+
+        applied = true;
+
+    } finally {
+
+        await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK_KEY]);
+        client.release();
 
     }
-
-    applied = true;
 
 };

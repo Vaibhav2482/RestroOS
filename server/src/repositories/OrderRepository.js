@@ -293,43 +293,75 @@ export const getOrdersByCustomer = async (customerId) => {
 
 };
 
-export const updateOrderStatus = async (id, orderStatus) => {
+// FRS A5: two staff members advancing the same order at once (or POS and a
+// stale KDS tab) used to both read the same pre-advance status and both
+// succeed, silently - last write wins, no error to either caller. The
+// SELECT ... FOR UPDATE below locks the row for the duration of this
+// transaction; a second concurrent call blocks until the first commits,
+// then re-reads the now-current status and correctly rejects an
+// already-invalid transition instead of racing it. `onValidated` is an
+// extension point for Inventory consumption (FRS B7) to run in the same
+// transaction as the status write, once that lands - not used yet.
+export const updateOrderStatus = async (id, orderStatus, onValidated) => {
 
-    const existing = await pool.query(
-        `SELECT "OrderStatus", "DeliveryType" FROM "Orders" WHERE "OrderId" = $1`,
-        [id]
-    );
+    const client = await pool.connect();
 
-    if (existing.rows.length === 0) {
-        throw new Error("Order not found.");
+    try {
+
+        await client.query("BEGIN");
+
+        const existing = await client.query(
+            `SELECT "OrderStatus", "DeliveryType" FROM "Orders" WHERE "OrderId" = $1 FOR UPDATE`,
+            [id]
+        );
+
+        if (existing.rows.length === 0) {
+            throw new Error("Order not found.");
+        }
+
+        const currentStatus = existing.rows[0].OrderStatus;
+        const deliveryType = existing.rows[0].DeliveryType;
+
+        if (["Delivered", "Cancelled"].includes(currentStatus)) {
+            throw new Error("This order is already finished and cannot be updated.");
+        }
+
+        const sequence = deliveryType === "Delivery" ? DELIVERY_SEQUENCE : OTHER_SEQUENCE;
+
+        const currentStep = sequence.indexOf(currentStatus);
+        const targetStep = sequence.indexOf(orderStatus);
+
+        if (targetStep === -1) {
+            throw new Error("That status is not valid for this order type.");
+        }
+
+        if (targetStep <= currentStep) {
+            throw new Error("Order status can only move forward.");
+        }
+
+        const result = await client.query(
+            `UPDATE "Orders" SET "OrderStatus" = $1 WHERE "OrderId" = $2 RETURNING *`,
+            [orderStatus, id]
+        );
+
+        if (onValidated) {
+            await onValidated(client, result.rows[0]);
+        }
+
+        await client.query("COMMIT");
+
+        return result.rows[0];
+
+    } catch (error) {
+
+        await client.query("ROLLBACK");
+        throw error;
+
+    } finally {
+
+        client.release();
+
     }
-
-    const currentStatus = existing.rows[0].OrderStatus;
-    const deliveryType = existing.rows[0].DeliveryType;
-
-    if (["Delivered", "Cancelled"].includes(currentStatus)) {
-        throw new Error("This order is already finished and cannot be updated.");
-    }
-
-    const sequence = deliveryType === "Delivery" ? DELIVERY_SEQUENCE : OTHER_SEQUENCE;
-
-    const currentStep = sequence.indexOf(currentStatus);
-    const targetStep = sequence.indexOf(orderStatus);
-
-    if (targetStep === -1) {
-        throw new Error("That status is not valid for this order type.");
-    }
-
-    if (targetStep <= currentStep) {
-        throw new Error("Order status can only move forward.");
-    }
-
-    const result = await pool.query(
-        `UPDATE "Orders" SET "OrderStatus" = $1 WHERE "OrderId" = $2 RETURNING *`,
-        [orderStatus, id]
-    );
-
-    return result.rows[0];
 
 };
 
@@ -456,26 +488,52 @@ export const updateOrderItems = async (orderId, items) => {
 
 };
 
-export const cancelOrder = async (orderId) => {
+// FRS A4: a customer and staff don't get the same cancellation window - a
+// customer can back out through Accepted, but once the kitchen has
+// started (Preparing), only staff can still call it off. `allowedStatuses`
+// is caller-supplied so the two roles' rules live in the service layer,
+// not duplicated here. Row-locked for the same reason updateOrderStatus
+// is (FRS A5) - a cancel racing a simultaneous status advance must not
+// silently let both "succeed".
+export const cancelOrder = async (orderId, allowedStatuses) => {
 
-    const existing = await pool.query(`SELECT "OrderStatus" FROM "Orders" WHERE "OrderId" = $1`, [orderId]);
+    const client = await pool.connect();
 
-    if (existing.rows.length === 0) {
-        throw new Error("Order not found.");
+    try {
+
+        await client.query("BEGIN");
+
+        const existing = await client.query(`SELECT "OrderStatus" FROM "Orders" WHERE "OrderId" = $1 FOR UPDATE`, [orderId]);
+
+        if (existing.rows.length === 0) {
+            throw new Error("Order not found.");
+        }
+
+        const currentStatus = existing.rows[0].OrderStatus;
+
+        if (!allowedStatuses.includes(currentStatus)) {
+            throw new Error(`Order cannot be cancelled once it is ${currentStatus}.`);
+        }
+
+        const result = await client.query(
+            `UPDATE "Orders" SET "OrderStatus" = 'Cancelled' WHERE "OrderId" = $1
+             RETURNING "OrderId", "BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate"`,
+            [orderId]
+        );
+
+        await client.query("COMMIT");
+
+        return result.rows[0];
+
+    } catch (error) {
+
+        await client.query("ROLLBACK");
+        throw error;
+
+    } finally {
+
+        client.release();
+
     }
-
-    const currentStatus = existing.rows[0].OrderStatus;
-
-    if (!["Pending", "Accepted", "Preparing"].includes(currentStatus)) {
-        throw new Error("Order cannot be cancelled once it is Ready, Out For Delivery, Delivered, or already Cancelled.");
-    }
-
-    const result = await pool.query(
-        `UPDATE "Orders" SET "OrderStatus" = 'Cancelled' WHERE "OrderId" = $1
-         RETURNING "OrderId", "BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate"`,
-        [orderId]
-    );
-
-    return result.rows[0];
 
 };

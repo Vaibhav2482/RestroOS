@@ -197,11 +197,18 @@ export const updateOrderItems = async (orderId, items) => {
 
 };
 
-export const cancelOrder = async (orderId) => {
+// FRS A4: a customer's cancellation window stops at Accepted - once the
+// kitchen has started (Preparing), only staff can still call it off.
+const CUSTOMER_CANCELLABLE_STATUSES = ["Pending", "Accepted"];
+const STAFF_CANCELLABLE_STATUSES = ["Pending", "Accepted", "Preparing"];
+
+export const cancelOrder = async (orderId, role) => {
 
     try {
 
-        const cancelledOrder = await OrderRepository.cancelOrder(orderId);
+        const allowedStatuses = role === "customer" ? CUSTOMER_CANCELLABLE_STATUSES : STAFF_CANCELLABLE_STATUSES;
+
+        const cancelledOrder = await OrderRepository.cancelOrder(orderId, allowedStatuses);
 
         await RealtimeService.publishOrderStatusChanged(cancelledOrder);
 

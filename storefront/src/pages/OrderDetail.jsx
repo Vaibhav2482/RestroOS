@@ -55,7 +55,11 @@ const STEP_DISPLAY_LABELS = {
     Delivered: "Delivered"
 };
 
-const CANCELLABLE_STATUSES = ["Pending", "Accepted", "Preparing"];
+// Matches the server's customer-side cancellation window (FRS A4) - once
+// the kitchen has started (Preparing), only staff can still call it off,
+// so the button doesn't appear here past Accepted even though staff's own
+// screens keep it through Preparing.
+const CANCELLABLE_STATUSES = ["Pending", "Accepted"];
 
 function formatDate(dateString) {
 
