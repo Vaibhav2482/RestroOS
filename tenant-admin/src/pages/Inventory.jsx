@@ -98,7 +98,7 @@ function Inventory() {
                 {TABS.map((label) => <Tab key={label} label={label} />)}
             </Tabs>
 
-            {tab === 0 && <InventoryDashboardTab branchId={selectedBranchId} />}
+            {tab === 0 && <InventoryDashboardTab branchId={selectedBranchId} onNavigate={setTab} />}
             {tab === 1 && <IngredientsTab owner={owner} />}
             {tab === 2 && <BranchStockTab branchId={selectedBranchId} />}
             {tab === 3 && <InventoryTransactionsTab branchId={selectedBranchId} />}

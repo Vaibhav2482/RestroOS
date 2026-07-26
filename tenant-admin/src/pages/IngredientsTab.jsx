@@ -17,12 +17,14 @@ import {
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 
 import toast from "react-hot-toast";
 
 import * as ingredientService from "../services/ingredientService";
 import { unitLabel } from "../utils/units";
 import IngredientDialog from "./IngredientDialog";
+import EmptyState from "../components/EmptyState";
 
 function IngredientsTab({ owner }) {
 
@@ -164,10 +166,17 @@ function IngredientsTab({ owner }) {
                             ) : ingredients.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 7 : 6} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">
-                                            {owner ? "No ingredients yet. Add your first ingredient to start tracking stock." : "No ingredients yet."}
-                                        </Typography>
+                                    <TableCell colSpan={owner ? 7 : 6} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<Inventory2OutlinedIcon />}
+                                            title="No ingredients yet"
+                                            description={owner ? "Add your first ingredient to start tracking stock." : "Ask an owner to add ingredients here."}
+                                            action={owner && (
+                                                <Button variant="outlined" size="small" startIcon={<AddRoundedIcon />} onClick={handleOpenCreate}>
+                                                    Add Ingredient
+                                                </Button>
+                                            )}
+                                        />
                                     </TableCell>
                                 </TableRow>
 

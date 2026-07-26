@@ -17,11 +17,13 @@ import {
     TextField,
     Typography
 } from "@mui/material";
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import toast from "react-hot-toast";
 
 import * as inventoryService from "../services/inventoryService";
 import * as ingredientService from "../services/ingredientService";
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_LABELS } from "../utils/units";
+import EmptyState from "../components/EmptyState";
 
 const formatDateTime = (value) => new Date(value).toLocaleString("en-IN", {
     day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
@@ -179,8 +181,12 @@ function InventoryTransactionsTab({ branchId }) {
                             ) : transactions.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">No stock movements found for these filters.</Typography>
+                                    <TableCell colSpan={7} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<HistoryOutlinedIcon />}
+                                            title="No stock movements found"
+                                            description="Try widening the date range or clearing a filter."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

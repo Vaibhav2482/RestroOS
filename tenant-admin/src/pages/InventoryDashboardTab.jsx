@@ -9,11 +9,22 @@ import toast from "react-hot-toast";
 import * as inventoryService from "../services/inventoryService";
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_LABELS } from "../utils/units";
 
-function StatCard({ icon, label, value, color }) {
+function StatCard({ icon, label, value, color, onClick }) {
 
     return (
 
-        <Card elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
+        <Card
+            elevation={0}
+            sx={{
+                border: "1px solid #E5E7EB",
+                ...(onClick && {
+                    cursor: "pointer",
+                    transition: "border-color .15s, box-shadow .15s",
+                    "&:hover": { borderColor: color, boxShadow: `0 0 0 3px ${color}1A` }
+                })
+            }}
+            onClick={onClick}
+        >
 
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
 
@@ -49,7 +60,14 @@ const formatDateTime = (value) => new Date(value).toLocaleString("en-IN", {
     day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
 });
 
-function InventoryDashboardTab({ branchId }) {
+// Tab indices mirror Inventory.jsx's TABS array (Dashboard, Ingredients,
+// Branch Stock, Transactions) - a stat card click jumps straight to the
+// tab that explains the number, instead of leaving the user to hunt for it.
+const TAB_INGREDIENTS = 1;
+const TAB_BRANCH_STOCK = 2;
+const TAB_TRANSACTIONS = 3;
+
+function InventoryDashboardTab({ branchId, onNavigate }) {
 
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -111,15 +129,33 @@ function InventoryDashboardTab({ branchId }) {
             <Grid container spacing={3} sx={{ mb: 4 }}>
 
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <StatCard icon={<Inventory2OutlinedIcon />} label="Active Ingredients" value={summary.ActiveIngredients} color="#4F46E5" />
+                    <StatCard
+                        icon={<Inventory2OutlinedIcon />}
+                        label="Active Ingredients"
+                        value={summary.ActiveIngredients}
+                        color="#4F46E5"
+                        onClick={onNavigate && (() => onNavigate(TAB_INGREDIENTS))}
+                    />
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <StatCard icon={<ReportProblemOutlinedIcon />} label="Out of Stock" value={summary.OutOfStock} color="#DC2626" />
+                    <StatCard
+                        icon={<ReportProblemOutlinedIcon />}
+                        label="Out of Stock"
+                        value={summary.OutOfStock}
+                        color="#DC2626"
+                        onClick={onNavigate && (() => onNavigate(TAB_BRANCH_STOCK))}
+                    />
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                    <StatCard icon={<WarningAmberOutlinedIcon />} label="Low Stock" value={summary.LowStock} color="#D97706" />
+                    <StatCard
+                        icon={<WarningAmberOutlinedIcon />}
+                        label="Low Stock"
+                        value={summary.LowStock}
+                        color="#D97706"
+                        onClick={onNavigate && (() => onNavigate(TAB_BRANCH_STOCK))}
+                    />
                 </Grid>
 
                 <Grid size={{ xs: 12, sm: 6, md: 3 }}>
@@ -128,6 +164,7 @@ function InventoryDashboardTab({ branchId }) {
                         label="Wastage (30 Days)"
                         value={Number(summary.wastage30Days?.WastageCount || 0)}
                         color="#0F766E"
+                        onClick={onNavigate && (() => onNavigate(TAB_TRANSACTIONS))}
                     />
                 </Grid>
 

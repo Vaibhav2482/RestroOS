@@ -88,7 +88,28 @@ function MenuItemRecipeDialog({ open, onClose, menuItem }) {
     };
 
     const handleAddLine = () => {
-        setLines((prev) => [...prev, emptyLine()]);
+
+        setLines((prev) => {
+
+            // Pre-fill with the first ingredient not already on the recipe
+            // (and its default compatible unit) rather than a blank row -
+            // most recipes just need "pick the next one," not "pick
+            // everything from scratch" on every line.
+            const usedIds = new Set(prev.map((line) => line.ingredientId));
+            const nextIngredient = ingredients.find((ingredient) => !usedIds.has(ingredient.IngredientId));
+
+            if (!nextIngredient) {
+                return [...prev, emptyLine()];
+            }
+
+            return [...prev, {
+                ...emptyLine(),
+                ingredientId: nextIngredient.IngredientId,
+                unit: compatibleUnits(nextIngredient.BaseUnit)[0]?.code || ""
+            }];
+
+        });
+
     };
 
     const handleRemoveLine = (key) => {

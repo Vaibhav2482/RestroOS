@@ -26,6 +26,7 @@ import toast from "react-hot-toast";
 
 import * as inventoryService from "../services/inventoryService";
 import StockActionDialog from "./StockActionDialog";
+import EmptyState from "../components/EmptyState";
 
 const stockStatus = (row) => {
 
@@ -201,10 +202,12 @@ function BranchStockTab({ branchId }) {
                             ) : filteredRows.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">
-                                            {rows.length === 0 ? "No ingredients yet - add one under the Ingredients tab first." : "No ingredients match your search."}
-                                        </Typography>
+                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<Inventory2OutlinedIcon />}
+                                            title={rows.length === 0 ? "No stock to show" : "No matches"}
+                                            description={rows.length === 0 ? "Add an ingredient under the Ingredients tab first." : "Try a different search."}
+                                        />
                                     </TableCell>
                                 </TableRow>
 

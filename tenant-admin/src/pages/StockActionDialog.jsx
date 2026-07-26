@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
     Alert,
+    Autocomplete,
     Button,
     Dialog,
     DialogActions,
@@ -20,6 +21,11 @@ const MODE_CONFIG = {
     wastage: { title: "Record Wastage", quantityLabel: "Quantity Wasted", submitLabel: "Record Wastage", requireReason: true },
     adjustment: { title: "Record Stock Adjustment", quantityLabel: "Physical Quantity Counted", submitLabel: "Record Adjustment", requireReason: true }
 };
+
+// Presets to make the common cases one click - freeSolo still lets staff
+// type something that isn't on the list, this is a shortcut, not a
+// constraint on the Reason column's actual values.
+const WASTAGE_REASON_PRESETS = ["Spoiled", "Dropped", "Expired", "Over-prepared", "Quality control reject", "Theft or loss"];
 
 // Opening stock and wastage both post a "quantity" straight through; an
 // adjustment instead posts the physical count the staff member just took
@@ -145,7 +151,24 @@ function StockActionDialog({ open, mode, onClose, onSave, ingredient, currentBal
 
                     )}
 
-                    {config.requireReason && (
+                    {config.requireReason && mode === "wastage" && (
+
+                        <Grid size={12}>
+                            <Autocomplete
+                                freeSolo
+                                options={WASTAGE_REASON_PRESETS}
+                                value={reason}
+                                onChange={(event, newValue) => setReason(newValue || "")}
+                                onInputChange={(event, newValue) => setReason(newValue)}
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Reason" placeholder="Pick a reason or type your own" />
+                                )}
+                            />
+                        </Grid>
+
+                    )}
+
+                    {config.requireReason && mode !== "wastage" && (
 
                         <Grid size={12}>
                             <TextField
@@ -153,7 +176,7 @@ function StockActionDialog({ open, mode, onClose, onSave, ingredient, currentBal
                                 label="Reason"
                                 value={reason}
                                 onChange={(event) => setReason(event.target.value)}
-                                placeholder={mode === "wastage" ? "e.g. Spoiled, dropped" : "e.g. Physical stock count"}
+                                placeholder="e.g. Physical stock count"
                             />
                         </Grid>
 
