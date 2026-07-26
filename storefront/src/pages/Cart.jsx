@@ -95,7 +95,22 @@ function CartLineItem({ item, onQuantityChange, onRemove }) {
                         <RemoveIcon sx={{ fontSize: 18 }} />
                     </IconButton>
 
-                    <Typography fontWeight={600} sx={{ minWidth: 20, textAlign: "center" }}>
+                    {/* key={item.Quantity} restarts the pulse on every +/- tap -
+                        same fix as the menu page's Add button/stepper, so a
+                        tap has something visible to confirm it registered. */}
+                    <Typography
+                        key={item.Quantity}
+                        fontWeight={600}
+                        sx={{
+                            minWidth: 20,
+                            textAlign: "center",
+                            animation: "qtyPulse 0.2s ease-out",
+                            "@keyframes qtyPulse": {
+                                "0%": { transform: "scale(1.4)" },
+                                "100%": { transform: "scale(1)" }
+                            }
+                        }}
+                    >
                         {item.Quantity}
                     </Typography>
 
