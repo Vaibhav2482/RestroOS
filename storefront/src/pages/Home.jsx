@@ -106,7 +106,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 
     return (
 
-        <Card elevation={0} sx={{ p: 2, border: "1px solid #E5E7EB", display: "flex", gap: 2 }}>
+        <Card elevation={0} sx={{ p: 2, border: "1px solid #E5E7EB", display: "flex", gap: 2, height: "100%" }}>
 
             <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
 
