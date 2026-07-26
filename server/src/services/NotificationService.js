@@ -60,7 +60,7 @@ const sendSms = async (to, body) => {
 
     } catch (error) {
 
-        console.error(`SMS notification failed (-> ${formattedTo}): ${error.message}`);
+        console.error(`SMS notification failed (-> ${formattedTo}): [${error.code}] ${error.message}`);
 
     }
 
@@ -96,7 +96,7 @@ const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
 
     } catch (error) {
 
-        console.error(`WhatsApp notification failed (${templateEnvVar} -> ${formattedTo}): ${error.message}`);
+        console.error(`WhatsApp notification failed (${templateEnvVar} -> ${formattedTo}): [${error.code}] ${error.message} - ${error.moreInfo || ""}`);
 
     }
 
