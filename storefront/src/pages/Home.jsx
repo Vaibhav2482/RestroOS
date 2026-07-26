@@ -797,9 +797,15 @@ function Home() {
 
                                     const plainLine = getPlainCartLine(item.MenuItemId);
 
+                                    // md alone meant 2 columns forever from 900px up - a
+                                    // laptop/desktop screen (this page's Container caps at
+                                    // 1200px) still only ever got 2 columns, so each card
+                                    // stretched to ~580px and everything inside it (image,
+                                    // gap, button) looked oversized and sparse. lg bumps to
+                                    // 3 within that same 1200px cap instead.
                                     return (
 
-                                        <Grid key={item.MenuItemId} size={{ xs: 12, md: 6 }} sx={{ pb: 1 }}>
+                                        <Grid key={item.MenuItemId} size={{ xs: 12, md: 6, lg: 4 }} sx={{ pb: 1 }}>
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}
