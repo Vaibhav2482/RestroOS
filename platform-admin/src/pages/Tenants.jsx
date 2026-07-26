@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
     AppBar,
+    Avatar,
     Box,
     Button,
     Chip,
@@ -11,7 +12,11 @@ import {
     DialogContent,
     DialogContentText,
     DialogTitle,
+    Divider,
     IconButton,
+    ListItemIcon,
+    Menu,
+    MenuItem,
     Table,
     TableBody,
     TableCell,
@@ -26,6 +31,7 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
+import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -45,6 +51,7 @@ function Tenants() {
     const [confirmResetTenant, setConfirmResetTenant] = useState(null);
     const [resettingTenantId, setResettingTenantId] = useState(null);
     const [credentialResult, setCredentialResult] = useState(null);
+    const [menuAnchor, setMenuAnchor] = useState(null);
 
     // Only the first load shows the blocking spinner - reloading after
     // onboarding a tenant keeps the existing table visible instead of
@@ -153,21 +160,50 @@ function Tenants() {
 
         <Box>
 
-            <AppBar position="sticky" elevation={0}>
+            <AppBar
+                position="sticky"
+                color="inherit"
+                elevation={0}
+                sx={{ backgroundColor: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}
+            >
 
                 <Toolbar>
 
-                    <Typography variant="h6" fontWeight={800} sx={{ flexGrow: 1, color: "#4F46E5" }}>
-                        RestroOS
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexGrow: 1, color: "#4F46E5" }}>
+                        <RestaurantRoundedIcon />
+                        <Typography variant="h6" fontWeight={800} sx={{ color: "inherit" }}>
+                            RestroOS
+                        </Typography>
+                        <Chip label="Platform Admin" size="small" sx={{ ml: 1, fontWeight: 600, display: { xs: "none", sm: "flex" } }} />
+                    </Box>
 
-                    <Typography color="text.secondary" sx={{ mr: 2, display: { xs: "none", sm: "block" } }}>
-                        {auth?.admin?.Email}
-                    </Typography>
+                    <IconButton
+                        onClick={(event) => setMenuAnchor(event.currentTarget)}
+                        sx={{
+                            p: 0.5,
+                            transition: "box-shadow .15s",
+                            "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.15)" }
+                        }}
+                    >
+                        <Avatar sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
+                            {auth?.admin?.Email?.[0]?.toUpperCase() || "A"}
+                        </Avatar>
+                    </IconButton>
 
-                    <Button startIcon={<LogoutRoundedIcon />} onClick={handleLogout}>
-                        Logout
-                    </Button>
+                    <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+
+                        <MenuItem disabled sx={{ opacity: "1 !important" }}>
+                            <Typography variant="body2" fontWeight={600}>{auth?.admin?.Email}</Typography>
+                        </MenuItem>
+
+                        <Divider />
+
+                        <MenuItem onClick={handleLogout}>
+                            <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
+                            Log Out
+                        </MenuItem>
+
+                    </Menu>
 
                 </Toolbar>
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
     AppBar,
+    Avatar,
     Badge,
     Box,
     Button,
@@ -15,11 +16,10 @@ import {
     Typography
 } from "@mui/material";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutlineOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useStorefront } from "../context/StorefrontContext";
 import BottomNav from "./BottomNav";
@@ -27,6 +27,7 @@ import BottomNav from "./BottomNav";
 function Layout({ children }) {
 
     const navigate = useNavigate();
+    const location = useLocation();
     const {
         tenantSlug,
         tenant,
@@ -74,6 +75,16 @@ function Layout({ children }) {
         navigate(`/${tenantSlug}`);
     };
 
+    const isMenuActive = location.pathname === `/${tenantSlug}`;
+    const isOrdersActive = location.pathname.startsWith(`/${tenantSlug}/orders`);
+
+    const navButtonSx = (active) => ({
+        fontWeight: 600,
+        borderRadius: 2,
+        color: active ? "primary.main" : "inherit",
+        bgcolor: active ? "rgba(79, 70, 229, 0.1)" : "transparent"
+    });
+
     return (
 
         <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -118,8 +129,7 @@ function Layout({ children }) {
                             component={RouterLink}
                             to={`/${tenantSlug}`}
                             startIcon={<RestaurantMenuOutlinedIcon fontSize="small" />}
-                            color="inherit"
-                            sx={{ fontWeight: 600 }}
+                            sx={navButtonSx(isMenuActive)}
                         >
                             Menu
                         </Button>
@@ -128,8 +138,7 @@ function Layout({ children }) {
                             component={RouterLink}
                             to={`/${tenantSlug}/orders`}
                             startIcon={<ReceiptLongOutlinedIcon fontSize="small" />}
-                            color="inherit"
-                            sx={{ fontWeight: 600 }}
+                            sx={navButtonSx(isOrdersActive)}
                         >
                             Orders
                         </Button>
@@ -156,7 +165,14 @@ function Layout({ children }) {
 
                     <Box sx={{ ml: branches.length > 1 ? 1 : "auto", display: "flex", alignItems: "center", gap: 1 }}>
 
-                        <IconButton component={RouterLink} to={`/${tenantSlug}/cart`}>
+                        <IconButton
+                            component={RouterLink}
+                            to={`/${tenantSlug}/cart`}
+                            sx={{
+                                transition: "box-shadow .15s",
+                                "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.1)" }
+                            }}
+                        >
                             <Badge badgeContent={cartCount} color="primary">
                                 <ShoppingCartOutlinedIcon />
                             </Badge>
@@ -165,8 +181,17 @@ function Layout({ children }) {
                         {isLoggedIn ? (
 
                             <>
-                                <IconButton onClick={(event) => setMenuAnchor(event.currentTarget)}>
-                                    <PersonOutlineIcon />
+                                <IconButton
+                                    onClick={(event) => setMenuAnchor(event.currentTarget)}
+                                    sx={{
+                                        p: 0.5,
+                                        transition: "box-shadow .15s",
+                                        "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.1)" }
+                                    }}
+                                >
+                                    <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32, fontSize: 14 }}>
+                                        {customer?.FullName?.[0]?.toUpperCase() || "U"}
+                                    </Avatar>
                                 </IconButton>
 
                                 <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
