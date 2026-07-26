@@ -87,6 +87,20 @@ const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
 
     try {
 
+        const payload = {
+            contentSid,
+            contentVariables: JSON.stringify(contentVariables),
+            from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM_NUMBER}`,
+            to: `whatsapp:${formattedTo}`
+        };
+
+        // Temporary: every attempt so far has failed with a generic "Invalid
+        // Parameter" that doesn't say which parameter, while hand-crafted
+        // test payloads using the same credentials succeed - logging the
+        // real payload is the only way left to spot what's actually
+        // different about it.
+        console.log(`WhatsApp payload (${templateEnvVar}):`, JSON.stringify(payload));
+
         await client.messages.create({
             contentSid,
             contentVariables: JSON.stringify(contentVariables),
