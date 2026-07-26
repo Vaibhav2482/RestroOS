@@ -29,6 +29,7 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ExtensionOutlinedIcon from "@mui/icons-material/ExtensionOutlined";
 import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
+import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 
 import { clearStoredAuth, getStoredAuth, isOwner } from "../utils/adminAuth";
@@ -69,9 +70,24 @@ function Layout({ children }) {
         <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
 
             <Toolbar sx={{ px: 3 }}>
-                <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>
-                    RestroOS
-                </Typography>
+                <Box
+                    component={NavLink}
+                    to="/orders"
+                    onClick={() => setMobileOpen(false)}
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        textDecoration: "none",
+                        color: "#4F46E5",
+                        "&:hover": { opacity: 0.85 }
+                    }}
+                >
+                    <RestaurantRoundedIcon />
+                    <Typography variant="h6" fontWeight={800} sx={{ color: "inherit" }}>
+                        RestroOS
+                    </Typography>
+                </Box>
             </Toolbar>
 
             <Divider />
@@ -139,7 +155,14 @@ function Layout({ children }) {
                         {auth?.admin?.tenantName}
                     </Typography>
 
-                    <IconButton onClick={(event) => setMenuAnchor(event.currentTarget)}>
+                    <IconButton
+                        onClick={(event) => setMenuAnchor(event.currentTarget)}
+                        sx={{
+                            p: 0.5,
+                            transition: "box-shadow .15s",
+                            "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.15)" }
+                        }}
+                    >
                         <Avatar sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
                             {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
                         </Avatar>
