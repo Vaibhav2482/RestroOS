@@ -461,16 +461,29 @@ function Home() {
 
     // Every category is always rendered as its own section (like a real
     // menu) - the chips are for scroll-spy navigation now, not a filter
-    // that hides every other section.
-    const sections = useMemo(() =>
-        categoriesInMenu
+    // that hides every other section. A synthetic "Recommended" section is
+    // prepended when there's at least one bestseller in view - it's a
+    // cross-category surface for IsPopular items, not a replacement for
+    // their real category further down, so an item can appear in both.
+    const sections = useMemo(() => {
+
+        const categorySections = categoriesInMenu
             .map((category) => ({
                 categoryId: category.CategoryId,
                 categoryName: category.CategoryName,
                 items: searchedItems.filter((item) => item.CategoryId === category.CategoryId)
             }))
-            .filter((section) => section.items.length > 0),
-    [categoriesInMenu, searchedItems]);
+            .filter((section) => section.items.length > 0);
+
+        const recommendedItems = searchedItems.filter((item) => item.IsPopular);
+
+        if (recommendedItems.length === 0) {
+            return categorySections;
+        }
+
+        return [{ categoryId: "recommended", categoryName: "Recommended", items: recommendedItems }, ...categorySections];
+
+    }, [categoriesInMenu, searchedItems]);
 
     useEffect(() => {
 
@@ -888,9 +901,14 @@ function Home() {
                             sx={{ scrollMarginTop: { xs: "120px", sm: "136px" } }}
                         >
 
-                            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-                                {section.categoryName}
-                            </Typography>
+                            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 2 }}>
+                                <Typography variant="h6" fontWeight={700}>
+                                    {section.categoryName}
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                    {section.items.length} {section.items.length === 1 ? "item" : "items"}
+                                </Typography>
+                            </Stack>
 
                             <Grid container spacing={2.5}>
 

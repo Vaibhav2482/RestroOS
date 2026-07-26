@@ -3,6 +3,7 @@ import {
     Box,
     Button,
     Checkbox,
+    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -38,16 +39,20 @@ function formatDelta(delta) {
 
 }
 
-function groupHint(group) {
+// The Required/Optional pill carries the yes/no answer at a glance; this
+// only fills in the extra detail worth a second line - "how many" - and
+// stays silent for the common single-select case where the radio buttons
+// already make "pick one" obvious without a caption saying so.
+function groupSelectCountHint(group) {
 
     const min = group.MinSelect ?? (group.IsRequired ? 1 : 0);
     const max = group.MaxSelect ?? min;
 
-    if (group.IsRequired) {
-        return min === max ? `Required · Select ${min}` : `Required · Select ${min}-${max}`;
+    if (max <= 1) {
+        return null;
     }
 
-    return max > 1 ? `Select up to ${max}` : "Optional";
+    return min === max ? `Select ${min}` : min > 0 ? `Select ${min}-${max}` : `Select up to ${max}`;
 
 }
 
@@ -384,12 +389,29 @@ function ItemCustomizationDialog({ open, item, onClose }) {
 
                                 <Box key={group.GroupId}>
 
-                                    <Stack direction="row" alignItems="baseline" justifyContent="space-between">
+                                    <Stack direction="row" alignItems="center" justifyContent="space-between">
                                         <Typography fontWeight={700}>{group.GroupName}</Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                            {groupHint(group)}
-                                        </Typography>
+                                        <Chip
+                                            label={group.IsRequired ? "Required" : "Optional"}
+                                            size="small"
+                                            sx={{
+                                                height: 22,
+                                                fontWeight: 700,
+                                                fontSize: 11,
+                                                textTransform: "uppercase",
+                                                letterSpacing: 0.3,
+                                                ...(group.IsRequired
+                                                    ? { bgcolor: "text.primary", color: "background.paper" }
+                                                    : { bgcolor: "action.selected", color: "text.secondary" })
+                                            }}
+                                        />
                                     </Stack>
+
+                                    {groupSelectCountHint(group) && (
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                                            {groupSelectCountHint(group)}
+                                        </Typography>
+                                    )}
 
                                     <Divider sx={{ my: 1 }} />
 
