@@ -8,8 +8,14 @@ import toast from "react-hot-toast";
 function TemporaryPasswordDialog({ open, onClose, email, password }) {
 
     const handleCopy = async () => {
-        await navigator.clipboard.writeText(password);
-        toast.success("Password copied to clipboard.");
+
+        try {
+            await navigator.clipboard.writeText(password);
+            toast.success("Password copied to clipboard.");
+        } catch {
+            toast.error("Couldn't copy automatically - select and copy the password manually.");
+        }
+
     };
 
     return (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from "@mui/material";
 
 const emptyForm = { tenantName: "", slug: "", ownerEmail: "", ownerPhone: "" };
@@ -8,6 +8,18 @@ function TenantDialog({ open, onClose, onSave }) {
     const [formData, setFormData] = useState(emptyForm);
     const [saving, setSaving] = useState(false);
 
+    // This dialog stays mounted the whole time (Tenants.jsx just toggles
+    // `open`), so without this a Cancel - reopen cycle would show whatever
+    // was typed into the previous, abandoned attempt. Resetting on every
+    // close (not just a successful save) covers Cancel/backdrop/Escape too.
+    useEffect(() => {
+
+        if (!open) {
+            setFormData(emptyForm);
+        }
+
+    }, [open]);
+
     const handleChange = (event) => {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
     };
@@ -16,13 +28,9 @@ function TenantDialog({ open, onClose, onSave }) {
 
         setSaving(true);
 
-        const success = await onSave(formData);
+        await onSave(formData);
 
         setSaving(false);
-
-        if (success) {
-            setFormData(emptyForm);
-        }
 
     };
 
