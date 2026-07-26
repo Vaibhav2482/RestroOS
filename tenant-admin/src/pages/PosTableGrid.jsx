@@ -1,6 +1,7 @@
-import { Box, Button, Card, Chip, Grid, Typography } from "@mui/material";
+import { Box, Button, Card, Chip, IconButton, Grid, Tooltip, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
 
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
@@ -8,7 +9,7 @@ import { formatCurrency } from "./orderStatusUtils";
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
 // this quick action can't be used to fast-forward past a step by mistake.
-function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance }) {
+function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance, onAddOrder }) {
 
     if (tables.length === 0) {
 
@@ -53,6 +54,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                         <Card
                             onClick={() => onTableClick(table, orders)}
                             sx={{
+                                position: "relative",
                                 height: 208,
                                 cursor: "pointer",
                                 textAlign: "center",
@@ -66,6 +68,36 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                 "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0,0,0,.08)" }
                             }}
                         >
+
+                            {/* A direct shortcut to start another round on this
+                                table - previously the only way there was through
+                                the details dialog, costing staff an extra tap on
+                                the single-order case that happens on almost every
+                                table. */}
+                            {isOccupied && (
+
+                                <Tooltip title="Start another order for this table">
+                                    <IconButton
+                                        size="small"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            onAddOrder(table);
+                                        }}
+                                        sx={{
+                                            position: "absolute",
+                                            top: 6,
+                                            right: 6,
+                                            bgcolor: "background.paper",
+                                            border: "1px solid",
+                                            borderColor: "divider",
+                                            "&:hover": { bgcolor: "primary.main", color: "#fff" }
+                                        }}
+                                    >
+                                        <AddRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                </Tooltip>
+
+                            )}
 
                             <Box sx={{ pt: 2.5, px: 2 }}>
 

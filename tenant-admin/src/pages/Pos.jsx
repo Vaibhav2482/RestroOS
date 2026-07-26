@@ -197,11 +197,17 @@ function Pos() {
             return;
         }
 
-        // Always the chooser, even for a single order - the only way to
-        // start another round on an already-occupied table (a customer
-        // ordering dessert after mains are already out) is through the
-        // "Start Another Order" button in here, so a lone active order
-        // can't be allowed to shortcut straight to its details.
+        // One order is the common case, and this needs to stay a single
+        // tap straight to its details like it always was - routing even a
+        // lone order through the chooser first (an earlier attempt at this)
+        // doubled the taps for the case that happens on almost every table.
+        // The chooser is worth the extra tap only when there's genuinely
+        // more than one order to pick between.
+        if (orders.length === 1) {
+            openOrderDetails(orders[0].OrderId);
+            return;
+        }
+
         setTableOrdersView({ table, orders });
 
     };
@@ -337,6 +343,7 @@ function Pos() {
                         activeOrdersByTable={activeOrdersByTable}
                         onTableClick={handleTableClick}
                         onQuickAdvance={handleAdvanceStatus}
+                        onAddOrder={handleAddAnotherOrder}
                     />
                 </>
 
