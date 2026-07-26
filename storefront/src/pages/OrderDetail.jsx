@@ -25,6 +25,12 @@ import {
 } from "@mui/material";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
+import PaymentOutlinedIcon from "@mui/icons-material/PaymentOutlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import StoreOutlinedIcon from "@mui/icons-material/StoreOutlined";
+import NotesOutlinedIcon from "@mui/icons-material/NotesOutlined";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -257,13 +263,54 @@ function OrderDetail() {
 
         <Box sx={{ py: 2 }}>
 
-            <Typography variant="h5" sx={{ mb: 0.5 }}>
-                Order #{order.OrderId}
-            </Typography>
+            <Button
+                startIcon={<ArrowBackRoundedIcon fontSize="small" />}
+                onClick={() => navigate(`/${tenantSlug}/orders`)}
+                sx={{ mb: 1.5, ml: -1 }}
+            >
+                Back to Orders
+            </Button>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Placed on {formatDate(order.OrderDate)}
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: { sm: "center" }, justifyContent: "space-between", flexDirection: { xs: "column", sm: "row" }, gap: 1, mb: 3 }}>
+
+                <Box>
+                    <Typography variant="h5" sx={{ mb: 0.5 }}>
+                        Order #{order.OrderId}
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary">
+                        Placed on {formatDate(order.OrderDate)}
+                    </Typography>
+                </Box>
+
+                {!isCancelled && (
+
+                    <Box sx={{ display: "flex", gap: 1.5, width: { xs: "100%", sm: "auto" } }}>
+
+                        <Button
+                            variant="outlined"
+                            startIcon={<PrintOutlinedIcon />}
+                            onClick={() => setBillOpen(true)}
+                            sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                        >
+                            View / Print Bill
+                        </Button>
+
+                        <Button
+                            variant="outlined"
+                            startIcon={<EmailOutlinedIcon />}
+                            disabled={emailingBill}
+                            onClick={handleEmailBill}
+                            sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                        >
+                            {emailingBill ? "Sending..." : "Email Bill"}
+                        </Button>
+
+                    </Box>
+
+                )}
+
+            </Box>
 
             {isCancelled ? (
 
@@ -407,87 +454,72 @@ function OrderDetail() {
 
                 <Grid size={{ xs: 12, md: 5 }}>
 
+                    {/* One card instead of two separate boxes - each row reads
+                        icon + label + value, same scannable pattern as the
+                        bill receipt, instead of a caption-over-value stack
+                        repeated block after block. */}
                     <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E5E7EB" }}>
 
-                        <Typography fontWeight={700} sx={{ mb: 2 }}>Order Info</Typography>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
 
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">Delivery Type</Typography>
-                                <Typography variant="body2">
-                                    {order.DeliveryType}
-                                    {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
-                                </Typography>
+                            <Box sx={{ display: "flex", gap: 1.5 }}>
+                                <LocalShippingOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary" display="block">Delivery Type</Typography>
+                                    <Typography variant="body2" fontWeight={600}>
+                                        {order.DeliveryType}
+                                        {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
+                                    </Typography>
+                                </Box>
                             </Box>
 
                             {order.DeliveryType === "Delivery" && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Delivering To</Typography>
-                                    <Typography variant="body2">Your saved address</Typography>
+                                <Box sx={{ display: "flex", gap: 1.5 }}>
+                                    <PlaceOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" display="block">Delivering To</Typography>
+                                        <Typography variant="body2" fontWeight={600}>Your saved address</Typography>
+                                    </Box>
                                 </Box>
                             )}
 
-                            <Box>
-                                <Typography variant="caption" color="text.secondary">Payment Method</Typography>
-                                <Typography variant="body2">{order.PaymentMethod}</Typography>
+                            <Box sx={{ display: "flex", gap: 1.5 }}>
+                                <PaymentOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary" display="block">Payment Method</Typography>
+                                    <Typography variant="body2" fontWeight={600}>{order.PaymentMethod}</Typography>
+                                </Box>
                             </Box>
 
                             {order.OrderNotes && (
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Notes</Typography>
-                                    <Typography variant="body2">{order.OrderNotes}</Typography>
+                                <Box sx={{ display: "flex", gap: 1.5 }}>
+                                    <NotesOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" display="block">Notes</Typography>
+                                        <Typography variant="body2" fontWeight={600}>{order.OrderNotes}</Typography>
+                                    </Box>
                                 </Box>
                             )}
 
-                        </Box>
+                            <Divider />
 
-                    </Paper>
-
-                    <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E5E7EB" }}>
-
-                        <Typography fontWeight={700} sx={{ mb: 2 }}>Branch</Typography>
-
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-
-                            <Typography variant="body2" fontWeight={600}>{order.BranchName}</Typography>
-
-                            <Typography variant="body2" color="text.secondary">
-                                {order.BranchAddress}, {order.BranchCity} {order.BranchPincode}
-                            </Typography>
-
-                            <Typography variant="body2" color="text.secondary">
-                                {order.BranchPhone}
-                            </Typography>
+                            <Box sx={{ display: "flex", gap: 1.5 }}>
+                                <StoreOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
+                                <Box>
+                                    <Typography variant="caption" color="text.secondary" display="block">Branch</Typography>
+                                    <Typography variant="body2" fontWeight={600} sx={{ mb: 0.25 }}>{order.BranchName}</Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {order.BranchAddress}, {order.BranchCity} {order.BranchPincode}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {order.BranchPhone}
+                                    </Typography>
+                                </Box>
+                            </Box>
 
                         </Box>
 
                     </Paper>
-
-                    <Box sx={{ display: "flex", gap: 1.5, mb: 1.5 }}>
-
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<PrintOutlinedIcon />}
-                            onClick={() => setBillOpen(true)}
-                            sx={{ height: 44 }}
-                        >
-                            View / Print Bill
-                        </Button>
-
-                        <Button
-                            fullWidth
-                            variant="outlined"
-                            startIcon={<EmailOutlinedIcon />}
-                            disabled={emailingBill}
-                            onClick={handleEmailBill}
-                            sx={{ height: 44 }}
-                        >
-                            {emailingBill ? "Sending..." : "Email Bill"}
-                        </Button>
-
-                    </Box>
 
                     {canCancel && (
                         <Button
@@ -501,15 +533,6 @@ function OrderDetail() {
                             {cancelling ? "Cancelling..." : "Cancel Order"}
                         </Button>
                     )}
-
-                    <Button
-                        fullWidth
-                        variant="text"
-                        onClick={() => navigate(`/${tenantSlug}/orders`)}
-                        sx={{ mt: 1.5 }}
-                    >
-                        Back to Orders
-                    </Button>
 
                 </Grid>
 
