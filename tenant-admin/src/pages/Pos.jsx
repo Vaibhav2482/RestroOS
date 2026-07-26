@@ -34,6 +34,13 @@ function Pos() {
     // clicking straight into whichever order happened to load last would
     // silently hide the other one from the staff member.
     const [tableOrdersView, setTableOrdersView] = useState(null);
+    // OrderIds with a status-advance request in flight - the quick-advance
+    // button on the table grid had no guard against a rapid second tap
+    // firing before the first one's response (and the table refresh it
+    // triggers) landed, so a straggler tap would try to advance from a
+    // status the order had already moved past and get rejected, stacking
+    // up a wall of "Order status can only move forward" toasts.
+    const [pendingAdvanceOrderIds, setPendingAdvanceOrderIds] = useState(() => new Set());
 
     useEffect(() => {
 
@@ -239,12 +246,18 @@ function Pos() {
 
     const handleAdvanceStatus = async (orderId, orderStatus) => {
 
+        if (pendingAdvanceOrderIds.has(orderId)) {
+            return;
+        }
+
+        setPendingAdvanceOrderIds((prev) => new Set(prev).add(orderId));
+
         try {
 
             const response = await orderService.updateOrderStatus(orderId, orderStatus);
 
             if (!response.success) {
-                toast.error(response.message);
+                toast.error(response.message, { id: `advance-${orderId}` });
                 return;
             }
 
@@ -256,7 +269,15 @@ function Pos() {
 
         } catch (error) {
 
-            toast.error(error.response?.data?.message || "Failed to update order status.");
+            toast.error(error.response?.data?.message || "Failed to update order status.", { id: `advance-${orderId}` });
+
+        } finally {
+
+            setPendingAdvanceOrderIds((prev) => {
+                const next = new Set(prev);
+                next.delete(orderId);
+                return next;
+            });
 
         }
 
@@ -344,6 +365,7 @@ function Pos() {
                         onTableClick={handleTableClick}
                         onQuickAdvance={handleAdvanceStatus}
                         onAddOrder={handleAddAnotherOrder}
+                        pendingAdvanceOrderIds={pendingAdvanceOrderIds}
                     />
                 </>
 

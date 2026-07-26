@@ -9,7 +9,7 @@ import { formatCurrency } from "./orderStatusUtils";
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
 // this quick action can't be used to fast-forward past a step by mistake.
-function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance, onAddOrder }) {
+function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance, onAddOrder, pendingAdvanceOrderIds }) {
 
     if (tables.length === 0) {
 
@@ -161,6 +161,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                             <Button
                                                 size="small"
                                                 variant="outlined"
+                                                disabled={pendingAdvanceOrderIds?.has(primaryOrder.OrderId)}
                                                 endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
