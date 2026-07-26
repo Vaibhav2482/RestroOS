@@ -34,38 +34,60 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
 
                     <Grid key={table.TableId} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
 
+                        {/* A fixed height (not just a floor) is deliberate - an
+                            occupied table's extra content (status/price/button)
+                            used to grow the card taller than an idle "Available"
+                            neighbor, so every table on the floor changed size as
+                            orders moved through the kitchen. Fixed top zone
+                            (icon/name/seats) plus a fixed-height, vertically
+                            centered status zone keeps every card identical
+                            regardless of what's happening at that table. */}
                         <Card
                             onClick={() => onTableClick(table, activeOrder)}
                             sx={{
-                                p: 2.5,
+                                height: 208,
                                 cursor: "pointer",
                                 textAlign: "center",
                                 border: "2px solid",
                                 borderColor: isOccupied ? "warning.main" : "success.main",
                                 bgcolor: isOccupied ? "#FFF8E1" : "#F0FDF4",
-                                transition: "transform .15s",
+                                transition: "transform .15s, box-shadow .15s",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
-                                height: "100%",
-                                minHeight: 160,
-                                "&:hover": { transform: "translateY(-2px)" }
+                                "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0,0,0,.08)" }
                             }}
                         >
 
-                            <TableRestaurantRoundedIcon
-                                sx={{ fontSize: 34, color: isOccupied ? "warning.main" : "success.main", mb: 1 }}
-                            />
+                            <Box sx={{ pt: 2.5, px: 2 }}>
 
-                            <Typography fontWeight={700}>
-                                {table.TableName}
-                            </Typography>
+                                <TableRestaurantRoundedIcon
+                                    sx={{ fontSize: 32, color: isOccupied ? "warning.main" : "success.main" }}
+                                />
 
-                            <Typography variant="caption" color="text.secondary" sx={{ minHeight: 18 }}>
-                                {table.Capacity ? `Seats ${table.Capacity}` : " "}
-                            </Typography>
+                                <Typography fontWeight={700} sx={{ mt: 0.5 }}>
+                                    {table.TableName}
+                                </Typography>
 
-                            <Box sx={{ mt: 1, minHeight: 40 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                    {table.Capacity ? `Seats ${table.Capacity}` : " "}
+                                </Typography>
+
+                            </Box>
+
+                            <Box
+                                sx={{
+                                    flex: 1,
+                                    width: "100%",
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 0.5,
+                                    px: 1.5,
+                                    pb: 2
+                                }}
+                            >
 
                                 {isOccupied ? (
 
@@ -76,7 +98,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                             size="small"
                                         />
 
-                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
                                             #{activeOrder.OrderId} &middot; {formatCurrency(activeOrder.TotalAmount)}
                                         </Typography>
 
@@ -90,7 +112,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                                     event.stopPropagation();
                                                     onQuickAdvance(activeOrder.OrderId, nextStatus);
                                                 }}
-                                                sx={{ mt: 0.75, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
+                                                sx={{ mt: 0.25, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
                                             >
                                                 {nextStatus}
                                             </Button>
