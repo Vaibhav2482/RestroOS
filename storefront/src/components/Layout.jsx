@@ -17,6 +17,8 @@ import {
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutlineOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 import { useStorefront } from "../context/StorefrontContext";
@@ -89,6 +91,35 @@ function Layout({ children }) {
                     >
                         {tenant?.TenantName || "RestroOS"}
                     </Typography>
+
+                    {/* BottomNav (Menu/Cart/Orders/Profile) is hidden above md,
+                        and the logo being clickable back to the menu isn't an
+                        obvious nav affordance - without this, there's no
+                        visible way back to the menu from Cart/Orders/Addresses
+                        on desktop except the browser back button. */}
+                    <Box sx={{ display: { xs: "none", md: "flex" }, gap: 0.5 }}>
+
+                        <Button
+                            component={RouterLink}
+                            to={`/${tenantSlug}`}
+                            startIcon={<RestaurantMenuOutlinedIcon fontSize="small" />}
+                            color="inherit"
+                            sx={{ fontWeight: 600 }}
+                        >
+                            Menu
+                        </Button>
+
+                        <Button
+                            component={RouterLink}
+                            to={`/${tenantSlug}/orders`}
+                            startIcon={<ReceiptLongOutlinedIcon fontSize="small" />}
+                            color="inherit"
+                            sx={{ fontWeight: 600 }}
+                        >
+                            Orders
+                        </Button>
+
+                    </Box>
 
                     {branches.length > 1 && (
 

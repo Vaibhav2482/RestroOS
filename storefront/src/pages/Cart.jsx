@@ -367,7 +367,14 @@ function Cart() {
 
     return (
 
-        <Box sx={{ py: 4, maxWidth: 720, mx: "auto" }}>
+        // A plain maxWidth+mx:"auto" Box here is a flex child of Layout's
+        // column-flex root (AppBar/Container/BottomNav stacked vertically) -
+        // that combination didn't actually center on a wide desktop screen
+        // (confirmed via screenshot: content sat flush left with the rest of
+        // the width empty). Wrapping in an explicit flex+justifyContent:center
+        // parent isn't dependent on how that ancestor happens to be laid out.
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+        <Box sx={{ py: 4, width: "100%", maxWidth: 720 }}>
 
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
 
@@ -449,6 +456,7 @@ function Cart() {
 
             </Dialog>
 
+        </Box>
         </Box>
 
     );

@@ -165,10 +165,12 @@ function Addresses() {
 
     return (
 
-        // Same maxWidth:720 pattern as Cart.jsx/Orders.jsx - without it,
-        // each address card stretched to the full desktop container width,
-        // leaving a lot of empty space next to the title/address text.
-        <Box sx={{ maxWidth: 720, mx: "auto" }}>
+        // Same maxWidth:720 pattern as Cart.jsx/Orders.jsx - without it, each
+        // address card stretched to the full desktop container width. The
+        // flex+justifyContent:center wrapper is what actually centers it -
+        // maxWidth+mx:"auto" alone didn't (confirmed via screenshot).
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+        <Box sx={{ width: "100%", maxWidth: 720 }}>
 
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
 
@@ -269,6 +271,7 @@ function Addresses() {
 
             </Dialog>
 
+        </Box>
         </Box>
 
     );

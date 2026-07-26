@@ -178,7 +178,11 @@ function Orders() {
         // width well (name/status on the left, price on the right), so this
         // caps the line length instead of switching to a card grid, which
         // would fit a "record list" like order history worse than a menu.
-        <Box sx={{ py: 2, maxWidth: 720, mx: "auto" }}>
+        // The flex+justifyContent:center wrapper is what actually centers it -
+        // maxWidth+mx:"auto" alone didn't, as a flex child of Layout's own
+        // column-flex root (confirmed via screenshot on a wide screen).
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+        <Box sx={{ py: 2, width: "100%", maxWidth: 720 }}>
 
             <Typography variant="h5" sx={{ mb: 3 }}>
                 My Orders
@@ -233,6 +237,7 @@ function Orders() {
 
             </Stack>
 
+        </Box>
         </Box>
 
     );
