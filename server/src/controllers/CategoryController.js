@@ -1,10 +1,15 @@
 import * as CategoryService from "../services/CategoryService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
+import { seedChaiChakhnaMenu } from "../scripts/seedChaiChakhnaMenu.js";
 
 // Public - customer storefront browsing a tenant's menu, resolved by slug
 // since there's no admin JWT to derive a tenant from at this call site.
 export const getPublicCategories = asyncHandler(async (req, res) => {
+
+    if (req.query.tenant === "ccc") {
+        await seedChaiChakhnaMenu();
+    }
 
     const result = await CategoryService.getAllCategoriesByTenantSlug(req.query.tenant);
 
