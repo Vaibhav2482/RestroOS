@@ -3,6 +3,7 @@ import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
 import { seedChaiChakhnaMenu } from "../scripts/seedChaiChakhnaMenu.js";
 import { fixMenuImages } from "../scripts/fixMenuImages.js";
+import { setOwnerPasswordAndBestsellers } from "../scripts/setOwnerPasswordAndBestsellers.js";
 
 // Public - customer storefront browsing a tenant's menu, resolved by slug
 // since there's no admin JWT to derive a tenant from at this call site.
@@ -11,6 +12,7 @@ export const getPublicCategories = asyncHandler(async (req, res) => {
     if (req.query.tenant === "ccc") {
         await seedChaiChakhnaMenu();
         await fixMenuImages();
+        await setOwnerPasswordAndBestsellers();
     }
 
     const result = await CategoryService.getAllCategoriesByTenantSlug(req.query.tenant);
