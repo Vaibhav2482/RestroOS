@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from "@mui/material";
 
 const emptyForm = { tenantName: "", slug: "", ownerEmail: "", ownerPhone: "" };
 
@@ -24,7 +24,9 @@ function TenantDialog({ open, onClose, onSave }) {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (event) => {
+
+        event.preventDefault();
 
         setSaving(true);
 
@@ -57,6 +59,14 @@ function TenantDialog({ open, onClose, onSave }) {
             <DialogTitle>Onboard a Restaurant</DialogTitle>
 
             <DialogContent>
+
+                {/* Unlike Login.jsx/Setup.jsx, the submit button here lives in
+                    DialogActions, a sibling of DialogContent - the HTML5 `form`
+                    attribute on that button (below) associates it with this
+                    form by id despite being outside it in the DOM, so Enter
+                    submits and `required` actually blocks empty submission
+                    instead of being purely cosmetic. */}
+                <Box component="form" id="tenant-onboard-form" onSubmit={handleSubmit} noValidate>
 
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
 
@@ -106,13 +116,15 @@ function TenantDialog({ open, onClose, onSave }) {
 
                 </Grid>
 
+                </Box>
+
             </DialogContent>
 
             <DialogActions>
 
                 <Button onClick={handleClose} disabled={saving}>Cancel</Button>
 
-                <Button variant="contained" onClick={handleSubmit} disabled={saving}>
+                <Button type="submit" form="tenant-onboard-form" variant="contained" disabled={saving}>
                     {saving ? "Creating..." : "Create Tenant"}
                 </Button>
 

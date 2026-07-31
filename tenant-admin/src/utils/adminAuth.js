@@ -8,8 +8,16 @@ export const getStoredAuth = () => {
 
 };
 
+// A same-tab custom event, not just relying on the browser's native
+// "storage" event - "storage" only fires in *other* tabs/windows, never the
+// one that made the write, so Layout.jsx (which reads auth once at its own
+// render time, not from a shared store) had no way to notice a profile save
+// from a page it's the parent of.
+export const AUTH_CHANGED_EVENT = "tenantAdminAuthChanged";
+
 export const setStoredAuth = (auth) => {
     localStorage.setItem("tenantAdmin", JSON.stringify(auth));
+    window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 };
 
 export const clearStoredAuth = () => {

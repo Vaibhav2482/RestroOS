@@ -271,9 +271,10 @@ function Home() {
     const [menuLoading, setMenuLoading] = useState(true);
     const [activeCategoryId, setActiveCategoryId] = useState(null);
     const [search, setSearch] = useState("");
-    // "veg" and "nonveg" are mutually exclusive as far as filtering goes -
-    // both on (or both off) means "no veg-type restriction," not "show
-    // nothing," which is what a naive independent-exclude check would do.
+    // "veg" and "nonveg" are mutually exclusive, like a real food-ordering
+    // app's veg toggle - selecting one replaces the other rather than both
+    // staying active at once (which used to silently cancel out to "show
+    // everything," with both chips confusingly still highlighted).
     const [filters, setFilters] = useState([]);
     const [cartLines, setCartLines] = useState([]);
     const [customizingItem, setCustomizingItem] = useState(null);
@@ -425,7 +426,21 @@ function Home() {
     );
 
     const toggleFilter = (id) => {
-        setFilters((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]));
+
+        setFilters((prev) => {
+
+            if (prev.includes(id)) {
+                return prev.filter((f) => f !== id);
+            }
+
+            if (id === "veg" || id === "nonveg") {
+                return [...prev.filter((f) => f !== "veg" && f !== "nonveg"), id];
+            }
+
+            return [...prev, id];
+
+        });
+
     };
 
     const searchedItems = useMemo(() => {
@@ -441,11 +456,11 @@ function Home() {
                 return false;
             }
 
-            if (vegOn && !nonVegOn && !item.IsVeg) {
+            if (vegOn && !item.IsVeg) {
                 return false;
             }
 
-            if (nonVegOn && !vegOn && item.IsVeg) {
+            if (nonVegOn && item.IsVeg) {
                 return false;
             }
 

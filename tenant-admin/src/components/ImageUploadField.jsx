@@ -20,7 +20,11 @@ function ImageUploadField({ label, value, onChange }) {
 
     const handleFile = async (file) => {
 
-        if (!file) {
+        // Guards the drop path too, not just the click path below - without
+        // this, dropping a second image while the first was still uploading
+        // fired two concurrent uploads and whichever response landed last
+        // silently overwrote the other with no indication anything raced.
+        if (!file || uploading) {
             return;
         }
 
@@ -69,7 +73,23 @@ function ImageUploadField({ label, value, onChange }) {
             </Typography>
 
             <Box
+                role="button"
+                tabIndex={uploading ? -1 : 0}
+                aria-label={value ? `${label} - change image` : `${label} - click or drag an image to upload`}
                 onClick={() => !uploading && inputRef.current?.click()}
+                onKeyDown={(event) => {
+
+                    // target check: the remove (X) button inside here is a
+                    // real <button> whose own Enter/Space already opens
+                    // nothing but fires its own click - without this check,
+                    // that keydown bubbling up would also reopen the file
+                    // picker on top of it.
+                    if (!uploading && event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                        event.preventDefault();
+                        inputRef.current?.click();
+                    }
+
+                }}
                 onDragOver={(event) => { event.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={(event) => {
@@ -91,7 +111,8 @@ function ImageUploadField({ label, value, onChange }) {
                     justifyContent: "center",
                     cursor: uploading ? "default" : "pointer",
                     overflow: "hidden",
-                    transition: "border-color .15s ease, background-color .15s ease"
+                    transition: "border-color .15s ease, background-color .15s ease",
+                    "&:focus-visible": { outline: "2px solid #4F46E5", outlineOffset: 2 }
                 }}
             >
 
@@ -120,6 +141,7 @@ function ImageUploadField({ label, value, onChange }) {
 
                         <IconButton
                             size="small"
+                            aria-label="Remove image"
                             onClick={(event) => {
 
                                 event.stopPropagation();

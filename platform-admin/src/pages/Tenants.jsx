@@ -47,6 +47,12 @@ function Tenants() {
 
     const [tenants, setTenants] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Distinct from "tenants is an empty array" - without this, a failed
+    // load (network blip, backend down, stale/wrong-role token) rendered
+    // the exact same "No tenants yet" empty state as a genuinely empty
+    // platform, with nothing left once the 2.5s toast faded to tell an
+    // operator those are two very different situations.
+    const [loadError, setLoadError] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [confirmResetTenant, setConfirmResetTenant] = useState(null);
     const [resettingTenantId, setResettingTenantId] = useState(null);
@@ -76,10 +82,15 @@ function Tenants() {
 
             if (response.success) {
                 setTenants(response.data);
+                setLoadError(false);
+            } else {
+                setLoadError(true);
+                toast.error(response.message || "Failed to load tenants.");
             }
 
         } catch {
 
+            setLoadError(true);
             toast.error("Failed to load tenants.");
 
         } finally {
@@ -249,7 +260,20 @@ function Tenants() {
 
                             <TableBody>
 
-                                {tenants.length === 0 ? (
+                                {loadError ? (
+
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                                            <Typography color="error.main" sx={{ mb: 1.5 }}>
+                                                Couldn't load tenants.
+                                            </Typography>
+                                            <Button size="small" variant="outlined" onClick={loadTenants}>
+                                                Retry
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+
+                                ) : tenants.length === 0 ? (
 
                                     <TableRow>
                                         <TableCell colSpan={7} align="center" sx={{ py: 6 }}>

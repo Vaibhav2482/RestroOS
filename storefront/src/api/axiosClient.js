@@ -22,7 +22,13 @@ axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
 
-        if (error.response?.status === 401) {
+        // Only treat this as "your session expired" if the failing request
+        // actually carried a token - a 401 with no Authorization header
+        // attached is just a plain wrong-password rejection from the login
+        // endpoint itself, not an expired session. Wiping storage and hard-
+        // reloading to the login page in that case blew away the login
+        // form (and its inline error toast) the customer was looking at.
+        if (error.response?.status === 401 && error.config?.headers?.Authorization) {
 
             const tenantSlug = getTenantSlugFromPath();
 

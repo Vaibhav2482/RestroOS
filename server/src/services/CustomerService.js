@@ -3,6 +3,7 @@ import crypto from "crypto";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
 
 const GUEST_PHONE = "0000000000";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // A no-login placeholder customer for POS/dine-in orders where staff don't
 // want to collect any details. Scoped per tenant (not a single global row)
@@ -113,6 +114,10 @@ export const updateCustomer = async (customerId, customer) => {
 
     if (!email) {
         return { success: false, message: "Email is required." };
+    }
+
+    if (!EMAIL_PATTERN.test(email)) {
+        return { success: false, message: "Enter a valid email address." };
     }
 
     if (!phone) {

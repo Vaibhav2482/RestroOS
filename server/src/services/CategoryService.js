@@ -104,6 +104,20 @@ export const deleteCategory = async (categoryId, tenantId) => {
         return { success: false, message: "Category not found." };
     }
 
+    // MenuItems.CategoryId is a required FK - deleting a category still in
+    // use would otherwise fail with a raw Postgres FK-violation, which the
+    // generic error handler turns into a backwards-sounding message ("that
+    // action references something that no longer exists" - it's the other
+    // way around, menu items still reference *this* category).
+    const menuItemCount = await CategoryRepository.countMenuItemsByCategory(categoryId);
+
+    if (menuItemCount > 0) {
+        return {
+            success: false,
+            message: `Can't delete "${category.CategoryName}" - ${menuItemCount} menu item${menuItemCount === 1 ? "" : "s"} still use it. Move or delete ${menuItemCount === 1 ? "it" : "them"} first, or deactivate the category instead.`
+        };
+    }
+
     await CategoryRepository.deleteCategory(categoryId);
 
     return { success: true, message: "Category deleted successfully." };

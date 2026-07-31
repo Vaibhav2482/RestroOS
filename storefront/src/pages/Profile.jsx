@@ -15,10 +15,13 @@ import toast from "react-hot-toast";
 import * as customerService from "../services/customerService";
 import ImageUploadField from "../components/ImageUploadField";
 import { useStorefront } from "../context/StorefrontContext";
+import { getStoredAuth } from "../utils/customerAuth";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function Profile() {
 
-    const { auth, customer, login } = useStorefront();
+    const { customer, login, tenantSlug } = useStorefront();
 
     const [fullName, setFullName] = useState(customer?.FullName ?? "");
     const [email, setEmail] = useState(customer?.Email ?? "");
@@ -38,6 +41,11 @@ function Profile() {
             return;
         }
 
+        if (!EMAIL_PATTERN.test(email.trim())) {
+            toast.error("Enter a valid email address.");
+            return;
+        }
+
         try {
 
             setSavingProfile(true);
@@ -54,9 +62,16 @@ function Profile() {
                 return;
             }
 
-            // Refresh the cached auth so the header avatar/name update
-            // immediately without needing to log back in.
-            login({ ...auth, customer: { ...customer, ...response.data } });
+            // Read the CURRENT stored auth, not the one this handler
+            // closed over at click time - if the customer logged out (or a
+            // different customer logged in) while this request was in
+            // flight, blindly re-applying the stale captured auth here
+            // would silently log them back in right after they logged out.
+            const currentAuth = getStoredAuth(tenantSlug);
+
+            if (currentAuth?.token && String(currentAuth?.customer?.CustomerId) === String(customer.CustomerId)) {
+                login({ ...currentAuth, customer: { ...currentAuth.customer, ...response.data } });
+            }
 
             toast.success("Profile updated.");
 
@@ -141,7 +156,7 @@ function Profile() {
                         </Typography>
                     </Grid>
 
-                    <Grid size={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             required
@@ -151,7 +166,7 @@ function Profile() {
                         />
                     </Grid>
 
-                    <Grid size={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             required
@@ -161,7 +176,7 @@ function Profile() {
                         />
                     </Grid>
 
-                    <Grid size={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             required
@@ -172,7 +187,7 @@ function Profile() {
                         />
                     </Grid>
 
-                    <Grid size={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <ImageUploadField label="Profile Photo" value={avatarUrl} onChange={setAvatarUrl} />
                     </Grid>
 
@@ -204,7 +219,7 @@ function Profile() {
 
                     <Grid container spacing={2}>
 
-                        <Grid size={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required
@@ -217,7 +232,7 @@ function Profile() {
                             />
                         </Grid>
 
-                        <Grid size={12} sm={6}>
+                        <Grid size={{ xs: 12, sm: 6 }}>
                             <TextField
                                 fullWidth
                                 required

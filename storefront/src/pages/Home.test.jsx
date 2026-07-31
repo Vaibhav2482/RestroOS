@@ -84,12 +84,12 @@ describe("Home - Veg/Non-Veg/Bestseller filters", () => {
 
     });
 
-    it("Pure Veg + Non-Veg together means no veg-type restriction, not zero results", async () => {
+    it("Non-Veg replaces Pure Veg instead of both staying active at once", async () => {
 
-        // Independently ANDing two excludes (the naive approach) would
-        // filter out every item once both are active, since a veg item
-        // fails the "not non-veg" check and vice versa - this is the bug
-        // class this test guards against.
+        // Veg/non-veg are mutually exclusive, like a real food-ordering
+        // app's veg toggle - selecting one deselects the other rather than
+        // both chips staying highlighted and silently cancelling out to
+        // "show everything."
         const user = userEvent.setup();
 
         renderHome();
@@ -99,9 +99,11 @@ describe("Home - Veg/Non-Veg/Bestseller filters", () => {
         await user.click(screen.getByRole("button", { name: /pure veg/i }));
         await user.click(screen.getByRole("button", { name: /non-veg/i }));
 
-        expect(screen.getAllByText("Veg Spring Rolls").length).toBeGreaterThan(0);
+        // Non-Veg replaced Pure Veg, so only non-veg items should remain -
+        // if both were still active (the old bug), Paneer Butter Masala
+        // (veg) would still be showing here too.
+        expect(screen.queryByText("Paneer Butter Masala")).not.toBeInTheDocument();
         expect(screen.getByText("Chicken Wings")).toBeInTheDocument();
-        expect(screen.getByText("Paneer Butter Masala")).toBeInTheDocument();
 
     });
 

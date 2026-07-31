@@ -91,6 +91,14 @@ export const updateCategory = async (category) => {
 
 };
 
+export const countMenuItemsByCategory = async (categoryId) => {
+
+    const result = await pool.query(`SELECT COUNT(*)::int AS "Count" FROM "MenuItems" WHERE "CategoryId" = $1`, [categoryId]);
+
+    return result.rows[0].Count;
+
+};
+
 export const deleteCategory = async (categoryId) => {
 
     const result = await pool.query(`DELETE FROM "Categories" WHERE "CategoryId" = $1`, [categoryId]);

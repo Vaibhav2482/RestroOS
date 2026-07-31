@@ -32,7 +32,12 @@ function PaymentBreakdownReportTab({ branchId }) {
 
     useEffect(() => {
 
-        loadReport();
+        // For an owner, branchId starts as "" until branches finish loading
+        // (Reports.jsx) - firing the request with that placeholder hit the
+        // server's ::int cast with an empty string and 500'd on every load.
+        if (branchId) {
+            loadReport();
+        }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [branchId, range.from, range.to]);
