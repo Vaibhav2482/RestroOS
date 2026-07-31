@@ -264,9 +264,9 @@ function Tenants() {
                                     tenants.map((tenant) => (
 
                                         <TableRow key={tenant.TenantId} hover>
-                                            <TableCell>{tenant.TenantName}</TableCell>
-                                            <TableCell>{tenant.Slug}</TableCell>
-                                            <TableCell>{tenant.OwnerEmail}</TableCell>
+                                            <TableCell sx={{ maxWidth: 220, overflowWrap: "anywhere" }}>{tenant.TenantName}</TableCell>
+                                            <TableCell sx={{ maxWidth: 160, overflowWrap: "anywhere" }}>{tenant.Slug}</TableCell>
+                                            <TableCell sx={{ maxWidth: 220, overflowWrap: "anywhere" }}>{tenant.OwnerEmail}</TableCell>
                                             <TableCell>
                                                 <Chip label={tenant.PlanType} size="small" />
                                             </TableCell>
@@ -312,7 +312,24 @@ function Tenants() {
                 onSave={handleCreate}
             />
 
-            <Dialog open={Boolean(confirmResetTenant)} onClose={() => setConfirmResetTenant(null)}>
+            <Dialog
+                open={Boolean(confirmResetTenant)}
+                onClose={() => {
+                    // The Cancel button below is correctly disabled during
+                    // the reset request, but Escape/backdrop-click go
+                    // through this handler instead and had no equivalent
+                    // guard - a stray Escape press mid-request closed the
+                    // confirmation dialog while the (uncancellable) reset
+                    // kept running, so TemporaryPasswordDialog then appears
+                    // moments later with no visible confirmation having
+                    // just happened.
+                    if (resettingTenantId === confirmResetTenant?.TenantId) {
+                        return;
+                    }
+                    setConfirmResetTenant(null);
+                }}
+                disableEscapeKeyDown={resettingTenantId === confirmResetTenant?.TenantId}
+            >
 
                 <DialogTitle>Reset password?</DialogTitle>
 

@@ -34,9 +34,25 @@ function TenantDialog({ open, onClose, onSave }) {
 
     };
 
+    // Without this, Cancel/Escape/backdrop-click while the create request
+    // is still in flight would close the dialog and clear formData (the
+    // effect above resets on any close) while the request keeps running -
+    // it can't actually be cancelled, so it still lands: the tenant gets
+    // created and TemporaryPasswordDialog pops up with a one-time password
+    // moments after the admin believed they'd backed out.
+    const handleClose = () => {
+
+        if (saving) {
+            return;
+        }
+
+        onClose();
+
+    };
+
     return (
 
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+        <Dialog open={open} onClose={handleClose} fullWidth maxWidth="sm" disableEscapeKeyDown={saving}>
 
             <DialogTitle>Onboard a Restaurant</DialogTitle>
 
@@ -94,7 +110,7 @@ function TenantDialog({ open, onClose, onSave }) {
 
             <DialogActions>
 
-                <Button onClick={onClose}>Cancel</Button>
+                <Button onClick={handleClose} disabled={saving}>Cancel</Button>
 
                 <Button variant="contained" onClick={handleSubmit} disabled={saving}>
                     {saving ? "Creating..." : "Create Tenant"}
