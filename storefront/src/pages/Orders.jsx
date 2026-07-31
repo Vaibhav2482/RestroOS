@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Chip, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -64,6 +65,7 @@ function Orders() {
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [reorderingId, setReorderingId] = useState(null);
 
     // Only the very first load shows the blocking spinner - the periodic
     // background refresh below keeps the list visible and just silently
@@ -154,6 +156,42 @@ function Orders() {
 
     }, [customer.CustomerId]);
 
+    const handleReorder = async (event, orderId) => {
+
+        // Rows are themselves clickable (navigate to the order detail page)
+        // - without this, tapping Reorder would also trigger that navigation.
+        event.stopPropagation();
+
+        if (reorderingId) {
+            return;
+        }
+
+        try {
+
+            setReorderingId(orderId);
+
+            const response = await orderService.reorderOrder(orderId);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            toast.success(response.message);
+            navigate(`/${tenantSlug}/cart`);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to reorder.");
+
+        } finally {
+
+            setReorderingId(null);
+
+        }
+
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -238,9 +276,23 @@ function Orders() {
 
                             </Box>
 
-                            <Typography variant="h6" fontWeight={700} sx={{ color: "primary.main" }}>
-                                &#8377;{Number(order.TotalAmount).toFixed(2)}
-                            </Typography>
+                            <Stack direction="row" alignItems="center" spacing={1.5} sx={{ flexShrink: 0 }}>
+
+                                <Typography variant="h6" fontWeight={700} sx={{ color: "primary.main" }}>
+                                    &#8377;{Number(order.TotalAmount).toFixed(2)}
+                                </Typography>
+
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    startIcon={<ReplayRoundedIcon fontSize="small" />}
+                                    disabled={Boolean(reorderingId)}
+                                    onClick={(event) => handleReorder(event, order.OrderId)}
+                                >
+                                    {reorderingId === order.OrderId ? "Adding..." : "Reorder"}
+                                </Button>
+
+                            </Stack>
 
                         </Stack>
 

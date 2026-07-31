@@ -144,6 +144,20 @@ function Kitchen() {
     // in-flight ticket disabled independently, same pattern as Pos.jsx's
     // pendingAdvanceOrderIds.
     const [advancingIds, setAdvancingIds] = useState(() => new Set());
+    // Unused beyond forcing a re-render - elapsedMinutes() itself always
+    // reads Date.now() fresh, but nothing was ever prompting React to
+    // recompute it between actual data changes (a Pusher event or the 60s
+    // poll). Without this, a ticket's timer chip only advanced/changed
+    // color whenever the kitchen happened to get a data update, not
+    // continuously the way a real KDS ticks live.
+    const [, forceTick] = useState(0);
+
+    useEffect(() => {
+
+        const interval = setInterval(() => forceTick((tick) => tick + 1), 15000);
+        return () => clearInterval(interval);
+
+    }, []);
 
     useEffect(() => {
 

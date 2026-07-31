@@ -223,6 +223,38 @@ export const emailBill = asyncHandler(async (req, res) => {
 
 });
 
+// Self-service only, unlike every other single-order action above -
+// reordering always targets the requesting customer's OWN cart, so there's
+// no legitimate case for an admin to trigger this on a customer's behalf
+// the way they can view/cancel an order for support purposes.
+export const reorderOrder = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    if (req.user.role !== "customer") {
+        return errorResponse(res, "Only a customer can reorder their own order.", 403);
+    }
+
+    const existing = await OrderService.getOrderById(id);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessOrder(req, existing.data)) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    const result = await OrderService.reorderOrder(id, req.user.id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const cancelOrder = asyncHandler(async (req, res) => {
 
     const { id } = req.params;

@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import LocalShippingOutlinedIcon from "@mui/icons-material/LocalShippingOutlined";
 import PaymentOutlinedIcon from "@mui/icons-material/PaymentOutlined";
@@ -95,6 +96,7 @@ function OrderDetail() {
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [emailingBill, setEmailingBill] = useState(false);
+    const [reordering, setReordering] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [billOpen, setBillOpen] = useState(false);
 
@@ -246,6 +248,38 @@ function OrderDetail() {
 
     };
 
+    const handleReorder = async () => {
+
+        if (reordering) {
+            return;
+        }
+
+        try {
+
+            setReordering(true);
+
+            const response = await orderService.reorderOrder(orderId);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            toast.success(response.message);
+            navigate(`/${tenantSlug}/cart`);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to reorder.");
+
+        } finally {
+
+            setReordering(false);
+
+        }
+
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -291,32 +325,47 @@ function OrderDetail() {
                     </Typography>
                 </Box>
 
-                {!isCancelled && (
+                <Box sx={{ display: "flex", gap: 1.5, width: { xs: "100%", sm: "auto" }, flexWrap: "wrap" }}>
 
-                    <Box sx={{ display: "flex", gap: 1.5, width: { xs: "100%", sm: "auto" } }}>
+                    {!isCancelled && (
 
-                        <Button
-                            variant="outlined"
-                            startIcon={<PrintOutlinedIcon />}
-                            onClick={() => setBillOpen(true)}
-                            sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
-                        >
-                            View / Print Bill
-                        </Button>
+                        <>
+                            <Button
+                                variant="outlined"
+                                startIcon={<PrintOutlinedIcon />}
+                                onClick={() => setBillOpen(true)}
+                                sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                            >
+                                View / Print Bill
+                            </Button>
 
-                        <Button
-                            variant="outlined"
-                            startIcon={<EmailOutlinedIcon />}
-                            disabled={emailingBill}
-                            onClick={handleEmailBill}
-                            sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
-                        >
-                            {emailingBill ? "Sending..." : "Email Bill"}
-                        </Button>
+                            <Button
+                                variant="outlined"
+                                startIcon={<EmailOutlinedIcon />}
+                                disabled={emailingBill}
+                                onClick={handleEmailBill}
+                                sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                            >
+                                {emailingBill ? "Sending..." : "Email Bill"}
+                            </Button>
+                        </>
 
-                    </Box>
+                    )}
 
-                )}
+                    {/* Always available, unlike Print/Email Bill - reordering a
+                        cancelled order is arguably the single most useful time
+                        to offer it, the same way Swiggy/Zomato surface it. */}
+                    <Button
+                        variant="contained"
+                        startIcon={<ReplayRoundedIcon />}
+                        disabled={reordering}
+                        onClick={handleReorder}
+                        sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                    >
+                        {reordering ? "Adding..." : "Reorder"}
+                    </Button>
+
+                </Box>
 
             </Box>
 

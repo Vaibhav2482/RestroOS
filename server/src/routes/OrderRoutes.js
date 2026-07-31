@@ -10,7 +10,8 @@ import {
     updateOrderStatus,
     updateOrderItems,
     cancelOrder,
-    emailBill
+    emailBill,
+    reorderOrder
 } from "../controllers/OrderController.js";
 import { authenticate, authorize } from "../middleware/Auth.js";
 
@@ -27,6 +28,7 @@ router.get("/customer/:customerId", getOrdersByCustomer);
 router.put("/:id/status", authorize("admin"), updateOrderStatus);
 router.put("/:id/items", authorize("admin"), updateOrderItems);
 router.put("/:id/cancel", cancelOrder);
+router.post("/:id/reorder", reorderOrder);
 router.post("/:id/email-bill", emailBill);
 
 export default router;

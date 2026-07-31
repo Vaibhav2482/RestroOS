@@ -21,3 +21,8 @@ export const emailBill = async (id) => {
     const response = await axiosClient.post(`/orders/${id}/email-bill`);
     return response.data;
 };
+
+export const reorderOrder = async (id) => {
+    const response = await axiosClient.post(`/orders/${id}/reorder`);
+    return response.data;
+};

@@ -6,6 +6,7 @@ import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
 import * as AuditService from "./AuditService.js";
+import * as CartService from "./CartService.js";
 import { waitUntil } from "@vercel/functions";
 
 vi.mock("../repositories/OrderRepository.js");
@@ -13,6 +14,7 @@ vi.mock("./RealtimeService.js");
 vi.mock("./PaymentService.js");
 vi.mock("./NotificationService.js");
 vi.mock("./AuditService.js");
+vi.mock("./CartService.js");
 vi.mock("@vercel/functions");
 
 const order = { OrderId: 62, CustomerId: 1, TotalAmount: 105 };
@@ -135,6 +137,77 @@ describe("OrderService - cancelOrder audits staff action, not customer self-serv
         await OrderService.cancelOrder(62, "customer");
 
         expect(AuditService.record).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("OrderService.reorderOrder", () => {
+
+    const orderRows = [
+        {
+            OrderId: 62, CustomerId: 1, OrderItemId: 1, MenuItemId: 10, ItemName: "Veg Fried Rice",
+            Price: 200, Quantity: 2, TotalPrice: 400, SelectedOptions: []
+        },
+        {
+            OrderId: 62, CustomerId: 1, OrderItemId: 2, MenuItemId: 11, ItemName: "Paneer Tikka",
+            Price: 250, Quantity: 1, TotalPrice: 280,
+            SelectedOptions: [{ OptionId: 5, GroupName: "Spice Level", OptionName: "Extra Spicy", PriceDelta: 30 }]
+        }
+    ];
+
+    it("rejects reordering someone else's order", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue(orderRows);
+
+        const result = await OrderService.reorderOrder(62, 999);
+
+        expect(result.success).toBe(false);
+        expect(CartService.addToCart).not.toHaveBeenCalled();
+
+    });
+
+    it("re-adds every item, passing the original OptionIds through for a customized item", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue(orderRows);
+        CartService.addToCart.mockResolvedValue({ success: true });
+
+        const result = await OrderService.reorderOrder(62, 1);
+
+        expect(result.success).toBe(true);
+        expect(CartService.addToCart).toHaveBeenCalledWith(
+            expect.objectContaining({ customerId: 1, menuItemId: 10, quantity: 2, selectedOptionIds: [] })
+        );
+        expect(CartService.addToCart).toHaveBeenCalledWith(
+            expect.objectContaining({ customerId: 1, menuItemId: 11, quantity: 1, selectedOptionIds: [5] })
+        );
+        expect(result.data).toEqual({ addedCount: 2, skippedItems: [] });
+
+    });
+
+    it("skips an item that's no longer available and reports it, without failing the whole reorder", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue(orderRows);
+        CartService.addToCart
+            .mockResolvedValueOnce({ success: true })
+            .mockResolvedValueOnce({ success: false, message: "Menu item not found." });
+
+        const result = await OrderService.reorderOrder(62, 1);
+
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({ addedCount: 1, skippedItems: ["Paneer Tikka"] });
+        expect(result.message).toContain("Paneer Tikka");
+
+    });
+
+    it("fails the whole reorder when every item was skipped", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue(orderRows);
+        CartService.addToCart.mockResolvedValue({ success: false, message: "Menu item not found." });
+
+        const result = await OrderService.reorderOrder(62, 1);
+
+        expect(result.success).toBe(false);
 
     });
 

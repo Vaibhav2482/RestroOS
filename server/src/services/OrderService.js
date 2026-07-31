@@ -6,6 +6,7 @@ import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
 import * as InventoryService from "./InventoryService.js";
 import * as AuditService from "./AuditService.js";
+import * as CartService from "./CartService.js";
 
 // Not awaited at any call site below - a slow WhatsApp/SMS/email provider
 // must never make an order-placing/status-changing request hang. waitUntil
@@ -153,6 +154,64 @@ export const getOrdersByCustomer = async (customerId) => {
     const orders = await OrderRepository.getOrdersByCustomer(customerId);
 
     return { success: true, message: "Orders fetched successfully.", data: orders };
+
+};
+
+// Re-adds every item from a past order to the customer's cart - a Zomato/
+// Swiggy staple. Each item's stored SelectedOptions snapshot already
+// includes the original OptionIds (menuOptionResolver.js saves them, not
+// just display names), so a customized item can be reordered exactly, not
+// just its base item. Items are added one at a time via CartService (full
+// validation reused, not duplicated) rather than in bulk, so one
+// unavailable item (deactivated since the original order) or an option
+// group that's since changed doesn't block the rest - it's just skipped
+// and reported, the same way Swiggy silently drops items that are no
+// longer on the menu when you reorder.
+export const reorderOrder = async (orderId, customerId) => {
+
+    const rows = await OrderRepository.getOrderById(orderId);
+    const order = shapeOrder(rows);
+
+    if (!order || String(order.CustomerId) !== String(customerId)) {
+        return { success: false, message: "Order not found." };
+    }
+
+    let addedCount = 0;
+    const skippedItems = [];
+
+    for (const item of order.Items) {
+
+        const result = await CartService.addToCart({
+            customerId,
+            menuItemId: item.MenuItemId,
+            quantity: item.Quantity,
+            selectedOptionIds: (item.SelectedOptions || []).map((option) => option.OptionId)
+        });
+
+        if (result.success) {
+            addedCount += 1;
+        } else {
+            skippedItems.push(item.ItemName);
+        }
+
+    }
+
+    if (addedCount === 0) {
+
+        return {
+            success: false,
+            message: "Couldn't add any items to your cart - they may no longer be available, or your cart already has items from a different branch."
+        };
+
+    }
+
+    return {
+        success: true,
+        message: skippedItems.length === 0
+            ? "All items added to your cart."
+            : `${addedCount} item${addedCount === 1 ? "" : "s"} added. ${skippedItems.length} no longer available: ${skippedItems.join(", ")}.`,
+        data: { addedCount, skippedItems }
+    };
 
 };
 
