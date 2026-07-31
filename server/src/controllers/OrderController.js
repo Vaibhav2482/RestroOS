@@ -237,7 +237,7 @@ export const cancelOrder = asyncHandler(async (req, res) => {
         return errorResponse(res, "Order not found.", 404);
     }
 
-    const result = await OrderService.cancelOrder(id, req.user.role);
+    const result = await OrderService.cancelOrder(id, req.user.role, req.user.id, req.user.tenantId);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);

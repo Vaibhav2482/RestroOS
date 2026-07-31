@@ -29,6 +29,7 @@ import AnalyticsRoutes from "./routes/AnalyticsRoutes.js";
 import IngredientRoutes from "./routes/IngredientRoutes.js";
 import InventoryRoutes from "./routes/InventoryRoutes.js";
 import MenuItemRecipeRoutes from "./routes/MenuItemRecipeRoutes.js";
+import AuditRoutes from "./routes/AuditRoutes.js";
 import { runMigrations } from "./config/migrate.js";
 
 const app = express();
@@ -87,6 +88,7 @@ app.use("/api/v1/analytics", AnalyticsRoutes);
 app.use("/api/v1/ingredients", IngredientRoutes);
 app.use("/api/v1/inventory", InventoryRoutes);
 app.use("/api/v1/menu-item-recipes", MenuItemRecipeRoutes);
+app.use("/api/v1/audit-logs", AuditRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

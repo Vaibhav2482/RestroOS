@@ -50,7 +50,7 @@ export const createMenuItem = asyncHandler(async (req, res) => {
 
     const branchId = isBranchAdmin(req) ? req.user.branchId : req.body.branchId;
 
-    const result = await MenuService.createMenuItem({ ...req.body, branchId }, req.user.tenantId);
+    const result = await MenuService.createMenuItem({ ...req.body, branchId }, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -82,7 +82,7 @@ export const updateMenuItem = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to update a menu item from another branch.", 403);
     }
 
-    const result = await MenuService.updateMenuItem(id, req.body, req.user.tenantId);
+    const result = await MenuService.updateMenuItem(id, req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -106,7 +106,7 @@ export const deleteMenuItem = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to delete a menu item from another branch.", 403);
     }
 
-    const result = await MenuService.deleteMenuItem(id);
+    const result = await MenuService.deleteMenuItem(id, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

@@ -5,12 +5,14 @@ import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
+import * as AuditService from "./AuditService.js";
 import { waitUntil } from "@vercel/functions";
 
 vi.mock("../repositories/OrderRepository.js");
 vi.mock("./RealtimeService.js");
 vi.mock("./PaymentService.js");
 vi.mock("./NotificationService.js");
+vi.mock("./AuditService.js");
 vi.mock("@vercel/functions");
 
 const order = { OrderId: 62, CustomerId: 1, TotalAmount: 105 };
@@ -21,6 +23,7 @@ beforeEach(() => {
 
     RealtimeService.publishOrderCreated.mockResolvedValue();
     RealtimeService.publishOrderStatusChanged.mockResolvedValue();
+    AuditService.record.mockResolvedValue();
 
 });
 
@@ -97,6 +100,41 @@ describe("OrderService - notifications never block the response", () => {
 
         await new Promise((resolve) => setImmediate(resolve));
         expect(consoleErrorSpy).toHaveBeenCalledWith(expect.stringContaining("notifyOrderCreated failed"));
+
+    });
+
+});
+
+// A customer cancelling their own order is expected self-service, not the
+// "who did this" question an audit trail exists for - only a staff-
+// initiated cancellation (role "admin") should ever produce an audit
+// entry. Getting this boolean backwards would either spam the audit log
+// with every customer cancellation or silently drop staff cancellations.
+describe("OrderService - cancelOrder audits staff action, not customer self-service", () => {
+
+    it("records an audit entry when a staff member (admin role) cancels", async () => {
+
+        OrderRepository.cancelOrder.mockResolvedValue(order);
+        PaymentService.refundPaymentForOrder.mockResolvedValue({ refunded: true });
+        NotificationService.notifyOrderCancelled.mockReturnValue(Promise.resolve());
+
+        await OrderService.cancelOrder(62, "admin", 7, 9);
+
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({ tenantId: 9, actorAdminId: 7, action: "ORDER_CANCELLED", entityId: 62 })
+        );
+
+    });
+
+    it("does not record an audit entry when a customer cancels their own order", async () => {
+
+        OrderRepository.cancelOrder.mockResolvedValue(order);
+        PaymentService.refundPaymentForOrder.mockResolvedValue({ refunded: true });
+        NotificationService.notifyOrderCancelled.mockReturnValue(Promise.resolve());
+
+        await OrderService.cancelOrder(62, "customer");
+
+        expect(AuditService.record).not.toHaveBeenCalled();
 
     });
 

@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import * as AdminRepository from "../repositories/AdminRepository.js";
 import * as BranchRepository from "../repositories/BranchRepository.js";
+import * as AuditService from "./AuditService.js";
 
 const assertBranchBelongsToTenant = async (branchId, tenantId) => {
 
@@ -34,7 +35,7 @@ export const getAdminById = async (adminId) => {
 
 };
 
-export const createAdmin = async (admin, tenantId) => {
+export const createAdmin = async (admin, tenantId, actorAdminId) => {
 
     if (!admin.fullName || admin.fullName.trim() === "") {
         return { success: false, message: "Full Name is required." };
@@ -64,6 +65,15 @@ export const createAdmin = async (admin, tenantId) => {
         ...admin,
         tenantId,
         password: hashedPassword
+    });
+
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "ADMIN_CREATED",
+        entityType: "Admin",
+        entityId: createdAdmin.AdminId,
+        summary: `Created staff account "${createdAdmin.FullName}" (${createdAdmin.Email})${createdAdmin.BranchId ? "" : " with Owner access"}`
     });
 
     return { success: true, message: "Admin created successfully.", data: createdAdmin };
@@ -100,6 +110,25 @@ export const updateAdmin = async (adminId, admin, requestingAdminId, tenantId) =
         isActive: admin.isActive ?? existingAdmin.IsActive
     });
 
+    const changeNotes = [];
+
+    if (Boolean(existingAdmin.IsActive) !== Boolean(updatedAdmin.IsActive)) {
+        changeNotes.push(updatedAdmin.IsActive ? "reactivated" : "deactivated");
+    }
+
+    if (String(existingAdmin.BranchId ?? "") !== String(updatedAdmin.BranchId ?? "")) {
+        changeNotes.push(`branch access changed to ${updatedAdmin.BranchId ? `Branch #${updatedAdmin.BranchId}` : "Owner (all branches)"}`);
+    }
+
+    AuditService.record({
+        tenantId,
+        actorAdminId: requestingAdminId,
+        action: "ADMIN_UPDATED",
+        entityType: "Admin",
+        entityId: updatedAdmin.AdminId,
+        summary: `Updated staff account "${updatedAdmin.FullName}"${changeNotes.length ? ` (${changeNotes.join(", ")})` : ""}`
+    });
+
     return { success: true, message: "Admin updated successfully.", data: updatedAdmin };
 
 };
@@ -117,6 +146,15 @@ export const deactivateAdmin = async (adminId, requestingAdminId) => {
     }
 
     await AdminRepository.deactivate(adminId);
+
+    AuditService.record({
+        tenantId: existingAdmin.TenantId,
+        actorAdminId: requestingAdminId,
+        action: "ADMIN_DEACTIVATED",
+        entityType: "Admin",
+        entityId: Number(adminId),
+        summary: `Deactivated staff account "${existingAdmin.FullName}" (${existingAdmin.Email})`
+    });
 
     return { success: true, message: "Admin deactivated successfully." };
 

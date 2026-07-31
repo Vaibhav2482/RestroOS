@@ -126,5 +126,30 @@ export const MIGRATIONS = [
         sql: `
             CREATE UNIQUE INDEX "UQ_Payments_TransactionId" ON "Payments" ("TransactionId") WHERE "TransactionId" IS NOT NULL;
         `
+    },
+    {
+        id: "0006_audit_log",
+        sql: `
+            CREATE TABLE "AuditLogs" (
+                "AuditLogId" BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+                "TenantId" INT NOT NULL,
+                "ActorAdminId" INT NULL,
+                "ActorType" VARCHAR(10) NOT NULL DEFAULT 'User',
+                "Action" VARCHAR(50) NOT NULL,
+                "EntityType" VARCHAR(30) NOT NULL,
+                "EntityId" INT NULL,
+                "Summary" VARCHAR(500) NOT NULL,
+                "Metadata" JSONB NULL,
+                "CreatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY ("AuditLogId"),
+                CONSTRAINT "CHK_AuditLogs_ActorType" CHECK ("ActorType" IN ('User', 'System'))
+            );
+
+            ALTER TABLE "AuditLogs" ADD CONSTRAINT "FK_AuditLogs_Tenants" FOREIGN KEY ("TenantId") REFERENCES "Tenants"("TenantId");
+            ALTER TABLE "AuditLogs" ADD CONSTRAINT "FK_AuditLogs_Admins" FOREIGN KEY ("ActorAdminId") REFERENCES "Admins"("AdminId");
+
+            CREATE INDEX "IX_AuditLogs_Tenant_Date" ON "AuditLogs" ("TenantId", "CreatedAt" DESC);
+            CREATE INDEX "IX_AuditLogs_Entity" ON "AuditLogs" ("EntityType", "EntityId");
+        `
     }
 ];

@@ -13,7 +13,7 @@ export const getAllCoupons = asyncHandler(async (req, res) => {
 
 export const createCoupon = asyncHandler(async (req, res) => {
 
-    const result = await CouponService.createCoupon(req.body, req.user.tenantId);
+    const result = await CouponService.createCoupon(req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -27,7 +27,7 @@ export const updateCoupon = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await CouponService.updateCoupon(id, req.body, req.user.tenantId);
+    const result = await CouponService.updateCoupon(id, req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -41,7 +41,7 @@ export const deactivateCoupon = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await CouponService.deactivateCoupon(id, req.user.tenantId);
+    const result = await CouponService.deactivateCoupon(id, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);

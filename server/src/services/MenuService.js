@@ -1,6 +1,7 @@
 import * as MenuRepository from "../repositories/MenuRepository.js";
 import * as BranchRepository from "../repositories/BranchRepository.js";
 import * as CategoryRepository from "../repositories/CategoryRepository.js";
+import * as AuditService from "./AuditService.js";
 
 // MenuItems has no TenantId column of its own - its tenant is implied
 // through the Branch it belongs to. Every write path below verifies that
@@ -69,7 +70,7 @@ export const getRecommendations = async (menuItemId) => {
 
 };
 
-export const createMenuItem = async (menuItem, tenantId) => {
+export const createMenuItem = async (menuItem, tenantId, actorAdminId) => {
 
     menuItem.itemName = menuItem.itemName?.trim();
     menuItem.description = menuItem.description?.trim();
@@ -118,11 +119,23 @@ export const createMenuItem = async (menuItem, tenantId) => {
 
     const result = await MenuRepository.createMenuItem(menuItem);
 
+    // createMenuItem only RETURNING's MenuItemId (see MenuRepository), not
+    // the full row - the name/price actually being recorded are read back
+    // from the already-validated input instead of the create result.
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "MENU_ITEM_CREATED",
+        entityType: "MenuItem",
+        entityId: result.MenuItemId,
+        summary: `Created menu item "${menuItem.itemName}" at ₹${Number(menuItem.price).toFixed(2)}`
+    });
+
     return { success: true, message: "Menu item created successfully.", data: result };
 
 };
 
-export const updateMenuItem = async (menuItemId, menuItem, tenantId) => {
+export const updateMenuItem = async (menuItemId, menuItem, tenantId, actorAdminId) => {
 
     const existingMenuItem = await MenuRepository.getMenuItemById(menuItemId);
 
@@ -174,11 +187,35 @@ export const updateMenuItem = async (menuItemId, menuItem, tenantId) => {
 
     const updatedMenuItem = await MenuRepository.updateMenuItem(menuItem);
 
+    // Price and availability are the two changes on a menu item with real
+    // financial/operational consequences - called out by name in the audit
+    // summary rather than folded into a generic "item updated" line, even
+    // though every field change is captured (this same call fires on any
+    // update, not just these two).
+    const changeNotes = [];
+
+    if (Number(existingMenuItem[0].Price) !== Number(updatedMenuItem.Price)) {
+        changeNotes.push(`price changed from ₹${Number(existingMenuItem[0].Price).toFixed(2)} to ₹${Number(updatedMenuItem.Price).toFixed(2)}`);
+    }
+
+    if (Boolean(existingMenuItem[0].IsAvailable) !== Boolean(updatedMenuItem.IsAvailable)) {
+        changeNotes.push(updatedMenuItem.IsAvailable ? "marked available" : "marked out of stock");
+    }
+
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "MENU_ITEM_UPDATED",
+        entityType: "MenuItem",
+        entityId: updatedMenuItem.MenuItemId,
+        summary: `Updated menu item "${updatedMenuItem.ItemName}"${changeNotes.length ? ` (${changeNotes.join(", ")})` : ""}`
+    });
+
     return { success: true, message: "Menu item updated successfully.", data: updatedMenuItem };
 
 };
 
-export const deleteMenuItem = async (menuItemId) => {
+export const deleteMenuItem = async (menuItemId, tenantId, actorAdminId) => {
 
     const existingMenuItem = await MenuRepository.getMenuItemById(menuItemId);
 
@@ -187,6 +224,19 @@ export const deleteMenuItem = async (menuItemId) => {
     }
 
     await MenuRepository.deleteMenuItem(menuItemId);
+
+    // A hard delete, not a soft deactivate - the one MenuItems write path
+    // that actually destroys a row, so this is the audit entry that
+    // matters most if a price dispute or "where did this item go" question
+    // ever comes up later.
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "MENU_ITEM_DELETED",
+        entityType: "MenuItem",
+        entityId: Number(menuItemId),
+        summary: `Deleted menu item "${existingMenuItem[0].ItemName}" (was ₹${Number(existingMenuItem[0].Price).toFixed(2)})`
+    });
 
     return { success: true, message: "Menu item deleted successfully." };
 

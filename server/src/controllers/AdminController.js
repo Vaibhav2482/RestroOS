@@ -30,7 +30,7 @@ export const getAdminById = asyncHandler(async (req, res) => {
 
 export const createAdmin = asyncHandler(async (req, res) => {
 
-    const result = await AdminService.createAdmin(req.body, req.user.tenantId);
+    const result = await AdminService.createAdmin(req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);

@@ -5,6 +5,7 @@ import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
 import * as InventoryService from "./InventoryService.js";
+import * as AuditService from "./AuditService.js";
 
 // Not awaited at any call site below - a slow WhatsApp/SMS/email provider
 // must never make an order-placing/status-changing request hang. waitUntil
@@ -212,7 +213,7 @@ export const updateOrderItems = async (orderId, items) => {
 const CUSTOMER_CANCELLABLE_STATUSES = ["Pending", "Accepted"];
 const STAFF_CANCELLABLE_STATUSES = ["Pending", "Accepted", "Preparing"];
 
-export const cancelOrder = async (orderId, role) => {
+export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId) => {
 
     try {
 
@@ -221,6 +222,23 @@ export const cancelOrder = async (orderId, role) => {
         const cancelledOrder = await OrderRepository.cancelOrder(orderId, allowedStatuses, async (client, order) => {
             await InventoryService.reverseConsumptionForOrder(client, order.OrderId, order.BranchId);
         });
+
+        // Only a staff-initiated cancellation is audited - a customer
+        // cancelling their own order is expected self-service, not the
+        // "who did this and why" accountability question an audit trail
+        // exists for.
+        if (role === "admin") {
+
+            AuditService.record({
+                tenantId: actorTenantId,
+                actorAdminId,
+                action: "ORDER_CANCELLED",
+                entityType: "Order",
+                entityId: cancelledOrder.OrderId,
+                summary: `Cancelled order #${cancelledOrder.OrderId} (₹${Number(cancelledOrder.TotalAmount).toFixed(2)})`
+            });
+
+        }
 
         await RealtimeService.publishOrderStatusChanged(cancelledOrder);
 

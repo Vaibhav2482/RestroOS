@@ -38,7 +38,7 @@ export const getBranchById = asyncHandler(async (req, res) => {
 
 export const createBranch = asyncHandler(async (req, res) => {
 
-    const result = await BranchService.createBranch(req.body, req.user.tenantId);
+    const result = await BranchService.createBranch(req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -52,7 +52,7 @@ export const updateBranch = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await BranchService.updateBranch(id, req.body, req.user.tenantId);
+    const result = await BranchService.updateBranch(id, req.body, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -66,7 +66,7 @@ export const deactivateBranch = asyncHandler(async (req, res) => {
 
     const { id } = req.params;
 
-    const result = await BranchService.deactivateBranch(id, req.user.tenantId);
+    const result = await BranchService.deactivateBranch(id, req.user.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

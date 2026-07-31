@@ -1,6 +1,7 @@
 import pool from "../config/db.js";
 import * as CouponRepository from "../repositories/CouponRepository.js";
 import { resolveCoupon } from "../utils/couponResolver.js";
+import * as AuditService from "./AuditService.js";
 
 const VALID_DISCOUNT_TYPES = ["Percentage", "Flat"];
 
@@ -12,7 +13,7 @@ export const getAllCoupons = async (tenantId) => {
 
 };
 
-export const createCoupon = async (coupon, tenantId) => {
+export const createCoupon = async (coupon, tenantId, actorAdminId) => {
 
     const code = coupon.code?.trim().toUpperCase();
 
@@ -40,11 +41,20 @@ export const createCoupon = async (coupon, tenantId) => {
 
     const created = await CouponRepository.create({ ...coupon, code, tenantId });
 
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "COUPON_CREATED",
+        entityType: "Coupon",
+        entityId: created.CouponId,
+        summary: `Created coupon "${created.Code}" (${created.DiscountType === "Percentage" ? `${created.DiscountValue}% off` : `₹${created.DiscountValue} off`})`
+    });
+
     return { success: true, message: "Coupon created successfully.", data: created };
 
 };
 
-export const updateCoupon = async (couponId, coupon, tenantId) => {
+export const updateCoupon = async (couponId, coupon, tenantId, actorAdminId) => {
 
     const existing = await CouponRepository.getById(couponId);
 
@@ -66,11 +76,28 @@ export const updateCoupon = async (couponId, coupon, tenantId) => {
 
     const updated = await CouponRepository.update({ ...coupon, couponId: Number(couponId) });
 
+    const changeNotes = [];
+
+    if (Number(existing.DiscountValue) !== Number(updated.DiscountValue) || existing.DiscountType !== updated.DiscountType) {
+        const oldValue = existing.DiscountType === "Percentage" ? `${existing.DiscountValue}%` : `₹${existing.DiscountValue}`;
+        const newValue = updated.DiscountType === "Percentage" ? `${updated.DiscountValue}%` : `₹${updated.DiscountValue}`;
+        changeNotes.push(`discount changed from ${oldValue} to ${newValue}`);
+    }
+
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "COUPON_UPDATED",
+        entityType: "Coupon",
+        entityId: updated.CouponId,
+        summary: `Updated coupon "${updated.Code}"${changeNotes.length ? ` (${changeNotes.join(", ")})` : ""}`
+    });
+
     return { success: true, message: "Coupon updated successfully.", data: updated };
 
 };
 
-export const deactivateCoupon = async (couponId, tenantId) => {
+export const deactivateCoupon = async (couponId, tenantId, actorAdminId) => {
 
     const existing = await CouponRepository.getById(couponId);
 
@@ -79,6 +106,15 @@ export const deactivateCoupon = async (couponId, tenantId) => {
     }
 
     await CouponRepository.deactivate(couponId);
+
+    AuditService.record({
+        tenantId,
+        actorAdminId,
+        action: "COUPON_DEACTIVATED",
+        entityType: "Coupon",
+        entityId: Number(couponId),
+        summary: `Deactivated coupon "${existing.Code}"`
+    });
 
     return { success: true, message: "Coupon deactivated successfully." };
 
