@@ -567,6 +567,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
                                             card but easier to actually hit. */}
                                         <IconButton
                                             size="small"
+                                            aria-label={`Add ${rec.ItemName}`}
                                             disabled={Boolean(addingRecId) || submitting}
                                             onClick={() => handleQuickAddRecommendation(rec)}
                                             sx={{ border: "1px solid #E5E7EB", width: 32, height: 32 }}
