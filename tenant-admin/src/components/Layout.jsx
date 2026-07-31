@@ -303,18 +303,36 @@ function Layout({ children }) {
                         {auth?.admin?.tenantName}
                     </Typography>
 
-                    <IconButton
-                        onClick={(event) => setMenuAnchor(event.currentTarget)}
-                        sx={{
-                            p: 0.5,
-                            transition: "box-shadow .15s",
-                            "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.15)" }
-                        }}
-                    >
-                        <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
-                            {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
-                        </Avatar>
-                    </IconButton>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
+
+                        {/* Redundant with the sidebar's identity footer on
+                            desktop, but the sidebar is a closed temporary
+                            Drawer on mobile - this is the only place a
+                            Branch Admin sees who they're logged in as
+                            without opening the menu first. */}
+                        <Box sx={{ display: { xs: "none", sm: "block" }, textAlign: "right" }}>
+                            <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>
+                                {auth?.admin?.FullName || "Admin"}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2 }}>
+                                {owner ? "Owner" : "Branch Admin"}
+                            </Typography>
+                        </Box>
+
+                        <IconButton
+                            onClick={(event) => setMenuAnchor(event.currentTarget)}
+                            sx={{
+                                p: 0.5,
+                                transition: "box-shadow .15s",
+                                "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.15)" }
+                            }}
+                        >
+                            <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
+                                {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
+                            </Avatar>
+                        </IconButton>
+
+                    </Box>
 
                     <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
 

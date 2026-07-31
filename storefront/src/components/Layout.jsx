@@ -198,6 +198,15 @@ function Layout({ children }) {
                         {isLoggedIn ? (
 
                             <>
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    noWrap
+                                    sx={{ display: { xs: "none", sm: "block" }, maxWidth: 140 }}
+                                >
+                                    Hi, {customer?.FullName?.split(" ")[0] || "there"}
+                                </Typography>
+
                                 <IconButton
                                     onClick={(event) => setMenuAnchor(event.currentTarget)}
                                     sx={{ p: 0.5, ...iconButtonSx, bgcolor: "transparent" }}

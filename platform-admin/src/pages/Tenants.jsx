@@ -186,7 +186,25 @@ function Tenants() {
                             RestroOS
                         </Typography>
                         <Chip label="Platform Admin" size="small" sx={{ ml: 1, fontWeight: 600, display: { xs: "none", sm: "flex" } }} />
+
+                        {!loading && (
+                            <Chip
+                                label={`${tenants.length} Restaurant${tenants.length === 1 ? "" : "s"}`}
+                                size="small"
+                                variant="outlined"
+                                sx={{ fontWeight: 600, display: { xs: "none", md: "flex" } }}
+                            />
+                        )}
                     </Box>
+
+                    <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        sx={{ display: { xs: "none", sm: "block" }, maxWidth: 240, mr: 1.5 }}
+                    >
+                        {auth?.admin?.Email}
+                    </Typography>
 
                     <IconButton
                         onClick={(event) => setMenuAnchor(event.currentTarget)}
