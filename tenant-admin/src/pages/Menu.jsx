@@ -92,10 +92,13 @@ function Menu() {
     const [saving, setSaving] = useState(false);
     // Marking an item out of stock used to require opening the full edit
     // dialog and resubmitting every field just to flip one checkbox - too
-    // slow for "we just ran out of X, hide it now." This tracks which row's
-    // switch is mid-request so a second tap can't fire before the first
-    // one resolves.
-    const [togglingItemId, setTogglingItemId] = useState(null);
+    // slow for "we just ran out of X, hide it now." This is a Set (not a
+    // single id) so an in-flight toggle on one row doesn't block - or
+    // silently no-op - a tap on a different row; a single scalar guard
+    // used to reject a second row's toggle while only visually disabling
+    // the first row's switch, so the rejection looked like nothing
+    // happened at all.
+    const [togglingItemIds, setTogglingItemIds] = useState(() => new Set());
 
     const [searchText, setSearchText] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -266,13 +269,13 @@ function Menu() {
 
     const handleToggleAvailability = async (item) => {
 
-        if (togglingItemId) {
+        if (togglingItemIds.has(item.MenuItemId)) {
             return;
         }
 
-        try {
+        setTogglingItemIds((prev) => new Set(prev).add(item.MenuItemId));
 
-            setTogglingItemId(item.MenuItemId);
+        try {
 
             const nextAvailable = !item.IsAvailable;
 
@@ -301,7 +304,11 @@ function Menu() {
 
         } finally {
 
-            setTogglingItemId(null);
+            setTogglingItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(item.MenuItemId);
+                return next;
+            });
 
         }
 
@@ -592,7 +599,7 @@ function Menu() {
                                                                 <Switch
                                                                     size="small"
                                                                     checked={item.IsAvailable}
-                                                                    disabled={togglingItemId === item.MenuItemId}
+                                                                    disabled={togglingItemIds.has(item.MenuItemId)}
                                                                     onChange={() => handleToggleAvailability(item)}
                                                                 />
                                                                 <Typography variant="caption" color={item.IsAvailable ? "success.main" : "text.secondary"} sx={{ minWidth: 76 }}>

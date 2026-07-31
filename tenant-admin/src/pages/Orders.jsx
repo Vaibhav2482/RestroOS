@@ -52,7 +52,11 @@ function Orders() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
-    const [advancingOrderId, setAdvancingOrderId] = useState(null);
+    // A single scalar here used to re-enable an unrelated row's button the
+    // instant a second order started advancing - a Set keyed by order id
+    // keeps every in-flight row disabled independently, same pattern as
+    // Pos.jsx's pendingAdvanceOrderIds.
+    const [advancingOrderIds, setAdvancingOrderIds] = useState(() => new Set());
 
     // Only the very first load (nothing on screen yet) shows the blocking
     // spinner. Every reload after that - after advancing a status, after
@@ -207,9 +211,13 @@ function Orders() {
 
         event.stopPropagation();
 
-        try {
+        if (advancingOrderIds.has(order.OrderId)) {
+            return;
+        }
 
-            setAdvancingOrderId(order.OrderId);
+        setAdvancingOrderIds((prev) => new Set(prev).add(order.OrderId));
+
+        try {
 
             const response = await orderService.updateOrderStatus(order.OrderId, nextStatus);
 
@@ -227,7 +235,11 @@ function Orders() {
 
         } finally {
 
-            setAdvancingOrderId(null);
+            setAdvancingOrderIds((prev) => {
+                const next = new Set(prev);
+                next.delete(order.OrderId);
+                return next;
+            });
 
         }
 
@@ -435,10 +447,10 @@ function Orders() {
                                                         <Button
                                                             size="small"
                                                             variant="outlined"
-                                                            disabled={advancingOrderId === order.OrderId}
+                                                            disabled={advancingOrderIds.has(order.OrderId)}
                                                             onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
                                                         >
-                                                            {advancingOrderId === order.OrderId ? "..." : `Mark ${nextStatus}`}
+                                                            {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
                                                         </Button>
                                                     )}
                                                 </TableCell>

@@ -206,6 +206,15 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
 
     const handleFindCustomer = async () => {
 
+        // Clicking the button while the phone field still has focus fires
+        // its onBlur (also handleFindCustomer) immediately followed by the
+        // button's own onClick, before React necessarily re-renders the
+        // button as disabled - without this guard, both fire and can create
+        // two customer records for the same phone number.
+        if (checkingCustomer) {
+            return;
+        }
+
         if (!customerPhone.trim()) {
             toast.error("Enter a phone number.");
             return;
@@ -255,6 +264,10 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
     };
 
     const handleUseGuest = async () => {
+
+        if (checkingCustomer) {
+            return;
+        }
 
         setCheckingCustomer(true);
 

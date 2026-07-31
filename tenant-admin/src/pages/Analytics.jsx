@@ -35,8 +35,20 @@ const RANGE_PRESETS = [
     { label: "90D", days: 90 }
 ];
 
+// toISOString() converts to the UTC calendar date, not the local one - for
+// IST (UTC+5:30, the timezone implied everywhere else in this app), any
+// time before 5:30am local is still "yesterday" in UTC. That silently
+// dropped the current day (and shifted the whole range back by one) from
+// every preset here. Built from local date components instead, matching
+// orderStatusUtils.isToday's already-correct approach.
 function toDateInputValue(date) {
-    return date.toISOString().slice(0, 10);
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+
 }
 
 function StatCard({ icon, label, value, color }) {

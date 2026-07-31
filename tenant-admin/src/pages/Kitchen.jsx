@@ -138,7 +138,12 @@ function Kitchen() {
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [advancingId, setAdvancingId] = useState(null);
+    // A single scalar here used to re-enable an unrelated ticket's button
+    // the instant a second one started advancing (advancingId === that
+    // OTHER order's id, not this one) - a Set keyed by order id keeps every
+    // in-flight ticket disabled independently, same pattern as Pos.jsx's
+    // pendingAdvanceOrderIds.
+    const [advancingIds, setAdvancingIds] = useState(() => new Set());
 
     useEffect(() => {
 
@@ -256,9 +261,13 @@ function Kitchen() {
 
     const handleAdvance = async (orderId, nextStatus) => {
 
-        try {
+        if (advancingIds.has(orderId)) {
+            return;
+        }
 
-            setAdvancingId(orderId);
+        setAdvancingIds((prev) => new Set(prev).add(orderId));
+
+        try {
 
             const response = await orderService.updateOrderStatus(orderId, nextStatus);
 
@@ -275,7 +284,11 @@ function Kitchen() {
 
         } finally {
 
-            setAdvancingId(null);
+            setAdvancingIds((prev) => {
+                const next = new Set(prev);
+                next.delete(orderId);
+                return next;
+            });
 
         }
 
@@ -351,7 +364,7 @@ function Kitchen() {
                                             key={order.OrderId}
                                             order={order}
                                             column={column}
-                                            advancing={advancingId === order.OrderId}
+                                            advancing={advancingIds.has(order.OrderId)}
                                             onAdvance={handleAdvance}
                                         />
                                     ))

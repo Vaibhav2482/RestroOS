@@ -14,7 +14,7 @@ import {
     Typography
 } from "@mui/material";
 
-import { compatibleUnits } from "../utils/units";
+import { compatibleUnits, convertToBase } from "../utils/units";
 
 const MODE_CONFIG = {
     opening: { title: "Record Opening Stock", quantityLabel: "Quantity", submitLabel: "Record Opening Stock", requireReason: false },
@@ -60,8 +60,15 @@ function StockActionDialog({ open, mode, onClose, onSave, ingredient, currentBal
     }
 
     const quantityNumber = Number(quantity);
-    const showsDelta = mode === "adjustment" && quantity !== "" && !Number.isNaN(quantityNumber);
-    const delta = showsDelta ? quantityNumber - Number(currentBalance || 0) : null;
+    // The Unit dropdown legitimately offers non-base units too (e.g. grams
+    // for a kg-based ingredient) - currentBalance is always expressed in
+    // the ingredient's base unit, so the entered quantity must be converted
+    // before comparing. Subtracting the two raw numbers directly used to
+    // produce a wildly wrong, sign-flippable preview whenever a non-base
+    // unit was picked (500g read as "+498kg" against a 2kg balance).
+    const quantityInBase = ingredient && unit ? convertToBase(unit, quantityNumber, ingredient.BaseUnit) : null;
+    const showsDelta = mode === "adjustment" && quantity !== "" && !Number.isNaN(quantityNumber) && quantityInBase !== null;
+    const delta = showsDelta ? Math.round((quantityInBase - Number(currentBalance || 0)) * 1000) / 1000 : null;
 
     const handleSubmit = () => {
 
