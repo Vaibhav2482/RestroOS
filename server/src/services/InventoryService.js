@@ -196,6 +196,30 @@ export const getBranchInventory = async (branchId, tenantId) => {
 
 };
 
+export const getValuation = async (branchId, tenantId) => {
+
+    if (!(await assertBranchBelongsToTenant(branchId, tenantId))) {
+        return { success: false, message: "Branch not found." };
+    }
+
+    const rows = await InventoryRepository.getValuation(branchId);
+
+    const items = rows.map((row) => ({
+        ...row,
+        StockValue: row.CostPerBaseUnit === null ? null : Number(row.StockValue)
+    }));
+
+    const totalValue = items.reduce((sum, row) => sum + (row.StockValue ?? 0), 0);
+    const ingredientsMissingCost = items.filter((row) => row.CostPerBaseUnit === null).length;
+
+    return {
+        success: true,
+        message: "Inventory valuation fetched successfully.",
+        data: { items, totalValue, ingredientsMissingCost }
+    };
+
+};
+
 export const getTransactions = async (branchId, tenantId, filters) => {
 
     if (!(await assertBranchBelongsToTenant(branchId, tenantId))) {

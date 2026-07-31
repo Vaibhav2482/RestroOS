@@ -151,5 +151,11 @@ export const MIGRATIONS = [
             CREATE INDEX "IX_AuditLogs_Tenant_Date" ON "AuditLogs" ("TenantId", "CreatedAt" DESC);
             CREATE INDEX "IX_AuditLogs_Entity" ON "AuditLogs" ("EntityType", "EntityId");
         `
+    },
+    {
+        id: "0007_ingredient_cost",
+        sql: `
+            ALTER TABLE "Ingredients" ADD COLUMN "CostPerBaseUnit" NUMERIC(12, 4) NULL;
+        `
     }
 ];

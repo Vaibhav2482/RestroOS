@@ -17,6 +17,27 @@ export const getBranchInventory = async (branchId) => {
 
 };
 
+// "What is the ingredient stock on hand currently worth" - an ingredient
+// with no CostPerBaseUnit set shows a null StockValue (not 0), and rolls
+// up into "IngredientsMissingCost" so the total is honestly reported as
+// incomplete rather than understated.
+export const getValuation = async (branchId) => {
+
+    const result = await pool.query(
+        `SELECT I."IngredientId", I."Name", I."BaseUnit", I."CostPerBaseUnit",
+                COALESCE(BI."CurrentQuantityBase", 0) AS "CurrentQuantityBase",
+                COALESCE(BI."CurrentQuantityBase", 0) * I."CostPerBaseUnit" AS "StockValue"
+         FROM "Ingredients" I
+         LEFT JOIN "BranchInventory" BI ON BI."IngredientId" = I."IngredientId" AND BI."BranchId" = $1
+         WHERE I."TenantId" = (SELECT "TenantId" FROM "Branches" WHERE "BranchId" = $1) AND I."IsActive" = TRUE
+         ORDER BY I."Name"`,
+        [branchId]
+    );
+
+    return result.rows;
+
+};
+
 export const getIngredientBalance = async (client, branchId, ingredientId) => {
 
     const result = await client.query(

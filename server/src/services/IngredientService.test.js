@@ -49,6 +49,24 @@ describe("IngredientService - validation", () => {
 
     });
 
+    it("rejects a negative cost per unit", async () => {
+
+        const result = await IngredientService.createIngredient({ name: "Flour", baseUnit: "g", costPerBaseUnit: -5 }, TENANT_ID);
+
+        expect(result.success).toBe(false);
+        expect(IngredientRepository.createIngredient).not.toHaveBeenCalled();
+
+    });
+
+    it("allows creating an ingredient with no cost set - COGS reporting is opt-in, not required", async () => {
+
+        const result = await IngredientService.createIngredient({ name: "Flour", baseUnit: "g" }, TENANT_ID);
+
+        expect(result.success).toBe(true);
+        expect(IngredientRepository.createIngredient).toHaveBeenCalled();
+
+    });
+
 });
 
 describe("IngredientService - base unit immutability", () => {

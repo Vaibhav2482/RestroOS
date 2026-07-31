@@ -3,7 +3,7 @@ import pool from "../config/db.js";
 export const getAllIngredients = async (tenantId) => {
 
     const result = await pool.query(
-        `SELECT "IngredientId", "TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "IngredientId", "TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "CostPerBaseUnit", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Ingredients"
          WHERE "TenantId" = $1
          ORDER BY "Name"`,
@@ -17,7 +17,7 @@ export const getAllIngredients = async (tenantId) => {
 export const getIngredientById = async (ingredientId) => {
 
     const result = await pool.query(
-        `SELECT "IngredientId", "TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "IngredientId", "TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "CostPerBaseUnit", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Ingredients"
          WHERE "IngredientId" = $1`,
         [ingredientId]
@@ -52,8 +52,8 @@ export const checkIngredientExistsForUpdate = async (tenantId, ingredientId, nam
 export const createIngredient = async (ingredient) => {
 
     const result = await pool.query(
-        `INSERT INTO "Ingredients" ("TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "IsActive")
-         VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+        `INSERT INTO "Ingredients" ("TenantId", "Name", "SKU", "Category", "BaseUnit", "LowStockThreshold", "CostPerBaseUnit", "IsActive")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
          RETURNING *`,
         [
             ingredient.tenantId,
@@ -61,7 +61,8 @@ export const createIngredient = async (ingredient) => {
             ingredient.sku ?? null,
             ingredient.category ?? null,
             ingredient.baseUnit,
-            ingredient.lowStockThreshold ?? null
+            ingredient.lowStockThreshold ?? null,
+            ingredient.costPerBaseUnit ?? null
         ]
     );
 
@@ -73,8 +74,8 @@ export const updateIngredient = async (ingredient) => {
 
     const result = await pool.query(
         `UPDATE "Ingredients"
-         SET "Name" = $1, "SKU" = $2, "Category" = $3, "BaseUnit" = $4, "LowStockThreshold" = $5, "IsActive" = $6, "UpdatedAt" = NOW()
-         WHERE "IngredientId" = $7
+         SET "Name" = $1, "SKU" = $2, "Category" = $3, "BaseUnit" = $4, "LowStockThreshold" = $5, "CostPerBaseUnit" = $6, "IsActive" = $7, "UpdatedAt" = NOW()
+         WHERE "IngredientId" = $8
          RETURNING *`,
         [
             ingredient.name,
@@ -82,6 +83,7 @@ export const updateIngredient = async (ingredient) => {
             ingredient.category ?? null,
             ingredient.baseUnit,
             ingredient.lowStockThreshold ?? null,
+            ingredient.costPerBaseUnit ?? null,
             ingredient.isActive,
             ingredient.ingredientId
         ]

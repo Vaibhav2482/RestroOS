@@ -21,6 +21,24 @@ export const getBranchInventory = asyncHandler(async (req, res) => {
 
 });
 
+export const getValuation = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+
+    if (!branchId) {
+        return errorResponse(res, "Branch Id is required.", 400);
+    }
+
+    const result = await InventoryService.getValuation(branchId, req.user.tenantId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getTransactions = asyncHandler(async (req, res) => {
 
     const branchId = resolveBranchId(req);

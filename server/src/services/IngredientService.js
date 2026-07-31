@@ -38,6 +38,10 @@ export const createIngredient = async (ingredient, tenantId) => {
         return { success: false, message: "Low stock threshold cannot be negative." };
     }
 
+    if (ingredient.costPerBaseUnit !== undefined && ingredient.costPerBaseUnit !== null && ingredient.costPerBaseUnit < 0) {
+        return { success: false, message: "Cost per unit cannot be negative." };
+    }
+
     const existing = await IngredientRepository.checkIngredientExists(tenantId, ingredient.name);
 
     if (existing.length > 0) {
@@ -61,6 +65,10 @@ export const updateIngredient = async (ingredientId, ingredient, tenantId) => {
 
     if (!VALID_UNITS.includes(ingredient.baseUnit)) {
         return { success: false, message: "Base unit must be one of g, kg, ml, l, pc." };
+    }
+
+    if (ingredient.costPerBaseUnit !== undefined && ingredient.costPerBaseUnit !== null && ingredient.costPerBaseUnit < 0) {
+        return { success: false, message: "Cost per unit cannot be negative." };
     }
 
     const existingIngredient = await IngredientRepository.getIngredientById(ingredientId);
