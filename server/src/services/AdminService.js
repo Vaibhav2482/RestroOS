@@ -133,6 +133,91 @@ export const updateAdmin = async (adminId, admin, requestingAdminId, tenantId) =
 
 };
 
+// Self-service - the fields an admin can change about their own account
+// without owner involvement. Deliberately narrower than updateAdmin
+// above: no branch, no active status, no email (email is the login
+// identity tied to auth lookups elsewhere - changing it here would be a
+// bigger, separate piece of work involving re-verification).
+export const updateOwnProfile = async (adminId, profile) => {
+
+    const fullName = profile.fullName?.trim();
+
+    if (!fullName) {
+        return { success: false, message: "Full Name is required." };
+    }
+
+    const existingAdmin = await AdminRepository.getById(adminId);
+
+    if (!existingAdmin) {
+        return { success: false, message: "Admin not found." };
+    }
+
+    const updatedAdmin = await AdminRepository.updateOwnProfile(adminId, {
+        fullName,
+        avatarUrl: profile.avatarUrl ?? existingAdmin.AvatarUrl
+    });
+
+    AuditService.record({
+        tenantId: existingAdmin.TenantId,
+        actorAdminId: adminId,
+        actorType: "User",
+        action: "ADMIN_UPDATED",
+        entityType: "Admin",
+        entityId: updatedAdmin.AdminId,
+        summary: `"${updatedAdmin.FullName}" updated their own profile`
+    });
+
+    return { success: true, message: "Profile updated successfully.", data: updatedAdmin };
+
+};
+
+const MIN_PASSWORD_LENGTH = 8;
+
+export const changeOwnPassword = async (adminId, currentPassword, newPassword) => {
+
+    if (!currentPassword) {
+        return { success: false, message: "Current password is required." };
+    }
+
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+        return { success: false, message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    const existingAdmin = await AdminRepository.getById(adminId);
+
+    if (!existingAdmin) {
+        return { success: false, message: "Admin not found." };
+    }
+
+    const currentHash = await AdminRepository.getPasswordHash(adminId);
+    const isCorrect = currentHash && await bcrypt.compare(currentPassword, currentHash);
+
+    if (!isCorrect) {
+        return { success: false, message: "Current password is incorrect." };
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    await AdminRepository.updatePassword(adminId, newHash);
+
+    // A password change is exactly the kind of security-relevant event an
+    // audit trail exists for, even though it's self-initiated - if an
+    // account is ever compromised, "when did the password last change"
+    // matters. Never logs the password itself, only that it changed.
+    AuditService.record({
+        tenantId: existingAdmin.TenantId,
+        actorAdminId: adminId,
+        actorType: "User",
+        action: "ADMIN_PASSWORD_CHANGED",
+        entityType: "Admin",
+        entityId: Number(adminId),
+        summary: `"${existingAdmin.FullName}" changed their own password`
+    });
+
+    return { success: true, message: "Password changed successfully." };
+
+};
+
 export const deactivateAdmin = async (adminId, requestingAdminId) => {
 
     if (String(adminId) === String(requestingAdminId)) {

@@ -18,6 +18,7 @@ import Admins from "./pages/Admins";
 import Integrations from "./pages/Integrations";
 import AuditLog from "./pages/AuditLog";
 import Settings from "./pages/Settings";
+import MyProfile from "./pages/MyProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
 
@@ -70,6 +71,7 @@ function App() {
                 <Route path="/integrations" element={withLayout(<Integrations />, { ownerOnly: true })} />
                 <Route path="/activity-log" element={withLayout(<AuditLog />, { ownerOnly: true })} />
                 <Route path="/settings" element={withLayout(<Settings />, { ownerOnly: true })} />
+                <Route path="/profile" element={withLayout(<MyProfile />)} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
 

@@ -42,7 +42,7 @@ export const getAllByTenant = async (tenantId) => {
 export const getById = async (adminId) => {
 
     const result = await pool.query(
-        `SELECT A."AdminId", A."TenantId", A."FullName", A."Email", A."BranchId", B."BranchName", A."IsActive", A."CreatedAt"
+        `SELECT A."AdminId", A."TenantId", A."FullName", A."Email", A."BranchId", B."BranchName", A."AvatarUrl", A."IsActive", A."CreatedAt"
          FROM "Admins" A
          LEFT JOIN "Branches" B ON A."BranchId" = B."BranchId"
          WHERE A."AdminId" = $1`,
@@ -50,6 +50,17 @@ export const getById = async (adminId) => {
     );
 
     return result.rows[0];
+
+};
+
+// Only ever used internally to verify a password on a self-service change -
+// the hash itself must never appear in an API response, which is exactly
+// why every other read here (getById, getAllByTenant) leaves it out.
+export const getPasswordHash = async (adminId) => {
+
+    const result = await pool.query(`SELECT "Password" FROM "Admins" WHERE "AdminId" = $1`, [adminId]);
+
+    return result.rows[0]?.Password;
 
 };
 
@@ -64,6 +75,38 @@ export const update = async (admin) => {
     );
 
     return result.rows[0];
+
+};
+
+// Self-service - deliberately only FullName/AvatarUrl, none of the fields
+// `update` above touches (BranchId, IsActive), which stay owner-controlled
+// via the existing staff-management flow. An admin editing their own
+// profile can't grant themselves a different branch or reactivate
+// themselves this way.
+export const updateOwnProfile = async (adminId, profile) => {
+
+    const result = await pool.query(
+        `UPDATE "Admins"
+         SET "FullName" = $1, "AvatarUrl" = $2, "UpdatedAt" = NOW()
+         WHERE "AdminId" = $3
+         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "AvatarUrl", "IsActive", "CreatedAt"`,
+        [profile.fullName, profile.avatarUrl ?? null, adminId]
+    );
+
+    return result.rows[0];
+
+};
+
+// Distinct from resetPassword (used by a platform admin resetting a locked
+// -out owner) - that one also reactivates the account as a side effect,
+// which has no place in a self-service change made by an already-active,
+// already-logged-in admin.
+export const updatePassword = async (adminId, hashedPassword) => {
+
+    await pool.query(
+        `UPDATE "Admins" SET "Password" = $1, "UpdatedAt" = NOW() WHERE "AdminId" = $2`,
+        [hashedPassword, adminId]
+    );
 
 };
 

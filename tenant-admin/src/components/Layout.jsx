@@ -32,6 +32,7 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ExtensionOutlinedIcon from "@mui/icons-material/ExtensionOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -171,7 +172,7 @@ function Layout({ children }) {
                             "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.15)" }
                         }}
                     >
-                        <Avatar sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
+                        <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 36, height: 36 }}>
                             {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
                         </Avatar>
                     </IconButton>
@@ -188,6 +189,16 @@ function Layout({ children }) {
                         </MenuItem>
 
                         <Divider />
+
+                        <MenuItem
+                            onClick={() => {
+                                setMenuAnchor(null);
+                                navigate("/profile");
+                            }}
+                        >
+                            <ListItemIcon><PersonOutlineRoundedIcon fontSize="small" /></ListItemIcon>
+                            My Profile
+                        </MenuItem>
 
                         <MenuItem onClick={handleLogout}>
                             <ListItemIcon><LogoutOutlinedIcon fontSize="small" /></ListItemIcon>

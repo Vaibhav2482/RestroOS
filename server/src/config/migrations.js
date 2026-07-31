@@ -157,5 +157,11 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Ingredients" ADD COLUMN "CostPerBaseUnit" NUMERIC(12, 4) NULL;
         `
+    },
+    {
+        id: "0008_admin_avatar",
+        sql: `
+            ALTER TABLE "Admins" ADD COLUMN "AvatarUrl" VARCHAR(500) NULL;
+        `
     }
 ];

@@ -18,6 +18,7 @@ export const ACTION_LABELS = {
     ADMIN_CREATED: "Staff account created",
     ADMIN_UPDATED: "Staff account updated",
     ADMIN_DEACTIVATED: "Staff account deactivated",
+    ADMIN_PASSWORD_CHANGED: "Password changed",
     COUPON_CREATED: "Coupon created",
     COUPON_UPDATED: "Coupon updated",
     COUPON_DEACTIVATED: "Coupon deactivated",

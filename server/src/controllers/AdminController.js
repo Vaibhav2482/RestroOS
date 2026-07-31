@@ -10,6 +10,44 @@ export const getAllAdmins = asyncHandler(async (req, res) => {
 
 });
 
+export const getOwnProfile = asyncHandler(async (req, res) => {
+
+    const result = await AdminService.getAdminById(req.user.id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const updateOwnProfile = asyncHandler(async (req, res) => {
+
+    const result = await AdminService.updateOwnProfile(req.user.id, req.body);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const changeOwnPassword = asyncHandler(async (req, res) => {
+
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await AdminService.changeOwnPassword(req.user.id, currentPassword, newPassword);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getAdminById = asyncHandler(async (req, res) => {
 
     const { id } = req.params;

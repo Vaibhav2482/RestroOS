@@ -10,6 +10,21 @@ export const getAdminById = async (id) => {
     return response.data;
 };
 
+export const getOwnProfile = async () => {
+    const response = await axiosClient.get("/admins/me");
+    return response.data;
+};
+
+export const updateOwnProfile = async (profile) => {
+    const response = await axiosClient.put("/admins/me", profile);
+    return response.data;
+};
+
+export const changeOwnPassword = async (currentPassword, newPassword) => {
+    const response = await axiosClient.put("/admins/me/password", { currentPassword, newPassword });
+    return response.data;
+};
+
 export const createAdmin = async (admin) => {
     const response = await axiosClient.post("/admins", admin);
     return response.data;
