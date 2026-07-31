@@ -137,9 +137,19 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                         {shownDescription}{" "}
                         {isLong && (
                             <Box
-                                component="span"
+                                component="button"
+                                type="button"
                                 onClick={() => setExpanded((prev) => !prev)}
-                                sx={{ color: "primary.main", fontWeight: 600, cursor: "pointer" }}
+                                sx={{
+                                    color: "primary.main",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    font: "inherit",
+                                    border: 0,
+                                    p: 0,
+                                    background: "none",
+                                    "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 }
+                                }}
                             >
                                 {expanded ? "less" : "more"}
                             </Box>
@@ -953,12 +963,21 @@ function Home() {
                 open={Boolean(customizingItem)}
                 item={customizingItem}
                 onClose={handleCustomizationDialogClose}
+                onCartChanged={loadCartLines}
             />
 
             {cartItemCount > 0 && (
 
                 <Box
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/${tenantSlug}/cart`)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            navigate(`/${tenantSlug}/cart`);
+                        }
+                    }}
                     sx={{
                         position: "fixed",
                         left: "50%",
@@ -974,6 +993,7 @@ function Home() {
                         py: 1.5,
                         display: "flex",
                         alignItems: "center",
+                        "&:focus-visible": { outline: "2px solid #fff", outlineOffset: 2 },
                         justifyContent: "space-between",
                         cursor: "pointer",
                         zIndex: 20

@@ -35,6 +35,14 @@ function formatDelta(delta) {
         return `+₹${value.toFixed(2)}`;
     }
 
+    // A discounted option (a negative PriceDelta - e.g. a smaller portion
+    // priced below the default) used to render nothing here at all,
+    // indistinguishable from a data-entry bug even though the total below
+    // correctly reflects it.
+    if (value < 0) {
+        return `-₹${Math.abs(value).toFixed(2)}`;
+    }
+
     return "";
 
 }
@@ -66,7 +74,7 @@ function isGroupValid(group, selectedIds) {
 
 }
 
-function ItemCustomizationDialog({ open, item, onClose }) {
+function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
     const { customer, refreshCartCount } = useStorefront();
 
@@ -319,7 +327,15 @@ function ItemCustomizationDialog({ open, item, onClose }) {
                 return;
             }
 
+            // refreshCartCount() alone only updates the header badge - the
+            // page underneath this dialog (Home.jsx) keeps its own
+            // cartLines state for the per-item Add/stepper buttons and the
+            // floating cart bar, which this quick-add never touched. Left
+            // out, that page's state goes stale: the item this just added
+            // still shows an "Add" button instead of a stepper, and tapping
+            // it creates a second, separate cart line for the same item.
             refreshCartCount();
+            onCartChanged?.();
             toast.success(`${rec.ItemName} added to cart`);
 
         } catch (error) {

@@ -67,12 +67,16 @@ function formatDate(dateString) {
         return "";
     }
 
+    // en-IN sets number/date conventions, not a timezone - without an
+    // explicit timeZone this renders in the browser's local timezone, not
+    // the restaurant's.
     return new Date(dateString).toLocaleString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
         hour: "numeric",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata"
     });
 
 }
@@ -553,9 +557,9 @@ function OrderDetail() {
                 </DialogContent>
 
                 <DialogActions>
-                    <Button onClick={() => setConfirmOpen(false)}>Keep Order</Button>
-                    <Button color="error" variant="contained" onClick={handleCancelOrder}>
-                        Yes, Cancel
+                    <Button onClick={() => setConfirmOpen(false)} disabled={cancelling}>Keep Order</Button>
+                    <Button color="error" variant="contained" onClick={handleCancelOrder} disabled={cancelling}>
+                        {cancelling ? "Cancelling..." : "Yes, Cancel"}
                     </Button>
                 </DialogActions>
 

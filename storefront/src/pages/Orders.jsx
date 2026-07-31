@@ -43,12 +43,16 @@ function formatDate(dateString) {
         return "";
     }
 
+    // en-IN sets number/date conventions, not a timezone - without an
+    // explicit timeZone this renders in the browser's local timezone, not
+    // the restaurant's.
     return new Date(dateString).toLocaleString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
         hour: "numeric",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata"
     });
 
 }
@@ -195,13 +199,22 @@ function Orders() {
                     <Paper
                         key={order.OrderId}
                         elevation={0}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => navigate(`/${tenantSlug}/orders/${order.OrderId}`)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                navigate(`/${tenantSlug}/orders/${order.OrderId}`);
+                            }
+                        }}
                         sx={{
                             p: 3,
                             border: "1px solid #E5E7EB",
                             cursor: "pointer",
                             transition: "border-color 0.15s",
-                            "&:hover": { borderColor: "primary.main" }
+                            "&:hover": { borderColor: "primary.main" },
+                            "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 2 }
                         }}
                     >
 

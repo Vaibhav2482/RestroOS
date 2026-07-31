@@ -12,12 +12,17 @@ function formatDate(dateString) {
         return "";
     }
 
+    // en-IN sets number/date conventions, not a timezone - without an
+    // explicit timeZone this renders in the *browser's* local timezone,
+    // not the restaurant's, so a customer viewing this from a device set
+    // to a different timezone sees a wrong order/delivery time.
     return new Date(dateString).toLocaleString("en-IN", {
         day: "numeric",
         month: "short",
         year: "numeric",
         hour: "numeric",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "Asia/Kolkata"
     });
 
 }
