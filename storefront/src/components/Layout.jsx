@@ -15,6 +15,7 @@ import {
     Toolbar,
     Typography
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
@@ -78,40 +79,89 @@ function Layout({ children }) {
     const isMenuActive = location.pathname === `/${tenantSlug}`;
     const isOrdersActive = location.pathname.startsWith(`/${tenantSlug}/orders`);
 
+    // Themed against whichever primary color this tenant picked in Branding
+    // (alpha() blends it at low opacity), rather than a hardcoded indigo
+    // that would clash with e.g. a teal or terracotta storefront.
     const navButtonSx = (active) => ({
         fontWeight: 600,
-        borderRadius: 2,
-        color: active ? "primary.main" : "inherit",
-        bgcolor: active ? "rgba(79, 70, 229, 0.1)" : "transparent"
+        borderRadius: 2.5,
+        px: 2,
+        color: active ? "primary.main" : "text.primary",
+        bgcolor: active ? (theme) => alpha(theme.palette.primary.main, 0.1) : "transparent",
+        "&:hover": {
+            bgcolor: (theme) => alpha(theme.palette.primary.main, active ? 0.14 : 0.06)
+        }
     });
+
+    const iconButtonSx = {
+        transition: "background-color .15s ease",
+        bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06),
+        "&:hover": { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.14) }
+    };
 
     return (
 
         <Box sx={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
 
-            <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: "1px solid #E5E7EB", backgroundColor: "#FFFFFF" }}>
+            <AppBar
+                position="sticky"
+                color="inherit"
+                elevation={0}
+                sx={{
+                    backgroundColor: "background.paper",
+                    boxShadow: "0 1px 2px rgba(17,24,39,.04), 0 8px 24px rgba(17,24,39,.05)"
+                }}
+            >
 
-                <Toolbar sx={{ gap: 2 }}>
+                <Toolbar sx={{ gap: 2, py: 1 }}>
 
                     <Box
                         component={RouterLink}
                         to={`/${tenantSlug}`}
-                        sx={{ display: "flex", alignItems: "center", gap: 1, textDecoration: "none", flexShrink: 0 }}
+                        sx={{ display: "flex", alignItems: "center", gap: 1.25, textDecoration: "none", flexShrink: 0 }}
                     >
 
-                        {tenant?.LogoUrl && (
+                        {tenant?.LogoUrl ? (
+
                             <Box
                                 component="img"
                                 src={tenant.LogoUrl}
                                 alt=""
-                                sx={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: "50%",
+                                    objectFit: "cover",
+                                    boxShadow: (theme) => `0 0 0 2px ${theme.palette.background.paper}, 0 0 0 3.5px ${alpha(theme.palette.primary.main, 0.3)}`
+                                }}
                             />
+
+                        ) : (
+
+                            // Every restaurant gets a branded mark here even before they
+                            // upload a real logo (Branding, in tenant-admin) - a blank gap
+                            // beside the name is what made this header read as "empty."
+                            <Box
+                                sx={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: "50%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
+                                    color: "primary.main"
+                                }}
+                            >
+                                <RestaurantMenuOutlinedIcon fontSize="small" />
+                            </Box>
+
                         )}
 
                         <Typography
                             variant="h6"
                             fontWeight={800}
-                            sx={{ color: "primary.main" }}
+                            sx={{ color: "primary.main", letterSpacing: "-0.01em" }}
                         >
                             {tenant?.TenantName || "RestroOS"}
                         </Typography>
@@ -151,8 +201,15 @@ function Layout({ children }) {
                             size="small"
                             value={selectedBranchId ?? ""}
                             onChange={(event) => selectBranch(event.target.value)}
-                            startAdornment={<PlaceOutlinedIcon fontSize="small" sx={{ mr: 0.5, color: "text.secondary" }} />}
-                            sx={{ ml: "auto", maxWidth: 220 }}
+                            startAdornment={<PlaceOutlinedIcon fontSize="small" sx={{ mr: 0.5, color: "primary.main" }} />}
+                            sx={{
+                                ml: "auto",
+                                maxWidth: 220,
+                                borderRadius: 2.5,
+                                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.06),
+                                "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+                                "&:hover": { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1) }
+                            }}
                         >
                             {branches.map((branch) => (
                                 <MenuItem key={branch.BranchId} value={branch.BranchId}>
@@ -168,10 +225,7 @@ function Layout({ children }) {
                         <IconButton
                             component={RouterLink}
                             to={`/${tenantSlug}/cart`}
-                            sx={{
-                                transition: "box-shadow .15s",
-                                "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.1)" }
-                            }}
+                            sx={iconButtonSx}
                         >
                             <Badge badgeContent={cartCount} color="primary">
                                 <ShoppingCartOutlinedIcon />
@@ -183,13 +237,9 @@ function Layout({ children }) {
                             <>
                                 <IconButton
                                     onClick={(event) => setMenuAnchor(event.currentTarget)}
-                                    sx={{
-                                        p: 0.5,
-                                        transition: "box-shadow .15s",
-                                        "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.1)" }
-                                    }}
+                                    sx={{ p: 0.5, ...iconButtonSx, bgcolor: "transparent" }}
                                 >
-                                    <Avatar src={customer?.AvatarUrl || undefined} sx={{ bgcolor: "primary.main", width: 32, height: 32, fontSize: 14 }}>
+                                    <Avatar src={customer?.AvatarUrl || undefined} sx={{ bgcolor: "primary.main", width: 34, height: 34, fontSize: 14 }}>
                                         {customer?.FullName?.[0]?.toUpperCase() || "U"}
                                     </Avatar>
                                 </IconButton>

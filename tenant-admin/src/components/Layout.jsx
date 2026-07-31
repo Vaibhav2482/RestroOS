@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     AppBar,
     Avatar,
@@ -36,38 +36,84 @@ import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
+import { alpha } from "@mui/material/styles";
 
-import { clearStoredAuth, getStoredAuth, isOwner } from "../utils/adminAuth";
+import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, isOwner } from "../utils/adminAuth";
 
 const DRAWER_WIDTH = 260;
 
-const NAV_ITEMS = [
-    { label: "Dashboard", to: "/", icon: <DashboardOutlinedIcon /> },
-    { label: "Analytics", to: "/analytics", icon: <InsightsOutlinedIcon /> },
-    { label: "Reports", to: "/reports", icon: <SummarizeOutlinedIcon /> },
-    { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon /> },
-    { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon /> },
-    { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },
-    { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> },
-    { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
-    { label: "Inventory", to: "/inventory", icon: <Inventory2OutlinedIcon /> },
-    { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> },
-    { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, ownerOnly: true },
-    { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
-    { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
-    { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, ownerOnly: true },
-    { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, ownerOnly: true },
-    { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, ownerOnly: true }
+// Grouped rather than one flat list - a 16-item unbroken list is what made
+// the sidebar read as a plain nav dump rather than a designed IA. Each
+// group only renders if it still has at least one item visible to the
+// current admin (a Branch Admin never sees "Management"/"System" at all).
+const NAV_GROUPS = [
+    {
+        label: "Overview",
+        items: [
+            { label: "Dashboard", to: "/", icon: <DashboardOutlinedIcon /> },
+            { label: "Analytics", to: "/analytics", icon: <InsightsOutlinedIcon /> },
+            { label: "Reports", to: "/reports", icon: <SummarizeOutlinedIcon /> }
+        ]
+    },
+    {
+        label: "Operations",
+        items: [
+            { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon /> },
+            { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon /> },
+            { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },
+            { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> }
+        ]
+    },
+    {
+        label: "Catalog",
+        items: [
+            { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
+            { label: "Inventory", to: "/inventory", icon: <Inventory2OutlinedIcon /> },
+            { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> }
+        ]
+    },
+    {
+        label: "Management",
+        items: [
+            { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, ownerOnly: true },
+            { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
+            { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
+            { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, ownerOnly: true }
+        ]
+    },
+    {
+        label: "System",
+        items: [
+            { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, ownerOnly: true },
+            { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, ownerOnly: true }
+        ]
+    }
 ];
 
 function Layout({ children }) {
 
     const navigate = useNavigate();
-    const auth = getStoredAuth();
+
+    // State, not a plain getStoredAuth() read - MyProfile.jsx saves through
+    // to localStorage from a route this component is the parent of, which
+    // never re-renders Layout on its own. Listening for the event
+    // setStoredAuth now dispatches is what makes the header avatar/name
+    // actually update right after a profile save, instead of only after
+    // the next full navigation remounts this component.
+    const [auth, setAuth] = useState(() => getStoredAuth());
     const owner = isOwner(auth?.admin);
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState(null);
+
+    useEffect(() => {
+
+        const handleAuthChanged = () => setAuth(getStoredAuth());
+
+        window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
+        return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
+
+    }, []);
 
     const handleLogout = () => {
         clearStoredAuth();
@@ -78,7 +124,7 @@ function Layout({ children }) {
 
         <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
 
-            <Toolbar sx={{ px: 3 }}>
+            <Toolbar sx={{ px: 2.5, py: 2, height: "auto" }}>
                 <Box
                     component={NavLink}
                     to="/orders"
@@ -86,48 +132,141 @@ function Layout({ children }) {
                     sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 1,
+                        gap: 1.25,
                         textDecoration: "none",
                         color: "#4F46E5",
-                        "&:hover": { opacity: 0.85 }
+                        width: "100%"
                     }}
                 >
-                    <RestaurantRoundedIcon />
-                    <Typography variant="h6" fontWeight={800} sx={{ color: "inherit" }}>
-                        RestroOS
-                    </Typography>
+                    <Box
+                        sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 2.5,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                            bgcolor: "#4F46E5",
+                            color: "#fff",
+                            boxShadow: "0 4px 12px rgba(79,70,229,.35)"
+                        }}
+                    >
+                        <RestaurantRoundedIcon fontSize="small" />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="h6" fontWeight={800} sx={{ color: "inherit", lineHeight: 1.15 }}>
+                            RestroOS
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
+                            {auth?.admin?.tenantName || "Admin Console"}
+                        </Typography>
+                    </Box>
                 </Box>
             </Toolbar>
 
             <Divider />
 
-            <List sx={{ flex: 1, px: 2, py: 2 }}>
+            <List sx={{ flex: 1, px: 1.5, py: 2, overflowY: "auto" }}>
 
-                {NAV_ITEMS.filter((item) => !item.ownerOnly || owner).map((item) => (
+                {NAV_GROUPS.map((group) => {
 
-                    <ListItemButton
-                        key={item.to}
-                        component={NavLink}
-                        to={item.to}
-                        end={item.to === "/"}
-                        onClick={() => setMobileOpen(false)}
-                        sx={{
-                            borderRadius: 2,
-                            mb: 0.5,
-                            "&.active": {
-                                backgroundColor: "rgba(79, 70, 229, 0.1)",
-                                color: "#4F46E5",
-                                "& .MuiListItemIcon-root": { color: "#4F46E5" }
-                            }
-                        }}
-                    >
-                        <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                        <ListItemText primary={item.label} />
-                    </ListItemButton>
+                    const visibleItems = group.items.filter((item) => !item.ownerOnly || owner);
 
-                ))}
+                    if (visibleItems.length === 0) {
+                        return null;
+                    }
+
+                    return (
+
+                        <Box key={group.label} sx={{ mb: 1.5 }}>
+
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    display: "block",
+                                    px: 1.5,
+                                    mb: 0.5,
+                                    color: "text.secondary",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.07em",
+                                    textTransform: "uppercase",
+                                    fontSize: "0.68rem"
+                                }}
+                            >
+                                {group.label}
+                            </Typography>
+
+                            {visibleItems.map((item) => (
+
+                                <ListItemButton
+                                    key={item.to}
+                                    component={NavLink}
+                                    to={item.to}
+                                    end={item.to === "/"}
+                                    onClick={() => setMobileOpen(false)}
+                                    sx={{
+                                        borderRadius: 2,
+                                        mb: 0.25,
+                                        pl: 1.25,
+                                        borderLeft: "3px solid transparent",
+                                        color: "text.primary",
+                                        "& .MuiListItemIcon-root": { minWidth: 38, color: "text.secondary", transition: "color .15s" },
+                                        "&.active": {
+                                            backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                                            borderLeftColor: "primary.main",
+                                            color: "primary.main",
+                                            fontWeight: 700,
+                                            "& .MuiListItemIcon-root": { color: "primary.main" },
+                                            "& .MuiListItemText-primary": { fontWeight: 700 }
+                                        },
+                                        "&:hover:not(.active)": { backgroundColor: "rgba(17,24,39,.04)" }
+                                    }}
+                                >
+                                    <ListItemIcon>{item.icon}</ListItemIcon>
+                                    <ListItemText primary={item.label} />
+                                </ListItemButton>
+
+                            ))}
+
+                        </Box>
+
+                    );
+
+                })}
 
             </List>
+
+            <Divider />
+
+            <Box
+                component={NavLink}
+                to="/profile"
+                onClick={() => setMobileOpen(false)}
+                sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1.25,
+                    px: 2,
+                    py: 1.5,
+                    textDecoration: "none",
+                    color: "inherit",
+                    transition: "background-color .15s",
+                    "&:hover": { backgroundColor: "rgba(17,24,39,.04)" }
+                }}
+            >
+                <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 34, height: 34, fontSize: 14 }}>
+                    {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
+                </Avatar>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography variant="body2" fontWeight={600} noWrap>
+                        {auth?.admin?.FullName || "Admin"}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {owner ? "Owner" : "Branch Admin"}
+                    </Typography>
+                </Box>
+            </Box>
 
         </Box>
 
@@ -144,8 +283,8 @@ function Layout({ children }) {
                 sx={{
                     width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
                     ml: { md: `${DRAWER_WIDTH}px` },
-                    borderBottom: "1px solid #E5E7EB",
-                    backgroundColor: "#FFFFFF"
+                    backgroundColor: "#FFFFFF",
+                    boxShadow: "0 1px 2px rgba(17,24,39,.04), 0 6px 20px rgba(17,24,39,.04)"
                 }}
             >
 
