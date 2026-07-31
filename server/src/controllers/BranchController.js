@@ -1,6 +1,7 @@
 import * as BranchService from "../services/BranchService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
+import { resolveBranchId, branchMismatch } from "../utils/branchScope.js";
 
 export const getActiveBranches = asyncHandler(async (req, res) => {
 
@@ -16,7 +17,7 @@ export const getActiveBranches = asyncHandler(async (req, res) => {
 
 export const getAllBranches = asyncHandler(async (req, res) => {
 
-    const result = await BranchService.getAllBranches(req.user.tenantId);
+    const result = await BranchService.getAllBranches(req.user.tenantId, resolveBranchId(req));
 
     return successResponse(res, result.data, result.message);
 
@@ -30,6 +31,10 @@ export const getBranchById = asyncHandler(async (req, res) => {
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);
+    }
+
+    if (branchMismatch(req, result.data.BranchId)) {
+        return errorResponse(res, "You are not authorized to view a branch other than your own.", 403);
     }
 
     return successResponse(res, result.data, result.message);

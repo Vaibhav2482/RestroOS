@@ -169,5 +169,29 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Customers" ADD COLUMN "AvatarUrl" VARCHAR(500) NULL;
         `
+    },
+    {
+        id: "0010_admin_login_lockout",
+        sql: `
+            ALTER TABLE "Admins"
+                ADD COLUMN "FailedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN "LockedUntil" TIMESTAMP NULL;
+        `
+    },
+    {
+        id: "0011_customer_login_lockout",
+        sql: `
+            ALTER TABLE "Customers"
+                ADD COLUMN "FailedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN "LockedUntil" TIMESTAMP NULL;
+        `
+    },
+    {
+        id: "0012_platform_admin_login_lockout",
+        sql: `
+            ALTER TABLE "PlatformAdmins"
+                ADD COLUMN "FailedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
+                ADD COLUMN "LockedUntil" TIMESTAMP NULL;
+        `
     }
 ];

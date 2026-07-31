@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import * as PlatformAdminRepository from "../repositories/PlatformAdminRepository.js";
+import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from "../config/lockoutPolicy.js";
 
 export const login = async (email, password) => {
 
@@ -13,13 +14,37 @@ export const login = async (email, password) => {
         return { success: false, message: "Invalid email or password." };
     }
 
+    // Checked before the password compare, not after - a locked account
+    // shouldn't leak whether the attempted password was actually correct.
+    if (admin.LockedUntil && new Date(admin.LockedUntil) > new Date()) {
+        return { success: false, message: "Too many failed attempts. Try again in a few minutes." };
+    }
+
     const passwordMatches = await bcrypt.compare(password, admin.Password);
 
     if (!passwordMatches) {
-        return { success: false, message: "Invalid email or password." };
+
+        const nextAttempts = admin.FailedLoginAttempts + 1;
+        const lockedUntil = nextAttempts >= MAX_FAILED_ATTEMPTS
+            ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
+            : null;
+
+        await PlatformAdminRepository.recordFailedLogin(admin.PlatformAdminId, lockedUntil);
+
+        return {
+            success: false,
+            message: lockedUntil
+                ? `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes.`
+                : "Invalid email or password."
+        };
+
     }
 
+    await PlatformAdminRepository.resetFailedLogins(admin.PlatformAdminId);
+
     delete admin.Password;
+    delete admin.FailedLoginAttempts;
+    delete admin.LockedUntil;
 
     return { success: true, message: "Login successful.", data: admin };
 

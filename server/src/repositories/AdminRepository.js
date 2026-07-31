@@ -11,6 +11,28 @@ export const getByTenantAndEmail = async (tenantId, email) => {
 
 };
 
+// LockedUntil is only set once FailedLoginAttempts crosses the threshold
+// (checked in AdminAuthService) - below that, this just keeps counting.
+export const recordFailedLogin = async (adminId, lockedUntil) => {
+
+    await pool.query(
+        `UPDATE "Admins"
+         SET "FailedLoginAttempts" = "FailedLoginAttempts" + 1, "LockedUntil" = COALESCE($2, "LockedUntil")
+         WHERE "AdminId" = $1`,
+        [adminId, lockedUntil ?? null]
+    );
+
+};
+
+export const resetFailedLogins = async (adminId) => {
+
+    await pool.query(
+        `UPDATE "Admins" SET "FailedLoginAttempts" = 0, "LockedUntil" = NULL WHERE "AdminId" = $1`,
+        [adminId]
+    );
+
+};
+
 export const create = async (admin) => {
 
     const result = await pool.query(
@@ -133,9 +155,12 @@ export const getByTenantAndEmailAny = async (tenantId, email) => {
 
 export const resetPassword = async (adminId, hashedPassword) => {
 
+    // Also clears any lockout - a platform admin resetting a locked-out
+    // owner's password so they can log in again would otherwise still
+    // find themselves locked out despite the new password being correct.
     const result = await pool.query(
         `UPDATE "Admins"
-         SET "Password" = $1, "IsActive" = TRUE, "UpdatedAt" = NOW()
+         SET "Password" = $1, "IsActive" = TRUE, "FailedLoginAttempts" = 0, "LockedUntil" = NULL, "UpdatedAt" = NOW()
          WHERE "AdminId" = $2
          RETURNING "AdminId", "Email"`,
         [hashedPassword, adminId]

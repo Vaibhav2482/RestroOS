@@ -17,14 +17,19 @@ export const getActiveBranchesByTenantSlug = async (tenantSlug) => {
 
 };
 
-export const getAllBranches = async (tenantId) => {
+// branchId is optional (NULL = every branch, for a tenant Owner) - a
+// Branch Admin's token always supplies their own branchId here
+// (branchScope.js's resolveBranchId), so this query itself is what keeps
+// them from listing branches other than their own, not just the UI
+// choosing not to show a selector for them.
+export const getAllBranches = async (tenantId, branchId) => {
 
     const result = await pool.query(
         `SELECT "BranchId", "BranchName", "Address", "City", "State", "Pincode", "Phone", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Branches"
-         WHERE "TenantId" = $1
+         WHERE "TenantId" = $1 AND ($2::int IS NULL OR "BranchId" = $2)
          ORDER BY "BranchName"`,
-        [tenantId]
+        [tenantId, branchId ?? null]
     );
 
     return result.rows;

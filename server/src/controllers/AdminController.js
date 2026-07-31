@@ -1,6 +1,7 @@
 import * as AdminService from "../services/AdminService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
+import { branchMismatch } from "../utils/branchScope.js";
 
 export const getAllAdmins = asyncHandler(async (req, res) => {
 
@@ -60,6 +61,10 @@ export const getAdminById = asyncHandler(async (req, res) => {
 
     if (result.data.TenantId !== req.user.tenantId) {
         return errorResponse(res, "Admin not found.", 404);
+    }
+
+    if (branchMismatch(req, result.data.BranchId)) {
+        return errorResponse(res, "You are not authorized to view a staff member from another branch.", 403);
     }
 
     return successResponse(res, result.data, result.message);

@@ -31,3 +31,25 @@ export const count = async () => {
     return result.rows[0].Count;
 
 };
+
+// LockedUntil is only set once FailedLoginAttempts crosses the threshold
+// (checked in PlatformAdminService) - below that, this just keeps counting.
+export const recordFailedLogin = async (platformAdminId, lockedUntil) => {
+
+    await pool.query(
+        `UPDATE "PlatformAdmins"
+         SET "FailedLoginAttempts" = "FailedLoginAttempts" + 1, "LockedUntil" = COALESCE($2, "LockedUntil")
+         WHERE "PlatformAdminId" = $1`,
+        [platformAdminId, lockedUntil ?? null]
+    );
+
+};
+
+export const resetFailedLogins = async (platformAdminId) => {
+
+    await pool.query(
+        `UPDATE "PlatformAdmins" SET "FailedLoginAttempts" = 0, "LockedUntil" = NULL WHERE "PlatformAdminId" = $1`,
+        [platformAdminId]
+    );
+
+};

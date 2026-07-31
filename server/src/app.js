@@ -38,7 +38,23 @@ const app = express();
 // mutating request (any JSON body + Authorization header counts as
 // non-simple) pays a full extra OPTIONS round trip before the real one.
 // Caching it removes that tax for repeat requests to the same origin.
-app.use(cors({ maxAge: 7200 }));
+//
+// Origin is unrestricted unless CORS_ALLOWED_ORIGINS is set - a security
+// audit flagged the open policy, but this API is bearer-token-only (no
+// cookies anywhere), which is a materially lower risk than a cookie-auth
+// app: a third-party site can't read another origin's localStorage, and
+// the browser won't auto-attach an Authorization header cross-origin the
+// way it would a cookie, so classic CSRF doesn't apply here. Left opt-in
+// (comma-separated origins) rather than hardcoding the three frontend
+// domains directly, since getting that list wrong here would break every
+// storefront/tenant-admin/platform-admin request in production - safer to
+// have it set deliberately, with today's behavior unchanged until it is.
+const allowedOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(",").map((origin) => origin.trim()).filter(Boolean);
+
+app.use(cors({
+    maxAge: 7200,
+    origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : true
+}));
 app.use(express.json());
 
 app.get("/api/v1/health", (req, res) => {

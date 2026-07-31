@@ -13,9 +13,9 @@ export const getActiveBranchesByTenantSlug = async (tenantSlug) => {
 
 };
 
-export const getAllBranches = async (tenantId) => {
+export const getAllBranches = async (tenantId, branchId) => {
 
-    const branches = await BranchRepository.getAllBranches(tenantId);
+    const branches = await BranchRepository.getAllBranches(tenantId, branchId);
 
     return { success: true, message: "Branches fetched successfully.", data: branches };
 
@@ -24,7 +24,9 @@ export const getAllBranches = async (tenantId) => {
 // Every read/write below takes tenantId from the caller's JWT and checks it
 // against the fetched row - not just "does this branch exist" but "does it
 // belong to the tenant asking about it." Skipping that check is exactly how
-// a tenant admin could read or edit another restaurant's data.
+// a tenant admin could read or edit another restaurant's data. The caller
+// (BranchController) additionally applies branchMismatch() on top of this
+// for a Branch Admin, the same way every other branch-scoped resource does.
 export const getBranchById = async (branchId, tenantId) => {
 
     const branch = await BranchRepository.getBranchById(branchId);
