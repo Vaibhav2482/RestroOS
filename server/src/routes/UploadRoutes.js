@@ -52,6 +52,6 @@ const handleUpload = (req, res, next) => {
 
 };
 
-router.post("/image", authenticate, authorize("admin"), handleUpload, uploadImage);
+router.post("/image", authenticate, authorize("admin", "customer"), handleUpload, uploadImage);
 
 export default router;

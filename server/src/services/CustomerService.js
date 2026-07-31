@@ -103,11 +103,78 @@ export const updateCustomer = async (customerId, customer) => {
         return { success: false, message: "Customer not found." };
     }
 
-    customer.customerId = Number(customerId);
+    const fullName = customer.fullName?.trim();
+    const email = customer.email?.trim();
+    const phone = customer.phone?.trim();
 
-    const updatedCustomer = await CustomerRepository.updateCustomer(customer);
+    if (!fullName) {
+        return { success: false, message: "Full Name is required." };
+    }
+
+    if (!email) {
+        return { success: false, message: "Email is required." };
+    }
+
+    if (!phone) {
+        return { success: false, message: "Phone is required." };
+    }
+
+    if (email !== existingCustomer.Email) {
+
+        const emailOwner = await CustomerRepository.getCustomerByTenantAndEmail(existingCustomer.TenantId, email);
+
+        if (emailOwner && String(emailOwner.CustomerId) !== String(customerId)) {
+            return { success: false, message: "Email already registered." };
+        }
+
+    }
+
+    const updatedCustomer = await CustomerRepository.updateCustomer({
+        customerId: Number(customerId),
+        fullName,
+        email,
+        phone,
+        avatarUrl: customer.avatarUrl ?? existingCustomer.AvatarUrl
+    });
 
     return { success: true, message: "Customer updated successfully.", data: updatedCustomer };
+
+};
+
+const MIN_PASSWORD_LENGTH = 8;
+
+// Self-service - the customer's own password change, verified against the
+// current hash the same way AdminService's equivalent is. Never touches
+// FullName/Email/Phone, so it can't be used to smuggle a profile edit
+// through alongside a password change.
+export const changeOwnPassword = async (customerId, currentPassword, newPassword) => {
+
+    if (!currentPassword) {
+        return { success: false, message: "Current password is required." };
+    }
+
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+        return { success: false, message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    const existingCustomer = await CustomerRepository.getCustomerById(customerId);
+
+    if (!existingCustomer) {
+        return { success: false, message: "Customer not found." };
+    }
+
+    const currentHash = await CustomerRepository.getPasswordHash(customerId);
+    const isCorrect = currentHash && await bcrypt.compare(currentPassword, currentHash);
+
+    if (!isCorrect) {
+        return { success: false, message: "Current password is incorrect." };
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    await CustomerRepository.updatePassword(customerId, newHash);
+
+    return { success: true, message: "Password changed successfully." };
 
 };
 

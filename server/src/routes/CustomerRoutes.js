@@ -2,6 +2,7 @@ import express from "express";
 import {
     getCustomerById,
     updateCustomer,
+    changePassword,
     getAllCustomers,
     getOrCreateGuestCustomer,
     findOrCreateWalkInCustomer
@@ -18,5 +19,6 @@ router.post("/guest", authenticate, authorize("admin"), getOrCreateGuestCustomer
 
 router.get("/:id", authenticate, getCustomerById);
 router.put("/:id", authenticate, updateCustomer);
+router.put("/:id/password", authenticate, changePassword);
 
 export default router;

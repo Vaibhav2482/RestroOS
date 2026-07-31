@@ -14,7 +14,7 @@ const routeToValue = (pathname, tenantSlug) => {
     if (pathname === base || pathname === `${base}/`) return "menu";
     if (pathname.startsWith(`${base}/cart`)) return "cart";
     if (pathname.startsWith(`${base}/orders`)) return "orders";
-    if (pathname.startsWith(`${base}/addresses`) || pathname.startsWith(`${base}/login`) || pathname.startsWith(`${base}/register`)) return "profile";
+    if (pathname.startsWith(`${base}/profile`) || pathname.startsWith(`${base}/addresses`) || pathname.startsWith(`${base}/login`) || pathname.startsWith(`${base}/register`)) return "profile";
 
     return false;
 
@@ -79,7 +79,7 @@ function BottomNav() {
                     label={isLoggedIn ? "Profile" : "Log In"}
                     value="profile"
                     icon={<PersonRoundedIcon />}
-                    onClick={() => goProtected(`/${tenantSlug}/addresses`)}
+                    onClick={() => goProtected(`/${tenantSlug}/profile`)}
                 />
 
             </BottomNavigation>

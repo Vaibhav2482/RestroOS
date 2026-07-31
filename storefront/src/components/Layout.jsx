@@ -189,7 +189,7 @@ function Layout({ children }) {
                                         "&:hover": { boxShadow: "0 0 0 3px rgba(79, 70, 229, 0.1)" }
                                     }}
                                 >
-                                    <Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32, fontSize: 14 }}>
+                                    <Avatar src={customer?.AvatarUrl || undefined} sx={{ bgcolor: "primary.main", width: 32, height: 32, fontSize: 14 }}>
                                         {customer?.FullName?.[0]?.toUpperCase() || "U"}
                                     </Avatar>
                                 </IconButton>
@@ -201,6 +201,10 @@ function Layout({ children }) {
                                     </MenuItem>
 
                                     <Divider />
+
+                                    <MenuItem component={RouterLink} to={`/${tenantSlug}/profile`} onClick={() => setMenuAnchor(null)}>
+                                        My Profile
+                                    </MenuItem>
 
                                     <MenuItem component={RouterLink} to={`/${tenantSlug}/orders`} onClick={() => setMenuAnchor(null)}>
                                         My Orders

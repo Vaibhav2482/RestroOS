@@ -51,7 +51,7 @@ export const customerLogin = async (tenantId, email) => {
 export const getCustomerById = async (customerId) => {
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Customers"
          WHERE "CustomerId" = $1 AND "IsActive" = TRUE`,
         [customerId]
@@ -61,17 +61,36 @@ export const getCustomerById = async (customerId) => {
 
 };
 
+// Only ever used internally to verify a password on a self-service change -
+// the hash itself must never appear in an API response, which is exactly
+// why every other read here (getCustomerById, customerLogin's caller) leaves it out.
+export const getPasswordHash = async (customerId) => {
+
+    const result = await pool.query(`SELECT "Password" FROM "Customers" WHERE "CustomerId" = $1`, [customerId]);
+    return result.rows[0]?.Password;
+
+};
+
+export const updatePassword = async (customerId, hashedPassword) => {
+
+    await pool.query(
+        `UPDATE "Customers" SET "Password" = $1, "UpdatedAt" = NOW() WHERE "CustomerId" = $2`,
+        [hashedPassword, customerId]
+    );
+
+};
+
 export const updateCustomer = async (customer) => {
 
     await pool.query(
         `UPDATE "Customers"
-         SET "FullName" = $1, "Email" = $2, "Phone" = $3, "UpdatedAt" = NOW()
-         WHERE "CustomerId" = $4 AND "IsActive" = TRUE`,
-        [customer.fullName, customer.email, customer.phone, customer.customerId]
+         SET "FullName" = $1, "Email" = $2, "Phone" = $3, "AvatarUrl" = $4, "UpdatedAt" = NOW()
+         WHERE "CustomerId" = $5 AND "IsActive" = TRUE`,
+        [customer.fullName, customer.email, customer.phone, customer.avatarUrl ?? null, customer.customerId]
     );
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Customers"
          WHERE "CustomerId" = $1`,
         [customer.customerId]

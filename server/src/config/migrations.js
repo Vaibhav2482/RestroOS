@@ -163,5 +163,11 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Admins" ADD COLUMN "AvatarUrl" VARCHAR(500) NULL;
         `
+    },
+    {
+        id: "0009_customer_avatar",
+        sql: `
+            ALTER TABLE "Customers" ADD COLUMN "AvatarUrl" VARCHAR(500) NULL;
+        `
     }
 ];

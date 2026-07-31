@@ -58,6 +58,30 @@ export const updateCustomer = asyncHandler(async (req, res) => {
 
 });
 
+// Password changes are exclusively self-service, unlike getCustomerById/
+// updateCustomer above which an admin can also reach for the same tenant's
+// customers (POS/support lookups) - canAccessCustomer is intentionally not
+// reused here.
+export const changePassword = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    if (req.user.role !== "customer" || String(req.user.id) !== String(id)) {
+        return errorResponse(res, "You can only change your own password.", 403);
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await CustomerService.changeOwnPassword(id, currentPassword, newPassword);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getAllCustomers = asyncHandler(async (req, res) => {
 
     const result = await CustomerService.getAllCustomers(req.user.tenantId);
