@@ -121,43 +121,6 @@ function Layout({ children }) {
                         sx={{ display: "flex", alignItems: "center", gap: 1.25, textDecoration: "none", flexShrink: 0 }}
                     >
 
-                        {tenant?.LogoUrl ? (
-
-                            <Box
-                                component="img"
-                                src={tenant.LogoUrl}
-                                alt=""
-                                sx={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: "50%",
-                                    objectFit: "cover",
-                                    boxShadow: (theme) => `0 0 0 2px ${theme.palette.background.paper}, 0 0 0 3.5px ${alpha(theme.palette.primary.main, 0.3)}`
-                                }}
-                            />
-
-                        ) : (
-
-                            // Every restaurant gets a branded mark here even before they
-                            // upload a real logo (Branding, in tenant-admin) - a blank gap
-                            // beside the name is what made this header read as "empty."
-                            <Box
-                                sx={{
-                                    width: 40,
-                                    height: 40,
-                                    borderRadius: "50%",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.12),
-                                    color: "primary.main"
-                                }}
-                            >
-                                <RestaurantMenuOutlinedIcon fontSize="small" />
-                            </Box>
-
-                        )}
-
                         <Typography
                             variant="h6"
                             fontWeight={800}
