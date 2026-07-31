@@ -29,6 +29,7 @@ import StoreOutlinedIcon from "@mui/icons-material/StoreOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ExtensionOutlinedIcon from "@mui/icons-material/ExtensionOutlined";
+import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
@@ -52,6 +53,7 @@ const NAV_ITEMS = [
     { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
     { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
     { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, ownerOnly: true },
+    { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, ownerOnly: true },
     { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, ownerOnly: true }
 ];
 
