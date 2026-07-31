@@ -10,6 +10,7 @@ import Kitchen from "./pages/Kitchen";
 import Tables from "./pages/Tables";
 import Menu from "./pages/Menu";
 import Inventory from "./pages/Inventory";
+import Reports from "./pages/Reports";
 import Categories from "./pages/Categories";
 import Coupons from "./pages/Coupons";
 import Branches from "./pages/Branches";
@@ -61,6 +62,7 @@ function App() {
                 <Route path="/tables" element={withLayout(<Tables />)} />
                 <Route path="/menu" element={withLayout(<Menu />)} />
                 <Route path="/inventory" element={withLayout(<Inventory />)} />
+                <Route path="/reports" element={withLayout(<Reports />)} />
                 <Route path="/categories" element={withLayout(<Categories />)} />
                 <Route path="/coupons" element={withLayout(<Coupons />, { ownerOnly: true })} />
                 <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true })} />

@@ -147,6 +147,7 @@ function IngredientsTab({ owner }) {
                                 <TableCell sx={{ fontWeight: 600 }}>Category</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Base Unit</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Low Stock Threshold</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>Cost</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                                 {owner && <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>}
                             </TableRow>
@@ -158,7 +159,7 @@ function IngredientsTab({ owner }) {
                             {loading ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 7 : 6} align="center" sx={{ py: 6 }}>
+                                    <TableCell colSpan={owner ? 8 : 7} align="center" sx={{ py: 6 }}>
                                         <CircularProgress size={28} />
                                     </TableCell>
                                 </TableRow>
@@ -166,7 +167,7 @@ function IngredientsTab({ owner }) {
                             ) : ingredients.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 7 : 6} sx={{ py: 0 }}>
+                                    <TableCell colSpan={owner ? 8 : 7} sx={{ py: 0 }}>
                                         <EmptyState
                                             icon={<Inventory2OutlinedIcon />}
                                             title="No ingredients yet"
@@ -199,6 +200,12 @@ function IngredientsTab({ owner }) {
                                         <TableCell>
                                             {ingredient.LowStockThreshold !== null && ingredient.LowStockThreshold !== undefined
                                                 ? `${Number(ingredient.LowStockThreshold)} ${ingredient.BaseUnit}`
+                                                : "-"}
+                                        </TableCell>
+
+                                        <TableCell>
+                                            {ingredient.CostPerBaseUnit !== null && ingredient.CostPerBaseUnit !== undefined
+                                                ? `₹${Number(ingredient.CostPerBaseUnit).toFixed(2)}/${ingredient.BaseUnit}`
                                                 : "-"}
                                         </TableCell>
 

@@ -8,6 +8,11 @@ export const getBranchStock = async (branchId) => {
     return response.data;
 };
 
+export const getValuation = async (branchId) => {
+    const response = await axiosClient.get("/inventory/valuation", { params: { branchId } });
+    return response.data;
+};
+
 export const getTransactions = async (branchId, filters = {}) => {
     const response = await axiosClient.get("/inventory/transactions", { params: { branchId, ...filters } });
     return response.data;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+    Alert,
     Box,
     Card,
     CardContent,
@@ -22,34 +23,23 @@ import { BarChart } from "@mui/x-charts/BarChart";
 import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
+import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import SavingsOutlinedIcon from "@mui/icons-material/SavingsOutlined";
+import WarningAmberOutlinedIcon from "@mui/icons-material/WarningAmberOutlined";
 import toast from "react-hot-toast";
 
 import * as analyticsService from "../services/analyticsService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { formatCurrency } from "./orderStatusUtils";
+import { toDateInputValue } from "../utils/dateRange";
 
 const RANGE_PRESETS = [
     { label: "7D", days: 7 },
     { label: "30D", days: 30 },
     { label: "90D", days: 90 }
 ];
-
-// toISOString() converts to the UTC calendar date, not the local one - for
-// IST (UTC+5:30, the timezone implied everywhere else in this app), any
-// time before 5:30am local is still "yesterday" in UTC. That silently
-// dropped the current day (and shifted the whole range back by one) from
-// every preset here. Built from local date components instead, matching
-// orderStatusUtils.isToday's already-correct approach.
-function toDateInputValue(date) {
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-
-}
 
 function StatCard({ icon, label, value, color }) {
 
@@ -188,6 +178,15 @@ function Analytics() {
     const topItems = overview?.topItems || [];
     const peakHours = overview?.peakHours || [];
 
+    // CogsValue/WastageValue arrive as null (not 0) when at least one
+    // consumed/wasted ingredient in range has no CostPerBaseUnit set - a
+    // fabricated "the cost was ₹0" is worse than admitting it's unknown,
+    // so Gross Margin is only computed when the COGS figure is real.
+    const cogsValue = overview?.cogs?.CogsValue !== null && overview?.cogs?.CogsValue !== undefined ? Number(overview.cogs.CogsValue) : null;
+    const wastageValue = overview?.cogs?.WastageValue !== null && overview?.cogs?.WastageValue !== undefined ? Number(overview.cogs.WastageValue) : null;
+    const ingredientsMissingCost = Number(overview?.cogs?.IngredientsMissingCost || 0);
+    const grossMargin = cogsValue !== null ? Number(overview?.summary?.Revenue || 0) - cogsValue : null;
+
     // Every hour 0-23 gets a bar even with zero orders, so the chart's
     // x-axis stays a stable full day instead of jumping around based on
     // which hours happened to have activity in the selected range.
@@ -283,6 +282,41 @@ function Analytics() {
                         />
 
                     </Box>
+
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" }, gap: 2.5, mb: 1.5 }}>
+
+                        <StatCard
+                            icon={<RestaurantMenuOutlinedIcon />}
+                            label="Cost of Goods Sold"
+                            value={cogsValue !== null ? formatCurrency(cogsValue) : "Incomplete"}
+                            color="#9333EA"
+                        />
+
+                        <StatCard
+                            icon={<SavingsOutlinedIcon />}
+                            label="Gross Margin"
+                            value={grossMargin !== null ? formatCurrency(grossMargin) : "Incomplete"}
+                            color="#0F766E"
+                        />
+
+                        <StatCard
+                            icon={<DeleteOutlineRoundedIcon />}
+                            label="Wastage Value"
+                            value={wastageValue !== null ? formatCurrency(wastageValue) : "Incomplete"}
+                            color="#DC2626"
+                        />
+
+                    </Box>
+
+                    {ingredientsMissingCost > 0 && (
+
+                        <Alert severity="warning" icon={<WarningAmberOutlinedIcon />} sx={{ mb: 3 }}>
+                            {ingredientsMissingCost} ingredient{ingredientsMissingCost === 1 ? "" : "s"} used in this range
+                            {" "}{ingredientsMissingCost === 1 ? "has" : "have"} no cost set, so COGS/margin above are incomplete.
+                            Add a cost under Inventory → Ingredients to complete the picture.
+                        </Alert>
+
+                    )}
 
                     <Paper elevation={0} sx={{ p: 3, mb: 3, border: "1px solid #E5E7EB" }}>
 

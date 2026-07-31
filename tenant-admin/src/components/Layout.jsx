@@ -18,6 +18,7 @@ import {
 import MenuIcon from "@mui/icons-material/Menu";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
+import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import PointOfSaleOutlinedIcon from "@mui/icons-material/PointOfSaleOutlined";
 import KitchenOutlinedIcon from "@mui/icons-material/KitchenOutlined";
@@ -42,6 +43,7 @@ const DRAWER_WIDTH = 260;
 const NAV_ITEMS = [
     { label: "Dashboard", to: "/", icon: <DashboardOutlinedIcon /> },
     { label: "Analytics", to: "/analytics", icon: <InsightsOutlinedIcon /> },
+    { label: "Reports", to: "/reports", icon: <SummarizeOutlinedIcon /> },
     { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon /> },
     { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon /> },
     { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },

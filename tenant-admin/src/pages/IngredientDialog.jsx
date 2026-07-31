@@ -20,6 +20,7 @@ const emptyForm = {
     category: "",
     baseUnit: "g",
     lowStockThreshold: "",
+    costPerBaseUnit: "",
     isActive: true
 };
 
@@ -42,6 +43,7 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
                 category: editingIngredient.Category ?? "",
                 baseUnit: editingIngredient.BaseUnit ?? "g",
                 lowStockThreshold: editingIngredient.LowStockThreshold ?? "",
+                costPerBaseUnit: editingIngredient.CostPerBaseUnit ?? "",
                 isActive: editingIngredient.IsActive === undefined ? true : Boolean(editingIngredient.IsActive)
             });
 
@@ -97,6 +99,7 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
             category: formData.category.trim() || null,
             baseUnit: formData.baseUnit,
             lowStockThreshold: formData.lowStockThreshold === "" ? null : Number(formData.lowStockThreshold),
+            costPerBaseUnit: formData.costPerBaseUnit === "" ? null : Number(formData.costPerBaseUnit),
             ...(isEditMode ? { isActive: formData.isActive } : {})
         });
 
@@ -178,6 +181,20 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
                             onChange={handleChange}
                             helperText="Optional - flags this ingredient as Low Stock below this level."
                             inputProps={{ min: 0, step: "0.001" }}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                            fullWidth
+                            type="number"
+                            label={`Cost per ${formData.baseUnit || "unit"}`}
+                            name="costPerBaseUnit"
+                            value={formData.costPerBaseUnit}
+                            onChange={handleChange}
+                            helperText="Optional - powers COGS and menu profitability reports. Leave blank if unknown."
+                            inputProps={{ min: 0, step: "0.0001" }}
+                            InputProps={{ startAdornment: <span style={{ marginRight: 4 }}>₹</span> }}
                         />
                     </Grid>
 
