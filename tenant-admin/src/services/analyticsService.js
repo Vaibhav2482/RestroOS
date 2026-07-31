@@ -24,3 +24,23 @@ export const getPaymentBreakdown = async (branchId, from, to) => {
     const response = await axiosClient.get("/analytics/payment-breakdown", { params: { branchId, from, to } });
     return response.data;
 };
+
+export const getSalesSummary = async (branchId, from, to) => {
+    const response = await axiosClient.get("/analytics/sales-summary", { params: { branchId, from, to } });
+    return response.data;
+};
+
+export const getCategorySales = async (branchId, from, to) => {
+    const response = await axiosClient.get("/analytics/category-sales", { params: { branchId, from, to } });
+    return response.data;
+};
+
+export const getCouponUsage = async (branchId, from, to) => {
+    const response = await axiosClient.get("/analytics/coupon-usage", { params: { branchId, from, to } });
+    return response.data;
+};
+
+export const getCancelledOrders = async (branchId, from, to) => {
+    const response = await axiosClient.get("/analytics/cancelled-orders", { params: { branchId, from, to } });
+    return response.data;
+};

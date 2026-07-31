@@ -75,3 +75,63 @@ export const getPaymentBreakdown = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message);
 
 });
+
+export const getSalesSummary = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { from, to } = req.query;
+
+    const result = await AnalyticsService.getSalesSummary(req.user.tenantId, branchId, from, to);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getCategorySales = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { from, to } = req.query;
+
+    const result = await AnalyticsService.getCategorySales(req.user.tenantId, branchId, from, to);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getCouponUsage = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { from, to } = req.query;
+
+    const result = await AnalyticsService.getCouponUsage(req.user.tenantId, branchId, from, to);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getCancelledOrders = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { from, to } = req.query;
+
+    const result = await AnalyticsService.getCancelledOrders(req.user.tenantId, branchId, from, to);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

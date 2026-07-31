@@ -202,3 +202,102 @@ describe("AnalyticsService.getPaymentBreakdown", () => {
     });
 
 });
+
+describe("AnalyticsService.getSalesSummary", () => {
+
+    it("sums daily rows into totals and derives AOV from completed orders only", async () => {
+
+        AnalyticsRepository.getSalesSummary.mockResolvedValue([
+            { Date: "2026-01-01", TotalOrders: 10, CancelledOrders: 2, GrossSales: 800, AvgOrderValue: 100 },
+            { Date: "2026-01-02", TotalOrders: 5, CancelledOrders: 0, GrossSales: 500, AvgOrderValue: 100 }
+        ]);
+
+        const result = await AnalyticsService.getSalesSummary(1, null, "2026-01-01", "2026-01-02");
+
+        expect(result.success).toBe(true);
+        expect(result.data.totals.TotalOrders).toBe(15);
+        expect(result.data.totals.CancelledOrders).toBe(2);
+        expect(result.data.totals.GrossSales).toBe(1300);
+        // 13 completed orders (15 total - 2 cancelled), not 15 - a
+        // cancelled order contributed nothing to GrossSales and shouldn't
+        // dilute the average either.
+        expect(result.data.totals.AvgOrderValue).toBeCloseTo(1300 / 13);
+
+    });
+
+    it("doesn't divide by zero when every order in range was cancelled", async () => {
+
+        AnalyticsRepository.getSalesSummary.mockResolvedValue([
+            { Date: "2026-01-01", TotalOrders: 3, CancelledOrders: 3, GrossSales: 0, AvgOrderValue: 0 }
+        ]);
+
+        const result = await AnalyticsService.getSalesSummary(1, null, "2026-01-01", "2026-01-01");
+
+        expect(result.data.totals.AvgOrderValue).toBe(0);
+
+    });
+
+});
+
+describe("AnalyticsService.getCategorySales", () => {
+
+    it("passes the resolved range through to the repository", async () => {
+
+        AnalyticsRepository.getCategorySales.mockResolvedValue([
+            { CategoryId: 1, CategoryName: "Starters", QuantitySold: 20, Revenue: 4000 }
+        ]);
+
+        const result = await AnalyticsService.getCategorySales(1, null, "2026-01-01", "2026-01-31");
+
+        expect(result.success).toBe(true);
+        expect(result.data).toHaveLength(1);
+
+    });
+
+});
+
+describe("AnalyticsService.getCouponUsage", () => {
+
+    it("passes the resolved range through to the repository", async () => {
+
+        AnalyticsRepository.getCouponUsage.mockResolvedValue([
+            { CouponId: 1, Code: "WELCOME10", TimesUsed: 4, TotalDiscount: 400, RevenueFromOrders: 3600 }
+        ]);
+
+        const result = await AnalyticsService.getCouponUsage(1, null, "2026-01-01", "2026-01-31");
+
+        expect(result.success).toBe(true);
+        expect(result.data).toHaveLength(1);
+
+    });
+
+});
+
+describe("AnalyticsService.getCancelledOrders", () => {
+
+    it("computes the total value of cancelled orders in range", async () => {
+
+        AnalyticsRepository.getCancelledOrders.mockResolvedValue([
+            { OrderId: 1, OrderDate: "2026-01-01", TotalAmount: 250, PaymentMethod: "Cash", DeliveryType: "Delivery" },
+            { OrderId: 2, OrderDate: "2026-01-02", TotalAmount: 150, PaymentMethod: "UPI", DeliveryType: "Takeaway" }
+        ]);
+
+        const result = await AnalyticsService.getCancelledOrders(1, null, "2026-01-01", "2026-01-02");
+
+        expect(result.success).toBe(true);
+        expect(result.data.orders).toHaveLength(2);
+        expect(result.data.totalValue).toBe(400);
+
+    });
+
+    it("reports zero total value when there are no cancelled orders in range", async () => {
+
+        AnalyticsRepository.getCancelledOrders.mockResolvedValue([]);
+
+        const result = await AnalyticsService.getCancelledOrders(1, null, "2026-01-01", "2026-01-01");
+
+        expect(result.data.totalValue).toBe(0);
+
+    });
+
+});

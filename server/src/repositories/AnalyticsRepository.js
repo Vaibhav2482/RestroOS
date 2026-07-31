@@ -208,6 +208,104 @@ export const getPaymentBreakdown = async (tenantId, branchId, from, to) => {
 
 };
 
+// Unlike SCOPE_CLAUSE, deliberately does NOT exclude cancelled orders -
+// this report needs both completed and cancelled counts side by side, so
+// filtering cancelled out at the WHERE level would make that impossible.
+const SUMMARY_SCOPE_CLAUSE = `B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND O."OrderDate" >= $3 AND O."OrderDate" < $4`;
+
+// The single most standard "day-end" report a POS has - daily order
+// volume and completed-vs-cancelled split, distinct from Tax Summary
+// (which is about the money collected, not order counts/AOV).
+export const getSalesSummary = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT DATE(O."OrderDate") AS "Date",
+                COUNT(*) AS "TotalOrders",
+                COUNT(*) FILTER (WHERE O."OrderStatus" = 'Cancelled') AS "CancelledOrders",
+                COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "GrossSales",
+                COALESCE(AVG(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "AvgOrderValue"
+         FROM "Orders" O
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         WHERE ${SUMMARY_SCOPE_CLAUSE}
+         GROUP BY DATE(O."OrderDate")
+         ORDER BY DATE(O."OrderDate")`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
+// Revenue by menu category, not just per-item (getTopItems) - uses each
+// item's CURRENT category assignment (OrderItems has no historical
+// CategoryId of its own), so an item moved to a different category after
+// the order shipped attributes its past sales to its new category. Same
+// simplification getMenuItemProfitability already makes for recipes.
+export const getCategorySales = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT C."CategoryId", C."CategoryName",
+                SUM(OI."Quantity") AS "QuantitySold",
+                COALESCE(SUM(OI."TotalPrice"), 0) AS "Revenue"
+         FROM "OrderItems" OI
+         INNER JOIN "Orders" O ON OI."OrderId" = O."OrderId"
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         INNER JOIN "MenuItems" MI ON MI."MenuItemId" = OI."MenuItemId"
+         INNER JOIN "Categories" C ON C."CategoryId" = MI."CategoryId"
+         WHERE ${SCOPE_CLAUSE}
+         GROUP BY C."CategoryId", C."CategoryName"
+         ORDER BY "Revenue" DESC`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
+// Per-coupon redemption count and discount given, scoped like every other
+// revenue report (a cancelled order's coupon "use" isn't a real
+// redemption - SCOPE_CLAUSE already excludes it).
+export const getCouponUsage = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT CP."CouponId", CP."Code",
+                COUNT(O."OrderId") AS "TimesUsed",
+                COALESCE(SUM(O."DiscountAmount"), 0) AS "TotalDiscount",
+                COALESCE(SUM(O."TotalAmount"), 0) AS "RevenueFromOrders"
+         FROM "Orders" O
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         INNER JOIN "Coupons" CP ON CP."CouponId" = O."CouponId"
+         WHERE ${SCOPE_CLAUSE}
+         GROUP BY CP."CouponId", CP."Code"
+         ORDER BY "TotalDiscount" DESC`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
+// A void/cancellation report - one row per cancelled order rather than a
+// daily rollup, since knowing WHICH orders were cancelled (and their
+// value) is the point, the same way PetPooja's void report lists
+// individual voided transactions rather than just a daily count.
+const CANCELLED_SCOPE_CLAUSE = `B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND O."OrderDate" >= $3 AND O."OrderDate" < $4 AND O."OrderStatus" = 'Cancelled'`;
+
+export const getCancelledOrders = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT O."OrderId", O."OrderDate", O."TotalAmount", O."PaymentMethod", O."DeliveryType"
+         FROM "Orders" O
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         WHERE ${CANCELLED_SCOPE_CLAUSE}
+         ORDER BY O."OrderDate" DESC`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
 // Owner-only (cross-branch view) - every one of a tenant's branches is
 // listed even with zero orders in range, via the LEFT JOIN, so a new
 // branch shows up as a real 0 rather than being silently missing.

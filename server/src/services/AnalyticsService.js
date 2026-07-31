@@ -147,6 +147,74 @@ export const getPaymentBreakdown = async (tenantId, branchId, fromInput, toInput
 
 };
 
+export const getSalesSummary = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const daily = await AnalyticsRepository.getSalesSummary(tenantId, branchId, from, to);
+
+    const totals = daily.reduce((sum, row) => ({
+        TotalOrders: sum.TotalOrders + Number(row.TotalOrders),
+        CancelledOrders: sum.CancelledOrders + Number(row.CancelledOrders),
+        GrossSales: sum.GrossSales + Number(row.GrossSales)
+    }), { TotalOrders: 0, CancelledOrders: 0, GrossSales: 0 });
+
+    const completedOrders = totals.TotalOrders - totals.CancelledOrders;
+
+    totals.AvgOrderValue = completedOrders > 0 ? totals.GrossSales / completedOrders : 0;
+
+    return { success: true, message: "Sales summary fetched successfully.", data: { daily, totals } };
+
+};
+
+export const getCategorySales = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const categories = await AnalyticsRepository.getCategorySales(tenantId, branchId, from, to);
+
+    return { success: true, message: "Category sales fetched successfully.", data: categories };
+
+};
+
+export const getCouponUsage = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const coupons = await AnalyticsRepository.getCouponUsage(tenantId, branchId, from, to);
+
+    return { success: true, message: "Coupon usage fetched successfully.", data: coupons };
+
+};
+
+export const getCancelledOrders = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const orders = await AnalyticsRepository.getCancelledOrders(tenantId, branchId, from, to);
+
+    const totalValue = orders.reduce((sum, order) => sum + Number(order.TotalAmount), 0);
+
+    return { success: true, message: "Cancelled orders fetched successfully.", data: { orders, totalValue } };
+
+};
+
 export const getBranchComparison = async (tenantId, fromInput, toInput) => {
 
     const { from, to, error } = resolveDateRange(fromInput, toInput);

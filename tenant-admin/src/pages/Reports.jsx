@@ -8,8 +8,21 @@ import TaxSummaryReportTab from "./TaxSummaryReportTab";
 import PaymentBreakdownReportTab from "./PaymentBreakdownReportTab";
 import InventoryValuationReportTab from "./InventoryValuationReportTab";
 import MenuProfitabilityReportTab from "./MenuProfitabilityReportTab";
+import SalesSummaryReportTab from "./SalesSummaryReportTab";
+import CategorySalesReportTab from "./CategorySalesReportTab";
+import CouponUsageReportTab from "./CouponUsageReportTab";
+import CancelledOrdersReportTab from "./CancelledOrdersReportTab";
 
-const TABS = ["Tax Summary", "Payment Breakdown", "Inventory Valuation", "Menu Profitability"];
+const TABS = [
+    "Sales Summary",
+    "Category Sales",
+    "Tax Summary",
+    "Payment Breakdown",
+    "Coupon Usage",
+    "Cancelled Orders",
+    "Inventory Valuation",
+    "Menu Profitability"
+];
 
 function Reports() {
 
@@ -93,15 +106,22 @@ function Reports() {
             <Tabs
                 value={tab}
                 onChange={(event, value) => setTab(value)}
+                variant="scrollable"
+                scrollButtons="auto"
+                allowScrollButtonsMobile
                 sx={{ mb: 3, borderBottom: "1px solid #E5E7EB" }}
             >
                 {TABS.map((label) => <Tab key={label} label={label} />)}
             </Tabs>
 
-            {tab === 0 && <TaxSummaryReportTab branchId={selectedBranchId} />}
-            {tab === 1 && <PaymentBreakdownReportTab branchId={selectedBranchId} />}
-            {tab === 2 && <InventoryValuationReportTab branchId={selectedBranchId} />}
-            {tab === 3 && <MenuProfitabilityReportTab branchId={selectedBranchId} />}
+            {tab === 0 && <SalesSummaryReportTab branchId={selectedBranchId} />}
+            {tab === 1 && <CategorySalesReportTab branchId={selectedBranchId} />}
+            {tab === 2 && <TaxSummaryReportTab branchId={selectedBranchId} />}
+            {tab === 3 && <PaymentBreakdownReportTab branchId={selectedBranchId} />}
+            {tab === 4 && <CouponUsageReportTab branchId={selectedBranchId} />}
+            {tab === 5 && <CancelledOrdersReportTab branchId={selectedBranchId} />}
+            {tab === 6 && <InventoryValuationReportTab branchId={selectedBranchId} />}
+            {tab === 7 && <MenuProfitabilityReportTab branchId={selectedBranchId} />}
 
         </Box>
 
