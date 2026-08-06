@@ -23,9 +23,11 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import StoreOutlinedIcon from "@mui/icons-material/StoreOutlined";
 import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
+import EmptyState from "../components/EmptyState";
 
 const emptyForm = {
     branchName: "",
@@ -343,8 +345,12 @@ function Branches() {
                             ) : branches.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">No branches yet. Add your first branch to get started.</Typography>
+                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<StoreOutlinedIcon />}
+                                            title="No branches yet"
+                                            description="Add your first branch to start taking orders."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

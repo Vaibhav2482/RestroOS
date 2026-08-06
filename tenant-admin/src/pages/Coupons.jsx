@@ -18,10 +18,12 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import toast from "react-hot-toast";
 
 import * as couponService from "../services/couponService";
 import CouponDialog from "./CouponDialog";
+import EmptyState from "../components/EmptyState";
 
 const formatDate = (value) => {
 
@@ -219,8 +221,12 @@ function Coupons() {
                             ) : coupons.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">No coupons yet. Add your first coupon to get started.</Typography>
+                                    <TableCell colSpan={7} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<LocalOfferOutlinedIcon />}
+                                            title="No coupons yet"
+                                            description="Add your first coupon to start offering discounts."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

@@ -22,10 +22,12 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import CategoryOutlinedIcon from "@mui/icons-material/CategoryOutlined";
 import toast from "react-hot-toast";
 
 import * as categoryService from "../services/categoryService";
 import CategoryDialog from "./CategoryDialog";
+import EmptyState from "../components/EmptyState";
 
 function Categories() {
 
@@ -217,10 +219,12 @@ function Categories() {
                             {categories.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">
-                                            No categories yet. Add your first one to get started.
-                                        </Typography>
+                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<CategoryOutlinedIcon />}
+                                            title="No categories yet"
+                                            description="Add your first category to start organizing the menu."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

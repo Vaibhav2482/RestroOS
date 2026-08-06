@@ -27,11 +27,13 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import toast from "react-hot-toast";
 
 import * as adminService from "../services/adminService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth } from "../utils/adminAuth";
+import EmptyState from "../components/EmptyState";
 
 const OWNER_VALUE = "owner";
 
@@ -440,8 +442,12 @@ function Admins() {
                             ) : admins.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">No staff yet. Add your first team member to get started.</Typography>
+                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<GroupOutlinedIcon />}
+                                            title="No staff yet"
+                                            description="Add your first team member to get started."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

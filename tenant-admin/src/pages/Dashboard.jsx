@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import * as orderService from "../services/orderService";
 import { getStoredAuth } from "../utils/adminAuth";
 import { formatCurrency, getStatusChipColor, isToday, isTerminalStatus } from "./orderStatusUtils";
+import OrderDetailsDialog from "./OrderDetailsDialog";
 
 function StatCard({ icon, label, value, color }) {
 
@@ -66,6 +67,8 @@ function Dashboard() {
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [selectedOrderId, setSelectedOrderId] = useState(null);
+    const [dialogOpen, setDialogOpen] = useState(false);
 
     // Only the first load shows the blocking spinner - the periodic
     // background refresh below keeps the existing stats/table visible
@@ -124,6 +127,16 @@ function Dashboard() {
 
         }
 
+    };
+
+    const handleRowClick = (orderId) => {
+        setSelectedOrderId(orderId);
+        setDialogOpen(true);
+    };
+
+    const handleDialogClose = () => {
+        setDialogOpen(false);
+        setSelectedOrderId(null);
     };
 
     const totalOrders = orders.length;
@@ -230,7 +243,7 @@ function Dashboard() {
 
                                         recentOrders.map((order) => (
 
-                                            <TableRow key={order.OrderId} hover>
+                                            <TableRow key={order.OrderId} hover sx={{ cursor: "pointer" }} onClick={() => handleRowClick(order.OrderId)}>
 
                                                 <TableCell>#{order.OrderId}</TableCell>
 
@@ -270,6 +283,13 @@ function Dashboard() {
                 </>
 
             )}
+
+            <OrderDetailsDialog
+                open={dialogOpen}
+                orderId={selectedOrderId}
+                onClose={handleDialogClose}
+                onChanged={() => loadOrders(true)}
+            />
 
         </Box>
 
