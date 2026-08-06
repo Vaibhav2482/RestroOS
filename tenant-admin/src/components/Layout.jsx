@@ -39,7 +39,8 @@ import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 
-import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
+import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, hasPermission, isOwner, setStoredAuth } from "../utils/adminAuth";
+import * as adminService from "../services/adminService";
 
 const DRAWER_WIDTH = 260;
 
@@ -114,6 +115,56 @@ function Layout({ children }) {
 
         window.addEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
         return () => window.removeEventListener(AUTH_CHANGED_EVENT, handleAuthChanged);
+
+    }, []);
+
+    // requirePermission on the backend already enforces a permission change
+    // live on every request (see middleware/Auth.js) - this just keeps the
+    // cached admin object driving what buttons/nav a Branch Admin SEES from
+    // lagging behind that by up to a full login session. Same 60s/
+    // visible-tab-only cadence as Dashboard.jsx's order refresh, so an
+    // Owner's grant/revoke shows up without the Branch Admin re-logging in.
+    useEffect(() => {
+
+        const interval = setInterval(async () => {
+
+            const current = getStoredAuth();
+
+            if (!current?.token || document.visibilityState !== "visible") {
+                return;
+            }
+
+            try {
+
+                const response = await adminService.getOwnProfile();
+
+                if (!response.success) {
+                    return;
+                }
+
+                const fresh = response.data;
+
+                const permissionsChanged = JSON.stringify([...(current.admin?.Permissions || [])].sort()) !==
+                    JSON.stringify([...(fresh.Permissions || [])].sort());
+
+                const changed = permissionsChanged ||
+                    String(current.admin?.BranchId ?? "") !== String(fresh.BranchId ?? "") ||
+                    current.admin?.FullName !== fresh.FullName ||
+                    current.admin?.AvatarUrl !== fresh.AvatarUrl;
+
+                if (changed) {
+                    setStoredAuth({ ...current, admin: { ...current.admin, ...fresh } });
+                }
+
+            } catch {
+                // Silent - a transient network hiccup here shouldn't disrupt
+                // the UI; a truly dead session is already handled by the
+                // axios 401 interceptor on whatever request hits that first.
+            }
+
+        }, 60000);
+
+        return () => clearInterval(interval);
 
     }, []);
 

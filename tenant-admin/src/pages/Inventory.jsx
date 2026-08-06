@@ -3,7 +3,8 @@ import { Box, FormControl, InputLabel, MenuItem, Select, Tab, Tabs, Typography }
 import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
-import { getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
+import { hasPermission, isOwner } from "../utils/adminAuth";
+import { useStoredAuth } from "../hooks/useStoredAuth";
 import InventoryDashboardTab from "./InventoryDashboardTab";
 import IngredientsTab from "./IngredientsTab";
 import BranchStockTab from "./BranchStockTab";
@@ -13,7 +14,7 @@ const TABS = ["Dashboard", "Ingredients", "Branch Stock", "Transactions"];
 
 function Inventory() {
 
-    const { admin } = getStoredAuth() || {};
+    const { admin } = useStoredAuth() || {};
     const owner = isOwner(admin);
 
     const [branches, setBranches] = useState([]);

@@ -38,7 +38,8 @@ import toast from "react-hot-toast";
 import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
 import * as branchService from "../services/branchService";
-import { getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
+import { hasPermission, isOwner } from "../utils/adminAuth";
+import { useStoredAuth } from "../hooks/useStoredAuth";
 import MenuItemDialog from "./MenuItemDialog";
 import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
 import MenuItemRecipeDialog from "./MenuItemRecipeDialog";
@@ -80,7 +81,7 @@ function ItemThumbnail({ imageUrl, itemName }) {
 
 function Menu() {
 
-    const { admin } = getStoredAuth() || {};
+    const { admin } = useStoredAuth() || {};
     const owner = isOwner(admin);
     const canManageIngredients = hasPermission(admin, "manage_ingredients");
 
