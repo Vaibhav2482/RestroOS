@@ -30,11 +30,8 @@ export const clearStoredAuth = () => {
 // backend's requireOwner check in middleware/Auth.js.
 export const isOwner = (admin) => Boolean(admin && !admin.BranchId);
 
-// Mirrors the backend's requirePermission (middleware/Auth.js): an Owner
-// always has every permission implicitly; a Branch Admin only has what's
-// in their stored Permissions list. This reads from the admin object cached
-// in localStorage at login time, so a permission an Owner just granted
-// won't show up here until the Branch Admin's next login - the backend
-// re-checks fresh on every request regardless, so this only affects what
-// the UI offers to click, never what's actually allowed to happen.
+// Mirrors the backend's requirePermission. Reads from the admin cached in
+// localStorage at login, so a newly-granted permission won't show here
+// until the Branch Admin's next login - only affects what the UI offers to
+// click, since the backend re-checks fresh on every request regardless.
 export const hasPermission = (admin, key) => isOwner(admin) || Boolean(admin?.Permissions?.includes(key));

@@ -1,11 +1,6 @@
-// Grantable Branch Admin permissions. An Owner always has every one of
-// these implicitly (see requirePermission in middleware/Auth.js) - this
-// list only matters for deciding what a Branch Admin can be granted.
-//
-// Deliberately NOT on this list: staff management (creating/editing other
-// Admins - granting that would let a Branch Admin promote themselves or
-// anyone else to Owner) and branch management (structural/financial,
-// left owner-only). Both stay behind requireOwner with no override.
+// Deliberately excludes staff management (would let a Branch Admin promote
+// themselves to Owner) and branch management (structural) - both stay
+// requireOwner-only with no override.
 export const GRANTABLE_PERMISSIONS = [
     { key: "manage_ingredients", label: "Manage Ingredients & Recipes" },
     { key: "manage_coupons", label: "Manage Coupons" },
@@ -16,9 +11,8 @@ export const GRANTABLE_PERMISSIONS = [
 
 const GRANTABLE_KEYS = new Set(GRANTABLE_PERMISSIONS.map((permission) => permission.key));
 
-// Filters out anything a client sends that isn't a real, grantable key -
-// so a malformed or tampered request can't smuggle an arbitrary string
-// into the column that requirePermission checks against.
+// Drops anything not in GRANTABLE_PERMISSIONS, so a tampered request can't
+// smuggle an arbitrary string into the column requirePermission checks.
 export const sanitizePermissions = (permissions) => {
 
     if (!Array.isArray(permissions)) {

@@ -128,10 +128,8 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
 
         const branchId = formData.branchId === OWNER_VALUE ? null : formData.branchId;
 
-        // Meaningless for an Owner (requirePermission short-circuits to
-        // "always allowed" once BranchId is null) - sent as empty rather
-        // than whatever was left checked so the stored value stays honest
-        // about what an Owner-turned-Branch-Admin would actually have.
+        // Sent as empty for an Owner so a later demotion to Branch Admin
+        // doesn't resurrect whatever was left checked from before.
         const permissions = branchId ? formData.permissions : [];
 
         if (isEditMode) {

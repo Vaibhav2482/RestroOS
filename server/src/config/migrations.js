@@ -218,11 +218,9 @@ export const MIGRATIONS = [
         `
     },
     {
-        // Lets an Owner grant a Branch Admin access to specific tenant-wide
-        // actions (e.g. managing ingredients) without making them a full
-        // Owner. Meaningless for Owners themselves - requirePermission
-        // (middleware/Auth.js) short-circuits to "always allowed" whenever
-        // BranchId is NULL, before this column is ever consulted.
+        // Lets an Owner grant a Branch Admin specific tenant-wide actions
+        // (e.g. managing ingredients) without making them a full Owner.
+        // See requirePermission in middleware/Auth.js.
         id: "0015_admin_permissions",
         sql: `
             ALTER TABLE "Admins" ADD COLUMN "Permissions" TEXT[] NOT NULL DEFAULT '{}';

@@ -37,10 +37,9 @@ const isStillActive = async (user) => {
 // join here, staff already holding a valid JWT would keep working against
 // a suspended tenant for the rest of that token's lifetime.
 //
-// Permissions are read fresh here too, every request, rather than baked
-// into the JWT at login like branchId is - the whole point of an Owner
-// being able to revoke a permission is that it takes effect immediately,
-// not up to JWT_EXPIRES_IN later on that admin's next login.
+// Permissions are read fresh here too, unlike branchId (a JWT claim from
+// login) - a revoked permission should take effect immediately, not after
+// JWT_EXPIRES_IN.
 const loadAdminState = async (adminId) => {
 
     const result = await pool.query(
@@ -139,11 +138,8 @@ export const requireOwner = (req, res, next) => {
 
 };
 
-// Like requireOwner, but an Owner can delegate this one specific action to
-// a Branch Admin (see config/permissions.js for what's delegable and, just
-// as importantly, what isn't). An Owner always passes - permissions only
-// ever narrow a Branch Admin, never grant something an Owner doesn't
-// already have.
+// Like requireOwner, but delegable per key to a Branch Admin (see
+// config/permissions.js for what's delegable). An Owner always passes.
 export const requirePermission = (key) => (req, res, next) => {
 
     if (!req.user || req.user.role !== "admin") {
