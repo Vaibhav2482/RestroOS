@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { getStoredAuth } from "../utils/adminAuth";
+import { getStoredAuth, hasPermission } from "../utils/adminAuth";
 
-function ProtectedRoute({ children, ownerOnly = false }) {
+function ProtectedRoute({ children, ownerOnly = false, permission }) {
 
     const auth = getStoredAuth();
 
@@ -10,6 +10,10 @@ function ProtectedRoute({ children, ownerOnly = false }) {
     }
 
     if (ownerOnly && auth.admin?.BranchId) {
+        return <Navigate to="/" replace />;
+    }
+
+    if (permission && !hasPermission(auth.admin, permission)) {
         return <Navigate to="/" replace />;
     }
 

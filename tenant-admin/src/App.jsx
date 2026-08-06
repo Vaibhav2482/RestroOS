@@ -67,12 +67,12 @@ function App() {
                 <Route path="/inventory" element={withLayout(<Inventory />)} />
                 <Route path="/reports" element={withLayout(<Reports />)} />
                 <Route path="/categories" element={withLayout(<Categories />)} />
-                <Route path="/coupons" element={withLayout(<Coupons />, { ownerOnly: true })} />
+                <Route path="/coupons" element={withLayout(<Coupons />, { permission: "manage_coupons" })} />
                 <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true })} />
                 <Route path="/admins" element={withLayout(<Admins />, { ownerOnly: true })} />
-                <Route path="/integrations" element={withLayout(<Integrations />, { ownerOnly: true })} />
-                <Route path="/activity-log" element={withLayout(<AuditLog />, { ownerOnly: true })} />
-                <Route path="/settings" element={withLayout(<Settings />, { ownerOnly: true })} />
+                <Route path="/integrations" element={withLayout(<Integrations />, { permission: "manage_integrations" })} />
+                <Route path="/activity-log" element={withLayout(<AuditLog />, { permission: "view_activity_log" })} />
+                <Route path="/settings" element={withLayout(<Settings />, { permission: "manage_branding" })} />
                 <Route path="/profile" element={withLayout(<MyProfile />)} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />

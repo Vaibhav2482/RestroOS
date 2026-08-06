@@ -3,7 +3,7 @@ import { Box, FormControl, InputLabel, MenuItem, Select, Tab, Tabs, Typography }
 import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
-import { getStoredAuth, isOwner } from "../utils/adminAuth";
+import { getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
 import InventoryDashboardTab from "./InventoryDashboardTab";
 import IngredientsTab from "./IngredientsTab";
 import BranchStockTab from "./BranchStockTab";
@@ -99,7 +99,7 @@ function Inventory() {
             </Tabs>
 
             {tab === 0 && <InventoryDashboardTab branchId={selectedBranchId} onNavigate={setTab} />}
-            {tab === 1 && <IngredientsTab owner={owner} />}
+            {tab === 1 && <IngredientsTab canManage={hasPermission(admin, "manage_ingredients")} />}
             {tab === 2 && <BranchStockTab branchId={selectedBranchId} />}
             {tab === 3 && <InventoryTransactionsTab branchId={selectedBranchId} />}
 

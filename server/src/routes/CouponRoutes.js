@@ -7,7 +7,7 @@ import {
     deactivateCoupon,
     previewCoupon
 } from "../controllers/CouponController.js";
-import { authenticate, authorize, requireOwner } from "../middleware/Auth.js";
+import { authenticate, authorize, requirePermission } from "../middleware/Auth.js";
 
 const router = express.Router();
 
@@ -16,8 +16,8 @@ router.use(authenticate, authorize("customer", "admin"));
 router.post("/preview", previewCoupon);
 
 router.get("/", authorize("admin"), getAllCoupons);
-router.post("/", authorize("admin"), requireOwner, createCoupon);
-router.put("/:id", authorize("admin"), requireOwner, updateCoupon);
-router.delete("/:id", authorize("admin"), requireOwner, deactivateCoupon);
+router.post("/", authorize("admin"), requirePermission("manage_coupons"), createCoupon);
+router.put("/:id", authorize("admin"), requirePermission("manage_coupons"), updateCoupon);
+router.delete("/:id", authorize("admin"), requirePermission("manage_coupons"), deactivateCoupon);
 
 export default router;

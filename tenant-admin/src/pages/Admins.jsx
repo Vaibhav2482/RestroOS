@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
     Box,
     Button,
+    Checkbox,
     Chip,
     CircularProgress,
     Dialog,
@@ -9,6 +10,7 @@ import {
     DialogContent,
     DialogTitle,
     FormControlLabel,
+    FormGroup,
     Grid,
     IconButton,
     MenuItem,
@@ -33,6 +35,7 @@ import toast from "react-hot-toast";
 import * as adminService from "../services/adminService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth } from "../utils/adminAuth";
+import { GRANTABLE_PERMISSIONS } from "../utils/permissions";
 import EmptyState from "../components/EmptyState";
 
 const OWNER_VALUE = "owner";
@@ -42,7 +45,8 @@ const emptyForm = {
     email: "",
     password: "",
     branchId: OWNER_VALUE,
-    isActive: true
+    isActive: true,
+    permissions: []
 };
 
 function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) {
@@ -61,7 +65,8 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
                 email: editingAdmin.Email ?? "",
                 password: "",
                 branchId: editingAdmin.BranchId ?? OWNER_VALUE,
-                isActive: editingAdmin.IsActive
+                isActive: editingAdmin.IsActive,
+                permissions: editingAdmin.Permissions ?? []
             });
 
         } else if (open) {
@@ -81,6 +86,17 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
         setFormData((prev) => ({
             ...prev,
             [name]: type === "checkbox" ? checked : value
+        }));
+
+    };
+
+    const handlePermissionToggle = (key) => {
+
+        setFormData((prev) => ({
+            ...prev,
+            permissions: prev.permissions.includes(key)
+                ? prev.permissions.filter((existing) => existing !== key)
+                : [...prev.permissions, key]
         }));
 
     };
@@ -112,12 +128,19 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
 
         const branchId = formData.branchId === OWNER_VALUE ? null : formData.branchId;
 
+        // Meaningless for an Owner (requirePermission short-circuits to
+        // "always allowed" once BranchId is null) - sent as empty rather
+        // than whatever was left checked so the stored value stays honest
+        // about what an Owner-turned-Branch-Admin would actually have.
+        const permissions = branchId ? formData.permissions : [];
+
         if (isEditMode) {
 
             onSave({
                 fullName: formData.fullName.trim(),
                 branchId,
-                isActive: formData.isActive
+                isActive: formData.isActive,
+                permissions
             });
 
         } else {
@@ -126,7 +149,8 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
                 fullName: formData.fullName.trim(),
                 email: formData.email.trim(),
                 password: formData.password,
-                branchId
+                branchId,
+                permissions
             });
 
         }
@@ -211,6 +235,41 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
                             ))}
                         </TextField>
                     </Grid>
+
+                    {formData.branchId !== OWNER_VALUE && (
+
+                        <Grid size={12}>
+
+                            <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
+                                Additional Permissions
+                            </Typography>
+
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                                A Branch Admin is scoped to their own branch's Orders, Menu, Inventory, and Reports by default. Grant any of these tenant-wide actions individually.
+                            </Typography>
+
+                            <FormGroup>
+
+                                {GRANTABLE_PERMISSIONS.map((permission) => (
+
+                                    <FormControlLabel
+                                        key={permission.key}
+                                        control={
+                                            <Checkbox
+                                                checked={formData.permissions.includes(permission.key)}
+                                                onChange={() => handlePermissionToggle(permission.key)}
+                                            />
+                                        }
+                                        label={permission.label}
+                                    />
+
+                                ))}
+
+                            </FormGroup>
+
+                        </Grid>
+
+                    )}
 
                     {isEditMode && (
 
@@ -423,6 +482,7 @@ function Admins() {
                                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Branch</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>Permissions</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>
                             </TableRow>
@@ -434,7 +494,7 @@ function Admins() {
                             {loading ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                                         <CircularProgress size={28} />
                                     </TableCell>
                                 </TableRow>
@@ -442,7 +502,7 @@ function Admins() {
                             ) : admins.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                    <TableCell colSpan={6} sx={{ py: 0 }}>
                                         <EmptyState
                                             icon={<GroupOutlinedIcon />}
                                             title="No staff yet"
@@ -479,6 +539,20 @@ function Admins() {
                                                     <Chip label={admin.BranchName} size="small" variant="outlined" />
                                                 ) : (
                                                     <Chip label="Owner" size="small" color="primary" />
+                                                )}
+                                            </TableCell>
+
+                                            <TableCell>
+                                                {!admin.BranchId ? (
+                                                    <Typography variant="body2" color="text.secondary">All (Owner)</Typography>
+                                                ) : admin.Permissions?.length > 0 ? (
+                                                    <Typography variant="body2">
+                                                        {admin.Permissions
+                                                            .map((key) => GRANTABLE_PERMISSIONS.find((permission) => permission.key === key)?.label ?? key)
+                                                            .join(", ")}
+                                                    </Typography>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">None</Typography>
                                                 )}
                                             </TableCell>
 

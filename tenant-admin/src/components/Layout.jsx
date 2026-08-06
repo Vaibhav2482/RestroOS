@@ -39,7 +39,7 @@ import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 
-import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, isOwner } from "../utils/adminAuth";
+import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
 
 const DRAWER_WIDTH = 260;
 
@@ -77,17 +77,17 @@ const NAV_GROUPS = [
     {
         label: "Management",
         items: [
-            { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, ownerOnly: true },
+            { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, permission: "manage_coupons" },
             { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
             { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
-            { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, ownerOnly: true }
+            { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, permission: "manage_integrations" }
         ]
     },
     {
         label: "System",
         items: [
-            { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, ownerOnly: true },
-            { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, ownerOnly: true }
+            { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, permission: "view_activity_log" },
+            { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, permission: "manage_branding" }
         ]
     }
 ];
@@ -173,7 +173,19 @@ function Layout({ children }) {
 
                 {NAV_GROUPS.map((group) => {
 
-                    const visibleItems = group.items.filter((item) => !item.ownerOnly || owner);
+                    const visibleItems = group.items.filter((item) => {
+
+                        if (item.ownerOnly) {
+                            return owner;
+                        }
+
+                        if (item.permission) {
+                            return hasPermission(auth?.admin, item.permission);
+                        }
+
+                        return true;
+
+                    });
 
                     if (visibleItems.length === 0) {
                         return null;

@@ -38,7 +38,7 @@ import toast from "react-hot-toast";
 import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
 import * as branchService from "../services/branchService";
-import { getStoredAuth, isOwner } from "../utils/adminAuth";
+import { getStoredAuth, hasPermission, isOwner } from "../utils/adminAuth";
 import MenuItemDialog from "./MenuItemDialog";
 import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
 import MenuItemRecipeDialog from "./MenuItemRecipeDialog";
@@ -82,6 +82,7 @@ function Menu() {
 
     const { admin } = getStoredAuth() || {};
     const owner = isOwner(admin);
+    const canManageIngredients = hasPermission(admin, "manage_ingredients");
 
     const [menuItems, setMenuItems] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -716,7 +717,7 @@ function Menu() {
                                                         </IconButton>
                                                     </Tooltip>
 
-                                                    {owner && (
+                                                    {canManageIngredients && (
                                                         <Tooltip title="Recipe">
                                                             <IconButton size="small" onClick={() => handleManageRecipeClick(item)}>
                                                                 <ListAltOutlinedIcon fontSize="small" />

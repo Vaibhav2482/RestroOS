@@ -36,25 +36,28 @@ export const resetFailedLogins = async (adminId) => {
 export const create = async (admin) => {
 
     const result = await pool.query(
-        `INSERT INTO "Admins" ("TenantId", "FullName", "Email", "Password", "BranchId")
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "IsActive", "CreatedAt"`,
-        [admin.tenantId, admin.fullName, admin.email, admin.password, admin.branchId ?? null]
+        `INSERT INTO "Admins" ("TenantId", "FullName", "Email", "Password", "BranchId", "Permissions")
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "Permissions", "IsActive", "CreatedAt"`,
+        [admin.tenantId, admin.fullName, admin.email, admin.password, admin.branchId ?? null, admin.permissions ?? []]
     );
 
     return result.rows[0];
 
 };
 
-export const getAllByTenant = async (tenantId) => {
+// branchId is only ever passed for a Branch Admin request (see resolveBranchId) -
+// a Tenant Owner's requests leave it undefined and see every admin tenant-wide,
+// matching how every other branch-scoped list endpoint in this codebase behaves.
+export const getAllByTenant = async (tenantId, branchId) => {
 
     const result = await pool.query(
-        `SELECT A."AdminId", A."FullName", A."Email", A."BranchId", B."BranchName", A."IsActive", A."CreatedAt"
+        `SELECT A."AdminId", A."FullName", A."Email", A."BranchId", B."BranchName", A."Permissions", A."IsActive", A."CreatedAt"
          FROM "Admins" A
          LEFT JOIN "Branches" B ON A."BranchId" = B."BranchId"
-         WHERE A."TenantId" = $1
+         WHERE A."TenantId" = $1 AND ($2::int IS NULL OR A."BranchId" = $2)
          ORDER BY A."CreatedAt" DESC`,
-        [tenantId]
+        [tenantId, branchId ?? null]
     );
 
     return result.rows;
@@ -64,7 +67,7 @@ export const getAllByTenant = async (tenantId) => {
 export const getById = async (adminId) => {
 
     const result = await pool.query(
-        `SELECT A."AdminId", A."TenantId", A."FullName", A."Email", A."BranchId", B."BranchName", A."AvatarUrl", A."IsActive", A."CreatedAt"
+        `SELECT A."AdminId", A."TenantId", A."FullName", A."Email", A."BranchId", B."BranchName", A."Permissions", A."AvatarUrl", A."IsActive", A."CreatedAt"
          FROM "Admins" A
          LEFT JOIN "Branches" B ON A."BranchId" = B."BranchId"
          WHERE A."AdminId" = $1`,
@@ -90,10 +93,10 @@ export const update = async (admin) => {
 
     const result = await pool.query(
         `UPDATE "Admins"
-         SET "FullName" = $1, "BranchId" = $2, "IsActive" = $3, "UpdatedAt" = NOW()
-         WHERE "AdminId" = $4
-         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "IsActive", "CreatedAt", "UpdatedAt"`,
-        [admin.fullName, admin.branchId ?? null, admin.isActive, admin.adminId]
+         SET "FullName" = $1, "BranchId" = $2, "IsActive" = $3, "Permissions" = $4, "UpdatedAt" = NOW()
+         WHERE "AdminId" = $5
+         RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "Permissions", "IsActive", "CreatedAt", "UpdatedAt"`,
+        [admin.fullName, admin.branchId ?? null, admin.isActive, admin.permissions ?? [], admin.adminId]
     );
 
     return result.rows[0];

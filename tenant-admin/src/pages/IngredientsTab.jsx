@@ -26,7 +26,7 @@ import { unitLabel } from "../utils/units";
 import IngredientDialog from "./IngredientDialog";
 import EmptyState from "../components/EmptyState";
 
-function IngredientsTab({ owner }) {
+function IngredientsTab({ canManage }) {
 
     const [ingredients, setIngredients] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ function IngredientsTab({ owner }) {
                     Ingredients are shared across every branch of your restaurant.
                 </Typography>
 
-                {owner && (
+                {canManage && (
                     <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={handleOpenCreate}>
                         Add Ingredient
                     </Button>
@@ -149,7 +149,7 @@ function IngredientsTab({ owner }) {
                                 <TableCell sx={{ fontWeight: 600 }}>Low Stock Threshold</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Cost</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                {owner && <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>}
+                                {canManage && <TableCell sx={{ fontWeight: 600 }} align="right">Actions</TableCell>}
                             </TableRow>
 
                         </TableHead>
@@ -159,7 +159,7 @@ function IngredientsTab({ owner }) {
                             {loading ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 8 : 7} align="center" sx={{ py: 6 }}>
+                                    <TableCell colSpan={canManage ? 8 : 7} align="center" sx={{ py: 6 }}>
                                         <CircularProgress size={28} />
                                     </TableCell>
                                 </TableRow>
@@ -167,12 +167,12 @@ function IngredientsTab({ owner }) {
                             ) : ingredients.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 8 : 7} sx={{ py: 0 }}>
+                                    <TableCell colSpan={canManage ? 8 : 7} sx={{ py: 0 }}>
                                         <EmptyState
                                             icon={<Inventory2OutlinedIcon />}
                                             title="No ingredients yet"
-                                            description={owner ? "Add your first ingredient to start tracking stock." : "Ask an owner to add ingredients here."}
-                                            action={owner && (
+                                            description={canManage ? "Add your first ingredient to start tracking stock." : "Ask an owner to add ingredients here."}
+                                            action={canManage && (
                                                 <Button variant="outlined" size="small" startIcon={<AddRoundedIcon />} onClick={handleOpenCreate}>
                                                     Add Ingredient
                                                 </Button>
@@ -217,7 +217,7 @@ function IngredientsTab({ owner }) {
                                             />
                                         </TableCell>
 
-                                        {owner && (
+                                        {canManage && (
 
                                             <TableCell align="right">
                                                 <Tooltip title="Edit">

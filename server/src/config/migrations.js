@@ -193,5 +193,39 @@ export const MIGRATIONS = [
                 ADD COLUMN "FailedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
                 ADD COLUMN "LockedUntil" TIMESTAMP NULL;
         `
+    },
+    {
+        // 0005_payment_idempotency only de-duplicates Razorpay payments
+        // (unique on TransactionId, which is always NULL for manual Cash/
+        // Card/UPI payments) - this closes the same gap for those, so a
+        // double-tapped "Mark Paid" can't record two Paid rows for one order.
+        id: "0013_payment_paid_idempotency",
+        sql: `
+            CREATE UNIQUE INDEX "UQ_Payments_OrderId_Paid" ON "Payments" ("OrderId") WHERE "PaymentStatus" = 'Paid';
+        `
+    },
+    {
+        // bootstrapFirstAdmin's count()-then-create() check has a race: two
+        // concurrent bootstrap requests can both read count() === 0 and both
+        // insert. A unique index on a constant expression is the standard
+        // "singleton table" trick - every row collides with every other row,
+        // so Postgres itself rejects a second insert (surfaced as the same
+        // friendly 23505 duplicate message every other unique violation gets
+        // in ErrorHandler.js) instead of relying on an un-locked read.
+        id: "0014_platform_admin_singleton",
+        sql: `
+            CREATE UNIQUE INDEX "UQ_PlatformAdmins_Singleton" ON "PlatformAdmins" ((TRUE));
+        `
+    },
+    {
+        // Lets an Owner grant a Branch Admin access to specific tenant-wide
+        // actions (e.g. managing ingredients) without making them a full
+        // Owner. Meaningless for Owners themselves - requirePermission
+        // (middleware/Auth.js) short-circuits to "always allowed" whenever
+        // BranchId is NULL, before this column is ever consulted.
+        id: "0015_admin_permissions",
+        sql: `
+            ALTER TABLE "Admins" ADD COLUMN "Permissions" TEXT[] NOT NULL DEFAULT '{}';
+        `
     }
 ];

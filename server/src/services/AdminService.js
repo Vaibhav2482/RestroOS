@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import * as AdminRepository from "../repositories/AdminRepository.js";
 import * as BranchRepository from "../repositories/BranchRepository.js";
 import * as AuditService from "./AuditService.js";
+import { sanitizePermissions } from "../config/permissions.js";
 
 const assertBranchBelongsToTenant = async (branchId, tenantId) => {
 
@@ -15,9 +16,9 @@ const assertBranchBelongsToTenant = async (branchId, tenantId) => {
 
 };
 
-export const getAllAdmins = async (tenantId) => {
+export const getAllAdmins = async (tenantId, branchId) => {
 
-    const admins = await AdminRepository.getAllByTenant(tenantId);
+    const admins = await AdminRepository.getAllByTenant(tenantId, branchId);
 
     return { success: true, message: "Admins fetched successfully.", data: admins };
 
@@ -64,7 +65,8 @@ export const createAdmin = async (admin, tenantId, actorAdminId) => {
     const createdAdmin = await AdminRepository.create({
         ...admin,
         tenantId,
-        password: hashedPassword
+        password: hashedPassword,
+        permissions: sanitizePermissions(admin.permissions)
     });
 
     AuditService.record({
@@ -107,7 +109,8 @@ export const updateAdmin = async (adminId, admin, requestingAdminId, tenantId) =
     const updatedAdmin = await AdminRepository.update({
         ...admin,
         adminId: Number(adminId),
-        isActive: admin.isActive ?? existingAdmin.IsActive
+        isActive: admin.isActive ?? existingAdmin.IsActive,
+        permissions: sanitizePermissions(admin.permissions ?? existingAdmin.Permissions)
     });
 
     const changeNotes = [];
@@ -118,6 +121,13 @@ export const updateAdmin = async (adminId, admin, requestingAdminId, tenantId) =
 
     if (String(existingAdmin.BranchId ?? "") !== String(updatedAdmin.BranchId ?? "")) {
         changeNotes.push(`branch access changed to ${updatedAdmin.BranchId ? `Branch #${updatedAdmin.BranchId}` : "Owner (all branches)"}`);
+    }
+
+    const existingPermissions = [...(existingAdmin.Permissions || [])].sort();
+    const nextPermissions = [...(updatedAdmin.Permissions || [])].sort();
+
+    if (JSON.stringify(existingPermissions) !== JSON.stringify(nextPermissions)) {
+        changeNotes.push(`permissions changed to [${nextPermissions.join(", ") || "none"}]`);
     }
 
     AuditService.record({
