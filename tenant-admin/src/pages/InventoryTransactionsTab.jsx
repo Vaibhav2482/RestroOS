@@ -13,6 +13,7 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
     TextField,
     Typography
@@ -50,6 +51,11 @@ function InventoryTransactionsTab({ branchId }) {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
 
+    // Client-side paging over the already-fetched (filtered) result set -
+    // the backend has no page/limit param on this endpoint.
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
+
     const hasLoadedRef = useRef(false);
 
     useEffect(() => {
@@ -66,6 +72,8 @@ function InventoryTransactionsTab({ branchId }) {
         if (branchId) {
             loadTransactions();
         }
+
+        setPage(0);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [branchId, ingredientFilter, typeFilter, fromDate, toDate]);
@@ -192,7 +200,7 @@ function InventoryTransactionsTab({ branchId }) {
 
                             ) : (
 
-                                transactions.map((row) => (
+                                transactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
 
                                     <TableRow key={row.TransactionId} hover>
 
@@ -234,6 +242,23 @@ function InventoryTransactionsTab({ branchId }) {
                     </Table>
 
                 </TableContainer>
+
+                {transactions.length > 0 && (
+
+                    <TablePagination
+                        component="div"
+                        count={transactions.length}
+                        page={page}
+                        onPageChange={(event, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(event) => {
+                            setRowsPerPage(Number(event.target.value));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                    />
+
+                )}
 
             </Paper>
 

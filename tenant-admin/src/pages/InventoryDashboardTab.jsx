@@ -199,7 +199,7 @@ function InventoryDashboardTab({ branchId, onNavigate }) {
                                 <Typography fontWeight={600} sx={{ minWidth: 160 }}>{row.IngredientName}</Typography>
 
                                 <Typography sx={{ fontVariantNumeric: "tabular-nums" }} color="text.secondary">
-                                    {Number(row.QuantityBase) > 0 ? "+" : ""}{Number(row.EnteredQuantity)} {row.EnteredUnit}
+                                    {Number(row.QuantityBase) > 0 ? "+" : Number(row.QuantityBase) < 0 ? "-" : ""}{Number(row.EnteredQuantity)} {row.EnteredUnit}
                                 </Typography>
 
                                 <Box sx={{ flexGrow: 1 }} />

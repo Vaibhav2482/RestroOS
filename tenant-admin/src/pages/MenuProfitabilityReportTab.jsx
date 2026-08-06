@@ -61,10 +61,10 @@ function MenuProfitabilityReportTab({ branchId }) {
             ["Item", "Price", "Ingredient Cost", "Margin", "Margin %"],
             items.map((row) => [
                 row.ItemName,
-                row.Price.toFixed(2),
-                row.IngredientCost !== null ? row.IngredientCost.toFixed(2) : "Unknown",
-                row.Margin !== null ? row.Margin.toFixed(2) : "Unknown",
-                row.MarginPercent !== null ? `${row.MarginPercent.toFixed(1)}%` : "Unknown"
+                Number(row.Price).toFixed(2),
+                row.IngredientCost !== null ? Number(row.IngredientCost).toFixed(2) : "Unknown",
+                row.Margin !== null ? Number(row.Margin).toFixed(2) : "Unknown",
+                row.MarginPercent !== null ? `${Number(row.MarginPercent).toFixed(1)}%` : "Unknown"
             ])
         );
 
@@ -141,7 +141,7 @@ function MenuProfitabilityReportTab({ branchId }) {
                                             {row.MarginPercent !== null ? (
                                                 <Chip
                                                     size="small"
-                                                    label={`${row.MarginPercent.toFixed(1)}%`}
+                                                    label={`${Number(row.MarginPercent).toFixed(1)}%`}
                                                     color={row.MarginPercent >= 50 ? "success" : row.MarginPercent >= 25 ? "warning" : "error"}
                                                     variant="outlined"
                                                 />

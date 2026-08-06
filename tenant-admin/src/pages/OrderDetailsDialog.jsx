@@ -114,6 +114,10 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
     const handleCancel = async () => {
 
+        if (!window.confirm("Cancel this order? This cannot be undone.")) {
+            return;
+        }
+
         try {
 
             setActionLoading(true);

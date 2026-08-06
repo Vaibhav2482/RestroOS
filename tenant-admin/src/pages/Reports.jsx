@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
+import { defaultDateRange } from "../utils/dateRange";
 import TaxSummaryReportTab from "./TaxSummaryReportTab";
 import PaymentBreakdownReportTab from "./PaymentBreakdownReportTab";
 import InventoryValuationReportTab from "./InventoryValuationReportTab";
@@ -32,6 +33,10 @@ function Reports() {
     const [branches, setBranches] = useState([]);
     const [selectedBranchId, setSelectedBranchId] = useState(owner ? "" : admin?.BranchId ?? "");
     const [tab, setTab] = useState(0);
+    // Shared across every date-ranged tab below so switching tabs keeps
+    // whatever range the owner picked instead of silently resetting it back
+    // to the last-30-days default each time.
+    const [range, setRange] = useState(() => defaultDateRange(30));
 
     useEffect(() => {
 
@@ -114,12 +119,12 @@ function Reports() {
                 {TABS.map((label) => <Tab key={label} label={label} />)}
             </Tabs>
 
-            {tab === 0 && <SalesSummaryReportTab branchId={selectedBranchId} />}
-            {tab === 1 && <CategorySalesReportTab branchId={selectedBranchId} />}
-            {tab === 2 && <TaxSummaryReportTab branchId={selectedBranchId} />}
-            {tab === 3 && <PaymentBreakdownReportTab branchId={selectedBranchId} />}
-            {tab === 4 && <CouponUsageReportTab branchId={selectedBranchId} />}
-            {tab === 5 && <CancelledOrdersReportTab branchId={selectedBranchId} />}
+            {tab === 0 && <SalesSummaryReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
+            {tab === 1 && <CategorySalesReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
+            {tab === 2 && <TaxSummaryReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
+            {tab === 3 && <PaymentBreakdownReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
+            {tab === 4 && <CouponUsageReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
+            {tab === 5 && <CancelledOrdersReportTab branchId={selectedBranchId} range={range} onRangeChange={setRange} />}
             {tab === 6 && <InventoryValuationReportTab branchId={selectedBranchId} />}
             {tab === 7 && <MenuProfitabilityReportTab branchId={selectedBranchId} />}
 

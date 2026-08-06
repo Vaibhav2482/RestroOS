@@ -77,14 +77,19 @@ function Dashboard() {
         loadOrders();
 
         // Live-ish view: silently re-check for new orders/status changes
-        // without requiring a manual refresh.
+        // without requiring a manual refresh. This still pulls the entire
+        // order history just to derive 3 numbers (no lightweight "today"/
+        // "summary" endpoint exists - /analytics/overview computes revenue
+        // trend/top items/peak hours/COGS too, so it's not cheaper, and it
+        // has no "active orders" concept at all). 60s instead of 15s until
+        // a real summary endpoint exists is a stopgap, not the real fix.
         const interval = setInterval(() => {
 
             if (document.visibilityState === "visible") {
                 loadOrders(true);
             }
 
-        }, 15000);
+        }, 60000);
 
         return () => clearInterval(interval);
 

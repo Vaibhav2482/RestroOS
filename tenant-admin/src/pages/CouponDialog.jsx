@@ -25,7 +25,7 @@ const emptyForm = {
     isActive: true
 };
 
-const emptyErrors = { code: "", discountValue: "" };
+const emptyErrors = { code: "", discountValue: "", validUntil: "" };
 
 const toDateInputValue = (value) => {
 
@@ -87,6 +87,13 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
             setErrors((prev) => ({ ...prev, [name]: "" }));
         }
 
+        // A validFrom/validUntil mismatch error was raised by whichever
+        // field's value made the range invalid - editing either one can fix
+        // it, so clear it regardless of which of the two just changed.
+        if (name === "validFrom" && errors.validUntil) {
+            setErrors((prev) => ({ ...prev, validUntil: "" }));
+        }
+
     };
 
     const handleCodeChange = (event) => {
@@ -115,6 +122,10 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
             nextErrors.discountValue = "Discount must be greater than 0.";
         } else if (formData.discountType === "Percentage" && discountValue > 100) {
             nextErrors.discountValue = "Percentage discount cannot exceed 100.";
+        }
+
+        if (formData.validFrom && formData.validUntil && formData.validUntil < formData.validFrom) {
+            nextErrors.validUntil = "Valid Until must be on or after Valid From.";
         }
 
         setErrors(nextErrors);
@@ -288,6 +299,8 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             name="validUntil"
                             value={formData.validUntil}
                             onChange={handleChange}
+                            error={Boolean(errors.validUntil)}
+                            helperText={errors.validUntil}
                             InputLabelProps={{ shrink: true }}
                         />
                     </Grid>

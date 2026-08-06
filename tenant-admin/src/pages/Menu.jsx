@@ -99,6 +99,10 @@ function Menu() {
     // the first row's switch, so the rejection looked like nothing
     // happened at all.
     const [togglingItemIds, setTogglingItemIds] = useState(() => new Set());
+    // Keyed by category name, same reasoning as togglingItemIds above - a
+    // bulk 86/un-86 running on one category shouldn't disable the buttons
+    // on every other category's group.
+    const [bulkProcessingCategories, setBulkProcessingCategories] = useState(() => new Set());
 
     const [searchText, setSearchText] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("all");
@@ -314,6 +318,60 @@ function Menu() {
 
     };
 
+    // "86" a whole category (or bring it back) in one action - reuses the
+    // same single-item update call as the per-row switch above, just fired
+    // once per item in the category instead of adding a bulk backend route.
+    const handleBulkAvailability = async (categoryName, items, nextAvailable) => {
+
+        if (bulkProcessingCategories.has(categoryName)) {
+            return;
+        }
+
+        setBulkProcessingCategories((prev) => new Set(prev).add(categoryName));
+
+        try {
+
+            const results = await Promise.allSettled(
+                items.map((item) => menuService.updateMenuItem(item.MenuItemId, {
+                    categoryId: item.CategoryId,
+                    itemName: item.ItemName,
+                    description: item.Description,
+                    price: item.Price,
+                    imageUrl: item.ImageUrl,
+                    isVeg: item.IsVeg,
+                    isAvailable: nextAvailable,
+                    isPopular: item.IsPopular,
+                    isActive: item.IsActive
+                }))
+            );
+
+            const succeeded = results.filter((result) => result.status === "fulfilled" && result.value?.success).length;
+            const failed = items.length - succeeded;
+            const statusLabel = nextAvailable ? "available" : "unavailable";
+
+            if (succeeded > 0) {
+                toast.success(
+                    `${succeeded} item${succeeded === 1 ? "" : "s"} marked ${statusLabel}.` +
+                    (failed > 0 ? ` ${failed} failed.` : "")
+                );
+            } else {
+                toast.error(`Failed to mark "${categoryName}" items ${statusLabel}.`);
+            }
+
+            await loadMenuItems(owner ? selectedBranchId : undefined);
+
+        } finally {
+
+            setBulkProcessingCategories((prev) => {
+                const next = new Set(prev);
+                next.delete(categoryName);
+                return next;
+            });
+
+        }
+
+    };
+
     const handleDeleteClick = (item) => {
         setDeleteTarget(item);
     };
@@ -512,9 +570,36 @@ function Menu() {
 
                         <Box key={categoryName}>
 
-                            <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-                                {categoryName}
-                            </Typography>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1 }}>
+
+                                <Typography variant="subtitle1" fontWeight={700}>
+                                    {categoryName}
+                                </Typography>
+
+                                <Stack direction="row" spacing={1}>
+
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="warning"
+                                        disabled={bulkProcessingCategories.has(categoryName)}
+                                        onClick={() => handleBulkAvailability(categoryName, items, false)}
+                                    >
+                                        {bulkProcessingCategories.has(categoryName) ? "Updating..." : `86 All (${items.length})`}
+                                    </Button>
+
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        disabled={bulkProcessingCategories.has(categoryName)}
+                                        onClick={() => handleBulkAvailability(categoryName, items, true)}
+                                    >
+                                        Mark All Available
+                                    </Button>
+
+                                </Stack>
+
+                            </Box>
 
                             <TableContainer component={Paper} elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
 

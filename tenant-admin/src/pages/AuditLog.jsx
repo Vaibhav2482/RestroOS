@@ -13,6 +13,7 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
     TextField,
     Typography
@@ -40,6 +41,11 @@ function AuditLog() {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
 
+    // Client-side paging over the already-fetched (filtered) result set -
+    // the backend has no page/limit param on this endpoint.
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
+
     const hasLoadedRef = useRef(false);
 
     useEffect(() => {
@@ -53,6 +59,7 @@ function AuditLog() {
     useEffect(() => {
 
         loadLogs();
+        setPage(0);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [entityTypeFilter, actorFilter, fromDate, toDate]);
@@ -183,7 +190,7 @@ function AuditLog() {
 
                             ) : (
 
-                                logs.map((log) => (
+                                logs.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((log) => (
 
                                     <TableRow key={log.AuditLogId} hover>
 
@@ -220,6 +227,23 @@ function AuditLog() {
                     </Table>
 
                 </TableContainer>
+
+                {logs.length > 0 && (
+
+                    <TablePagination
+                        component="div"
+                        count={logs.length}
+                        page={page}
+                        onPageChange={(event, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(event) => {
+                            setRowsPerPage(Number(event.target.value));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                    />
+
+                )}
 
             </Paper>
 

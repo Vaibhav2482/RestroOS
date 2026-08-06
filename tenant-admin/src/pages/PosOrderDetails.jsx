@@ -51,6 +51,10 @@ function PosOrderDetails({ open, order, onClose, onAdvanceStatus, onCancelOrder 
 
     const handleCancel = async () => {
 
+        if (!window.confirm("Cancel this order? This cannot be undone.")) {
+            return;
+        }
+
         setBusy(true);
 
         try {

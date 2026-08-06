@@ -17,14 +17,12 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import toast from "react-hot-toast";
 
 import * as analyticsService from "../services/analyticsService";
-import { defaultDateRange } from "../utils/dateRange";
 import { downloadCsv } from "../utils/csvExport";
 import { formatCurrency } from "./orderStatusUtils";
 import EmptyState from "../components/EmptyState";
 
-function CouponUsageReportTab({ branchId }) {
+function CouponUsageReportTab({ branchId, range, onRangeChange }) {
 
-    const [range, setRange] = useState(() => defaultDateRange(30));
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -93,7 +91,7 @@ function CouponUsageReportTab({ branchId }) {
                         type="date"
                         label="From"
                         value={range.from}
-                        onChange={(event) => setRange((prev) => ({ ...prev, from: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, from: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 
@@ -102,7 +100,7 @@ function CouponUsageReportTab({ branchId }) {
                         type="date"
                         label="To"
                         value={range.to}
-                        onChange={(event) => setRange((prev) => ({ ...prev, to: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, to: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 

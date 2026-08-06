@@ -18,7 +18,6 @@ import EventBusyOutlinedIcon from "@mui/icons-material/EventBusyOutlined";
 import toast from "react-hot-toast";
 
 import * as analyticsService from "../services/analyticsService";
-import { defaultDateRange } from "../utils/dateRange";
 import { downloadCsv } from "../utils/csvExport";
 import { formatCurrency } from "./orderStatusUtils";
 import EmptyState from "../components/EmptyState";
@@ -30,9 +29,8 @@ const formatDateTime = (value) => new Date(value).toLocaleString("en-IN", { day:
 // just a daily count. RestroOS doesn't currently record WHY an order was
 // cancelled (no CancelReason field on Orders), so unlike a full void
 // report this only shows frequency and value, not reasons.
-function CancelledOrdersReportTab({ branchId }) {
+function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
 
-    const [range, setRange] = useState(() => defaultDateRange(30));
     const [orders, setOrders] = useState([]);
     const [totalValue, setTotalValue] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -101,7 +99,7 @@ function CancelledOrdersReportTab({ branchId }) {
                         type="date"
                         label="From"
                         value={range.from}
-                        onChange={(event) => setRange((prev) => ({ ...prev, from: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, from: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 
@@ -110,7 +108,7 @@ function CancelledOrdersReportTab({ branchId }) {
                         type="date"
                         label="To"
                         value={range.to}
-                        onChange={(event) => setRange((prev) => ({ ...prev, to: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, to: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 

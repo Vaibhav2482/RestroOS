@@ -18,16 +18,14 @@ import TrendingUpOutlinedIcon from "@mui/icons-material/TrendingUpOutlined";
 import toast from "react-hot-toast";
 
 import * as analyticsService from "../services/analyticsService";
-import { defaultDateRange } from "../utils/dateRange";
 import { downloadCsv } from "../utils/csvExport";
 import { formatCurrency } from "./orderStatusUtils";
 import EmptyState from "../components/EmptyState";
 
 const formatDate = (value) => new Date(value).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 
-function SalesSummaryReportTab({ branchId }) {
+function SalesSummaryReportTab({ branchId, range, onRangeChange }) {
 
-    const [range, setRange] = useState(() => defaultDateRange(30));
     const [daily, setDaily] = useState([]);
     const [totals, setTotals] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -106,7 +104,7 @@ function SalesSummaryReportTab({ branchId }) {
                         type="date"
                         label="From"
                         value={range.from}
-                        onChange={(event) => setRange((prev) => ({ ...prev, from: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, from: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 
@@ -115,7 +113,7 @@ function SalesSummaryReportTab({ branchId }) {
                         type="date"
                         label="To"
                         value={range.to}
-                        onChange={(event) => setRange((prev) => ({ ...prev, to: event.target.value }))}
+                        onChange={(event) => onRangeChange((prev) => ({ ...prev, to: event.target.value }))}
                         InputLabelProps={{ shrink: true }}
                     />
 

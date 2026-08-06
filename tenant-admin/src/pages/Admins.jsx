@@ -19,6 +19,7 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
     TextField,
     Typography
@@ -255,6 +256,11 @@ function Admins() {
     const [editingAdmin, setEditingAdmin] = useState(null);
     const [saving, setSaving] = useState(false);
 
+    // Client-side paging over the already-fetched list - the backend has
+    // no page/limit param on GET /admins.
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
+
     // Only the first load shows the blocking spinner - reloading after a
     // create/edit/deactivate keeps the existing table visible instead of
     // blanking the page out on every action.
@@ -441,7 +447,7 @@ function Admins() {
 
                             ) : (
 
-                                admins.map((admin) => {
+                                admins.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((admin) => {
 
                                     const isSelf = String(admin.AdminId) === String(currentAdminId);
 
@@ -508,6 +514,23 @@ function Admins() {
                     </Table>
 
                 </TableContainer>
+
+                {admins.length > 0 && (
+
+                    <TablePagination
+                        component="div"
+                        count={admins.length}
+                        page={page}
+                        onPageChange={(event, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(event) => {
+                            setRowsPerPage(Number(event.target.value));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                    />
+
+                )}
 
             </Paper>
 

@@ -16,6 +16,7 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
     TextField,
     Typography
@@ -57,6 +58,11 @@ function Orders() {
     // keeps every in-flight row disabled independently, same pattern as
     // Pos.jsx's pendingAdvanceOrderIds.
     const [advancingOrderIds, setAdvancingOrderIds] = useState(() => new Set());
+
+    // Client-side paging over the already-fetched (filtered) list - the
+    // backend has no page/limit param on GET /orders.
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
 
     // Only the very first load (nothing on screen yet) shows the blocking
     // spinner. Every reload after that - after advancing a status, after
@@ -250,6 +256,13 @@ function Orders() {
         return counts;
     }, {});
 
+    // Keep the page in range whenever the underlying filters (or the data
+    // itself, via the background refresh) change - otherwise a filter that
+    // shrinks the result set can leave the user stranded on an empty page.
+    useEffect(() => {
+        setPage(0);
+    }, [search, statusFilter, selectedBranchId]);
+
     const filteredOrders = orders.filter((order) => {
 
         if (statusFilter !== "All" && order.OrderStatus !== statusFilter) {
@@ -394,7 +407,7 @@ function Orders() {
 
                                 ) : (
 
-                                    filteredOrders.map((order) => {
+                                    filteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((order) => {
 
                                         // Pending is the one status that always needs a human to
                                         // notice it right now - a new order sitting unhandled is
@@ -468,6 +481,23 @@ function Orders() {
                         </Table>
 
                     </TableContainer>
+
+                )}
+
+                {!loading && filteredOrders.length > 0 && (
+
+                    <TablePagination
+                        component="div"
+                        count={filteredOrders.length}
+                        page={page}
+                        onPageChange={(event, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(event) => {
+                            setRowsPerPage(Number(event.target.value));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                    />
 
                 )}
 
