@@ -24,6 +24,7 @@ import {
     TablePagination,
     TableRow,
     TextField,
+    Tooltip,
     Typography
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -35,19 +36,26 @@ import toast from "react-hot-toast";
 import * as adminService from "../services/adminService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth } from "../utils/adminAuth";
-import { GRANTABLE_PERMISSIONS } from "../utils/permissions";
+import { CORE_PERMISSION_KEYS, GRANTABLE_PERMISSIONS } from "../utils/permissions";
 import EmptyState from "../components/EmptyState";
 
 const OWNER_VALUE = "owner";
 
+// A new Branch Admin starts with the "core" screens already checked - the
+// operational access they'd have had unconditionally before this list
+// existed. An Owner can still uncheck any of them; they just don't start
+// from a blank slate that would otherwise lock a new hire out of Orders/
+// Menu/etc until someone remembers to go grant everything by hand.
 const emptyForm = {
     fullName: "",
     email: "",
     password: "",
     branchId: OWNER_VALUE,
     isActive: true,
-    permissions: []
+    permissions: [...CORE_PERMISSION_KEYS]
 };
+
+const PERMISSION_GROUPS = [...new Set(GRANTABLE_PERMISSIONS.map((permission) => permission.group))];
 
 function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) {
 
@@ -239,31 +247,44 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
                         <Grid size={12}>
 
                             <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>
-                                Additional Permissions
+                                Screen & Feature Permissions
                             </Typography>
 
-                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                                A Branch Admin is scoped to their own branch's Orders, Menu, Inventory, and Reports by default. Grant any of these tenant-wide actions individually.
+                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
+                                Every screen a Branch Admin can reach is controlled here. Uncheck anything they shouldn't see or act on.
                             </Typography>
 
-                            <FormGroup>
+                            {PERMISSION_GROUPS.map((group) => (
 
-                                {GRANTABLE_PERMISSIONS.map((permission) => (
+                                <Box key={group} sx={{ mb: 1.5 }}>
 
-                                    <FormControlLabel
-                                        key={permission.key}
-                                        control={
-                                            <Checkbox
-                                                checked={formData.permissions.includes(permission.key)}
-                                                onChange={() => handlePermissionToggle(permission.key)}
+                                    <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
+                                        {group.toUpperCase()}
+                                    </Typography>
+
+                                    <FormGroup>
+
+                                        {GRANTABLE_PERMISSIONS.filter((permission) => permission.group === group).map((permission) => (
+
+                                            <FormControlLabel
+                                                key={permission.key}
+                                                control={
+                                                    <Checkbox
+                                                        size="small"
+                                                        checked={formData.permissions.includes(permission.key)}
+                                                        onChange={() => handlePermissionToggle(permission.key)}
+                                                    />
+                                                }
+                                                label={permission.label}
                                             />
-                                        }
-                                        label={permission.label}
-                                    />
 
-                                ))}
+                                        ))}
 
-                            </FormGroup>
+                                    </FormGroup>
+
+                                </Box>
+
+                            ))}
 
                         </Grid>
 
@@ -544,11 +565,17 @@ function Admins() {
                                                 {!admin.BranchId ? (
                                                     <Typography variant="body2" color="text.secondary">All (Owner)</Typography>
                                                 ) : admin.Permissions?.length > 0 ? (
-                                                    <Typography variant="body2">
-                                                        {admin.Permissions
+                                                    <Tooltip
+                                                        title={admin.Permissions
                                                             .map((key) => GRANTABLE_PERMISSIONS.find((permission) => permission.key === key)?.label ?? key)
                                                             .join(", ")}
-                                                    </Typography>
+                                                    >
+                                                        <Chip
+                                                            size="small"
+                                                            variant="outlined"
+                                                            label={`${admin.Permissions.length} of ${GRANTABLE_PERMISSIONS.length}`}
+                                                        />
+                                                    </Tooltip>
                                                 ) : (
                                                     <Typography variant="body2" color="text.secondary">None</Typography>
                                                 )}

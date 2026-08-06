@@ -21,7 +21,8 @@ import PaidOutlinedIcon from "@mui/icons-material/PaidOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
-import { getStoredAuth } from "../utils/adminAuth";
+import { hasPermission } from "../utils/adminAuth";
+import { useStoredAuth } from "../hooks/useStoredAuth";
 import { formatCurrency, getStatusChipColor, isToday, isTerminalStatus } from "./orderStatusUtils";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 
@@ -63,7 +64,12 @@ function StatCard({ icon, label, value, color }) {
 
 function Dashboard() {
 
-    const { admin } = getStoredAuth() || {};
+    const { admin } = useStoredAuth() || {};
+    // Dashboard is the mandatory post-login landing page (never gated at
+    // the route level, unlike every other screen) - a Branch Admin with
+    // manage_orders revoked still needs somewhere to land, so this only
+    // skips the order-stats section rather than the whole page.
+    const canViewOrders = hasPermission(admin, "manage_orders");
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -76,6 +82,11 @@ function Dashboard() {
     const hasLoadedRef = useRef(false);
 
     useEffect(() => {
+
+        if (!canViewOrders) {
+            setLoading(false);
+            return;
+        }
 
         loadOrders();
 
@@ -96,7 +107,7 @@ function Dashboard() {
 
         return () => clearInterval(interval);
 
-    }, []);
+    }, [canViewOrders]);
 
     const loadOrders = async (silent = false) => {
 
@@ -167,7 +178,13 @@ function Dashboard() {
 
             </Box>
 
-            {loading ? (
+            {!canViewOrders ? (
+
+                <Typography color="text.secondary">
+                    You don't have access to order data. Ask your Owner to grant it if you need it.
+                </Typography>
+
+            ) : loading ? (
 
                 <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
                     <CircularProgress size={28} />

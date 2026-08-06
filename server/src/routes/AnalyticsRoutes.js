@@ -10,20 +10,24 @@ import {
     getCouponUsage,
     getCancelledOrders
 } from "../controllers/AnalyticsController.js";
-import { authenticate, authorize, requireOwner } from "../middleware/Auth.js";
+import { authenticate, authorize, requireOwner, requirePermission } from "../middleware/Auth.js";
 
 const router = express.Router();
 
 router.use(authenticate, authorize("admin"));
 
-router.get("/overview", getOverview);
+// /overview backs the Analytics page; the rest back the Reports page's
+// tabs - two different screens/permissions even though they share this
+// route file. /branch-comparison stays requireOwner (cross-branch data),
+// not part of the delegable list at all.
+router.get("/overview", requirePermission("view_analytics"), getOverview);
 router.get("/branch-comparison", requireOwner, getBranchComparison);
-router.get("/menu-profitability", getMenuProfitability);
-router.get("/tax-summary", getTaxSummary);
-router.get("/payment-breakdown", getPaymentBreakdown);
-router.get("/sales-summary", getSalesSummary);
-router.get("/category-sales", getCategorySales);
-router.get("/coupon-usage", getCouponUsage);
-router.get("/cancelled-orders", getCancelledOrders);
+router.get("/menu-profitability", requirePermission("view_reports"), getMenuProfitability);
+router.get("/tax-summary", requirePermission("view_reports"), getTaxSummary);
+router.get("/payment-breakdown", requirePermission("view_reports"), getPaymentBreakdown);
+router.get("/sales-summary", requirePermission("view_reports"), getSalesSummary);
+router.get("/category-sales", requirePermission("view_reports"), getCategorySales);
+router.get("/coupon-usage", requirePermission("view_reports"), getCouponUsage);
+router.get("/cancelled-orders", requirePermission("view_reports"), getCancelledOrders);
 
 export default router;

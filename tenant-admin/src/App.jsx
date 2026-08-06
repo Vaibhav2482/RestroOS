@@ -57,16 +57,16 @@ function App() {
                 <Route path="/login" element={<Login />} />
 
                 <Route path="/" element={withLayout(<Dashboard />)} />
-                <Route path="/analytics" element={withLayout(<Suspense fallback={analyticsFallback}><Analytics /></Suspense>)} />
-                <Route path="/orders" element={withLayout(<Orders />)} />
-                <Route path="/customers" element={withLayout(<Customers />)} />
-                <Route path="/pos" element={withLayout(<Pos />)} />
-                <Route path="/kitchen" element={withLayout(<Kitchen />)} />
-                <Route path="/tables" element={withLayout(<Tables />)} />
-                <Route path="/menu" element={withLayout(<Menu />)} />
-                <Route path="/inventory" element={withLayout(<Inventory />)} />
-                <Route path="/reports" element={withLayout(<Reports />)} />
-                <Route path="/categories" element={withLayout(<Categories />)} />
+                <Route path="/analytics" element={withLayout(<Suspense fallback={analyticsFallback}><Analytics /></Suspense>, { permission: "view_analytics" })} />
+                <Route path="/orders" element={withLayout(<Orders />, { permission: "manage_orders" })} />
+                <Route path="/customers" element={withLayout(<Customers />, { permission: "view_customers" })} />
+                <Route path="/pos" element={withLayout(<Pos />, { permission: "manage_orders" })} />
+                <Route path="/kitchen" element={withLayout(<Kitchen />, { permission: "manage_orders" })} />
+                <Route path="/tables" element={withLayout(<Tables />, { permission: "manage_tables" })} />
+                <Route path="/menu" element={withLayout(<Menu />, { permission: "manage_menu" })} />
+                <Route path="/inventory" element={withLayout(<Inventory />, { permission: ["manage_inventory", "manage_ingredients"] })} />
+                <Route path="/reports" element={withLayout(<Reports />, { permission: "view_reports" })} />
+                <Route path="/categories" element={withLayout(<Categories />, { permission: "manage_categories" })} />
                 <Route path="/coupons" element={withLayout(<Coupons />, { permission: "manage_coupons" })} />
                 <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true })} />
                 <Route path="/admins" element={withLayout(<Admins />, { ownerOnly: true })} />

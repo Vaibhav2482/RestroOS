@@ -13,8 +13,17 @@ function ProtectedRoute({ children, ownerOnly = false, permission }) {
         return <Navigate to="/" replace />;
     }
 
-    if (permission && !hasPermission(auth.admin, permission)) {
-        return <Navigate to="/" replace />;
+    // permission may be a single key or an array of keys where any one of
+    // them is enough (e.g. Inventory holds the Ingredients tab too, so
+    // either manage_inventory or manage_ingredients should let someone in).
+    if (permission) {
+
+        const required = Array.isArray(permission) ? permission : [permission];
+
+        if (!required.some((key) => hasPermission(auth.admin, key))) {
+            return <Navigate to="/" replace />;
+        }
+
     }
 
     return children;

@@ -53,26 +53,26 @@ const NAV_GROUPS = [
         label: "Overview",
         items: [
             { label: "Dashboard", to: "/", icon: <DashboardOutlinedIcon /> },
-            { label: "Analytics", to: "/analytics", icon: <InsightsOutlinedIcon /> },
-            { label: "Reports", to: "/reports", icon: <SummarizeOutlinedIcon /> }
+            { label: "Analytics", to: "/analytics", icon: <InsightsOutlinedIcon />, permission: "view_analytics" },
+            { label: "Reports", to: "/reports", icon: <SummarizeOutlinedIcon />, permission: "view_reports" }
         ]
     },
     {
         label: "Operations",
         items: [
-            { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon /> },
-            { label: "Customers", to: "/customers", icon: <PersonOutlineOutlinedIcon /> },
-            { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon /> },
-            { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon /> },
-            { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon /> }
+            { label: "Orders", to: "/orders", icon: <ReceiptLongOutlinedIcon />, permission: "manage_orders" },
+            { label: "Customers", to: "/customers", icon: <PersonOutlineOutlinedIcon />, permission: "view_customers" },
+            { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon />, permission: "manage_orders" },
+            { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon />, permission: "manage_orders" },
+            { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon />, permission: "manage_tables" }
         ]
     },
     {
         label: "Catalog",
         items: [
-            { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon /> },
-            { label: "Inventory", to: "/inventory", icon: <Inventory2OutlinedIcon /> },
-            { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon /> }
+            { label: "Menu", to: "/menu", icon: <RestaurantMenuOutlinedIcon />, permission: "manage_menu" },
+            { label: "Inventory", to: "/inventory", icon: <Inventory2OutlinedIcon />, permission: ["manage_inventory", "manage_ingredients"] },
+            { label: "Categories", to: "/categories", icon: <CategoryOutlinedIcon />, permission: "manage_categories" }
         ]
     },
     {
@@ -231,7 +231,8 @@ function Layout({ children }) {
                         }
 
                         if (item.permission) {
-                            return hasPermission(auth?.admin, item.permission);
+                            const required = Array.isArray(item.permission) ? item.permission : [item.permission];
+                            return required.some((key) => hasPermission(auth?.admin, key));
                         }
 
                         return true;

@@ -225,5 +225,28 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Admins" ADD COLUMN "Permissions" TEXT[] NOT NULL DEFAULT '{}';
         `
+    },
+    {
+        // The permission list grew from 5 owner-only actions to 13 keys
+        // covering every tenant-admin screen (Orders/POS/Kitchen, Tables,
+        // Menu, Categories, Inventory, Customers, Analytics, Reports on top
+        // of the original 5) - every one of those screens was already
+        // unconditionally open to any Branch Admin. Without this backfill,
+        // every already-existing Branch Admin would suddenly lose access to
+        // all of them the moment requirePermission starts checking those
+        // routes. Only appends the new "core" keys (see
+        // config/permissions.js CORE_PERMISSION_KEYS) - never touches the
+        // original 5, which stay exactly as an Owner had already set them.
+        id: "0016_admin_permissions_core_backfill",
+        sql: `
+            UPDATE "Admins"
+            SET "Permissions" = ARRAY(
+                SELECT DISTINCT unnest("Permissions" || ARRAY[
+                    'manage_orders', 'manage_tables', 'manage_menu', 'manage_categories',
+                    'manage_inventory', 'view_customers', 'view_analytics', 'view_reports'
+                ])
+            )
+            WHERE "BranchId" IS NOT NULL;
+        `
     }
 ];

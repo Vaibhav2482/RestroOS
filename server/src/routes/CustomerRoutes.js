@@ -7,11 +7,11 @@ import {
     getOrCreateGuestCustomer,
     findOrCreateWalkInCustomer
 } from "../controllers/CustomerController.js";
-import { authenticate, authorize } from "../middleware/Auth.js";
+import { authenticate, authorize, requirePermission } from "../middleware/Auth.js";
 
 const router = express.Router();
 
-router.get("/", authenticate, authorize("admin"), getAllCustomers);
+router.get("/", authenticate, authorize("admin"), requirePermission("view_customers"), getAllCustomers);
 
 // Must come before "/:id" - otherwise Express would match "walk-in"/"guest" as an :id value.
 router.post("/walk-in", authenticate, authorize("admin"), findOrCreateWalkInCustomer);
