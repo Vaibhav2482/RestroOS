@@ -5,6 +5,7 @@ import { Box, CircularProgress } from "@mui/material";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Orders from "./pages/Orders";
+import Customers from "./pages/Customers";
 import Pos from "./pages/Pos";
 import Kitchen from "./pages/Kitchen";
 import Tables from "./pages/Tables";
@@ -58,6 +59,7 @@ function App() {
                 <Route path="/" element={withLayout(<Dashboard />)} />
                 <Route path="/analytics" element={withLayout(<Suspense fallback={analyticsFallback}><Analytics /></Suspense>)} />
                 <Route path="/orders" element={withLayout(<Orders />)} />
+                <Route path="/customers" element={withLayout(<Customers />)} />
                 <Route path="/pos" element={withLayout(<Pos />)} />
                 <Route path="/kitchen" element={withLayout(<Kitchen />)} />
                 <Route path="/tables" element={withLayout(<Tables />)} />

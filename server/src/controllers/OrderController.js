@@ -111,7 +111,12 @@ export const getAllOrders = asyncHandler(async (req, res) => {
         return errorResponse(res, "Branch not found.", 404);
     }
 
-    const result = await OrderService.getAllOrders(req.user.tenantId, branchId);
+    // No extra ownership check needed - the repository query already scopes
+    // every row to req.user.tenantId, so a customerId from another tenant
+    // just yields zero rows rather than leaking across tenants.
+    const customerId = req.query.customerId ? Number(req.query.customerId) : null;
+
+    const result = await OrderService.getAllOrders(req.user.tenantId, branchId, customerId);
 
     return successResponse(res, result.data, result.message);
 

@@ -230,7 +230,7 @@ export const getKitchenOrders = async (branchId) => {
 // tenantId is always enforced here, independent of branchId - an owner
 // admin (no branchId restriction) querying "all branches" must still only
 // ever see their OWN tenant's branches, never the whole platform's orders.
-export const getAllOrders = async (tenantId, branchId) => {
+export const getAllOrders = async (tenantId, branchId, customerId) => {
 
     const result = await pool.query(
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
@@ -240,9 +240,9 @@ export const getAllOrders = async (tenantId, branchId) => {
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
-         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2)
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
          ORDER BY O."OrderDate" DESC`,
-        [tenantId, branchId ?? null]
+        [tenantId, branchId ?? null, customerId ?? null]
     );
 
     return result.rows;

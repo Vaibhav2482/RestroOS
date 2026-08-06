@@ -123,13 +123,21 @@ export const updateCustomer = async (customer) => {
 
 };
 
+// Left-joined (not INNER) so a customer with zero orders still appears,
+// with OrderCount/TotalSpent as 0 rather than being dropped entirely.
+// Cancelled orders are excluded from TotalSpent - a cancelled order was
+// never actually paid out, so counting it would overstate real spend.
 export const getAllCustomersByTenant = async (tenantId) => {
 
     const result = await pool.query(
-        `SELECT "CustomerId", "FullName", "Email", "Phone", "CreatedAt", "UpdatedAt"
-         FROM "Customers"
-         WHERE "TenantId" = $1
-         ORDER BY "CustomerId" DESC`,
+        `SELECT C."CustomerId", C."FullName", C."Email", C."Phone", C."CreatedAt", C."UpdatedAt",
+                COUNT(O."OrderId") AS "OrderCount",
+                COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent"
+         FROM "Customers" C
+         LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
+         WHERE C."TenantId" = $1
+         GROUP BY C."CustomerId"
+         ORDER BY C."CustomerId" DESC`,
         [tenantId]
     );
 

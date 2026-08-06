@@ -5,6 +5,11 @@ export const getAllOrders = async (branchId) => {
     return response.data;
 };
 
+export const getOrdersByCustomer = async (customerId) => {
+    const response = await axiosClient.get("/orders", { params: { customerId } });
+    return response.data;
+};
+
 export const getActiveTableOrders = async (branchId) => {
     const response = await axiosClient.get("/orders/active-by-table", { params: branchId ? { branchId } : {} });
     return response.data;

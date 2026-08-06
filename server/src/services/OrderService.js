@@ -110,9 +110,9 @@ export const getKitchenOrders = async (branchId) => {
 
 };
 
-export const getAllOrders = async (tenantId, branchId) => {
+export const getAllOrders = async (tenantId, branchId, customerId) => {
 
-    const orders = await OrderRepository.getAllOrders(tenantId, branchId);
+    const orders = await OrderRepository.getAllOrders(tenantId, branchId, customerId);
 
     return { success: true, message: "Orders fetched successfully.", data: orders };
 
