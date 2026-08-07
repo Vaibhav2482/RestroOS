@@ -13,9 +13,12 @@ import {
     Menu,
     MenuItem,
     Toolbar,
+    Tooltip,
     Typography
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import ChevronLeftRoundedIcon from "@mui/icons-material/ChevronLeftRounded";
+import ChevronRightRoundedIcon from "@mui/icons-material/ChevronRightRounded";
 import DashboardOutlinedIcon from "@mui/icons-material/DashboardOutlined";
 import InsightsOutlinedIcon from "@mui/icons-material/InsightsOutlined";
 import SummarizeOutlinedIcon from "@mui/icons-material/SummarizeOutlined";
@@ -45,6 +48,7 @@ import * as adminService from "../services/adminService";
 import * as tenantService from "../services/tenantService";
 
 const DRAWER_WIDTH = 260;
+const DRAWER_WIDTH_COLLAPSED = 80;
 
 // Grouped rather than one flat list - a 16-item unbroken list is what made
 // the sidebar read as a plain nav dump rather than a designed IA. Each
@@ -111,6 +115,19 @@ function Layout({ children }) {
 
     const [mobileOpen, setMobileOpen] = useState(false);
     const [menuAnchor, setMenuAnchor] = useState(null);
+    // Icon-only rail mode (the pattern Square/Toast/Lightspeed all use on
+    // their POS screens to give the working area more room) - desktop only,
+    // persisted so it survives a refresh instead of resetting every load.
+    const [collapsed, setCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "1");
+    const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
+
+    const toggleCollapsed = () => {
+        setCollapsed((prev) => {
+            const next = !prev;
+            localStorage.setItem("sidebarCollapsed", next ? "1" : "0");
+            return next;
+        });
+    };
 
     useEffect(() => {
 
@@ -188,11 +205,20 @@ function Layout({ children }) {
         navigate("/login");
     };
 
-    const drawerContent = (
+    const renderDrawerContent = (isCollapsed, showToggle) => (
 
         <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
 
-            <Toolbar sx={{ px: 2.5, py: 2, height: "auto" }}>
+            <Toolbar
+                sx={{
+                    px: isCollapsed ? 1.5 : 2.5,
+                    py: 2,
+                    height: "auto",
+                    position: "relative",
+                    flexDirection: isCollapsed ? "column" : "row",
+                    gap: isCollapsed ? 1 : 0
+                }}
+            >
                 <Box
                     component={NavLink}
                     to="/orders"
@@ -203,7 +229,8 @@ function Layout({ children }) {
                         gap: 1.25,
                         textDecoration: "none",
                         color: "#4F46E5",
-                        width: "100%"
+                        width: "100%",
+                        justifyContent: isCollapsed ? "center" : "flex-start"
                     }}
                 >
                     <Box
@@ -222,6 +249,7 @@ function Layout({ children }) {
                     >
                         <RestaurantRoundedIcon fontSize="small" />
                     </Box>
+                    {!isCollapsed && (
                     <Box sx={{ minWidth: 0 }}>
                         <Typography variant="h6" fontWeight={800} sx={{ color: "inherit", lineHeight: 1.15 }}>
                             RestroOS
@@ -230,7 +258,56 @@ function Layout({ children }) {
                             {auth?.admin?.tenantName || "Admin Console"}
                         </Typography>
                     </Box>
+                    )}
                 </Box>
+
+                {/* Expanded: pinned to the right edge, vertically centered
+                    over the whole toolbar. Collapsed: stacked below the logo
+                    in normal flow instead - absolutely positioning it half
+                    outside the toolbar's own box (the first cut of this) put
+                    it underneath the nav List rendered right after, which
+                    then intercepted every click before it ever reached the
+                    button. */}
+                {showToggle && !isCollapsed && (
+                    <IconButton
+                        size="small"
+                        onClick={toggleCollapsed}
+                        sx={{
+                            position: "absolute",
+                            right: 4,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            bgcolor: "background.paper",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            boxShadow: 1,
+                            width: 24,
+                            height: 24,
+                            "&:hover": { bgcolor: "primary.main", color: "#fff" }
+                        }}
+                    >
+                        <ChevronLeftRoundedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                )}
+
+                {showToggle && isCollapsed && (
+                    <IconButton
+                        size="small"
+                        onClick={toggleCollapsed}
+                        sx={{
+                            bgcolor: "background.paper",
+                            border: "1px solid",
+                            borderColor: "divider",
+                            boxShadow: 1,
+                            width: 24,
+                            height: 24,
+                            "&:hover": { bgcolor: "primary.main", color: "#fff" }
+                        }}
+                    >
+                        <ChevronRightRoundedIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                )}
+
             </Toolbar>
 
             <Divider />
@@ -295,26 +372,28 @@ function Layout({ children }) {
 
                         <Box key={group.label} sx={{ mb: 1.5 }}>
 
-                            <Typography
-                                variant="caption"
-                                sx={{
-                                    display: "block",
-                                    px: 1.5,
-                                    mb: 0.5,
-                                    color: "text.secondary",
-                                    fontWeight: 700,
-                                    letterSpacing: "0.07em",
-                                    textTransform: "uppercase",
-                                    fontSize: "0.68rem"
-                                }}
-                            >
-                                {group.label}
-                            </Typography>
+                            {!isCollapsed && (
+                                <Typography
+                                    variant="caption"
+                                    sx={{
+                                        display: "block",
+                                        px: 1.5,
+                                        mb: 0.5,
+                                        color: "text.secondary",
+                                        fontWeight: 700,
+                                        letterSpacing: "0.07em",
+                                        textTransform: "uppercase",
+                                        fontSize: "0.68rem"
+                                    }}
+                                >
+                                    {group.label}
+                                </Typography>
+                            )}
 
                             {visibleItems.map((item) => (
 
+                                <Tooltip key={item.to} title={isCollapsed ? item.label : ""} placement="right">
                                 <ListItemButton
-                                    key={item.to}
                                     component={NavLink}
                                     to={item.to}
                                     end={item.to === "/"}
@@ -323,9 +402,10 @@ function Layout({ children }) {
                                         borderRadius: 2,
                                         mb: 0.25,
                                         pl: 1.25,
+                                        justifyContent: isCollapsed ? "center" : "flex-start",
                                         borderLeft: "3px solid transparent",
                                         color: "text.primary",
-                                        "& .MuiListItemIcon-root": { minWidth: 38, color: "text.secondary", transition: "color .15s" },
+                                        "& .MuiListItemIcon-root": { minWidth: isCollapsed ? "auto" : 38, color: "text.secondary", transition: "color .15s" },
                                         "&.active": {
                                             backgroundColor: (theme) => alpha(theme.palette.primary.main, 0.1),
                                             borderLeftColor: "primary.main",
@@ -338,8 +418,9 @@ function Layout({ children }) {
                                     }}
                                 >
                                     <ListItemIcon>{item.icon}</ListItemIcon>
-                                    <ListItemText primary={item.label} />
+                                    {!isCollapsed && <ListItemText primary={item.label} />}
                                 </ListItemButton>
+                                </Tooltip>
 
                             ))}
 
@@ -353,34 +434,39 @@ function Layout({ children }) {
 
             <Divider />
 
-            <Box
-                component={NavLink}
-                to="/profile"
-                onClick={() => setMobileOpen(false)}
-                sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 1.25,
-                    px: 2,
-                    py: 1.5,
-                    textDecoration: "none",
-                    color: "inherit",
-                    transition: "background-color .15s",
-                    "&:hover": { backgroundColor: "rgba(17,24,39,.04)" }
-                }}
-            >
-                <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 34, height: 34, fontSize: 14 }}>
-                    {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
-                </Avatar>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography variant="body2" fontWeight={600} noWrap>
-                        {auth?.admin?.FullName || "Admin"}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                        {owner ? "Owner" : "Branch Admin"}
-                    </Typography>
+            <Tooltip title={isCollapsed ? `${auth?.admin?.FullName || "Admin"} · ${owner ? "Owner" : "Branch Admin"}` : ""} placement="right">
+                <Box
+                    component={NavLink}
+                    to="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1.25,
+                        px: isCollapsed ? 0 : 2,
+                        py: 1.5,
+                        justifyContent: isCollapsed ? "center" : "flex-start",
+                        textDecoration: "none",
+                        color: "inherit",
+                        transition: "background-color .15s",
+                        "&:hover": { backgroundColor: "rgba(17,24,39,.04)" }
+                    }}
+                >
+                    <Avatar src={auth?.admin?.AvatarUrl || undefined} sx={{ bgcolor: "#4F46E5", width: 34, height: 34, fontSize: 14 }}>
+                        {auth?.admin?.FullName?.[0]?.toUpperCase() || "A"}
+                    </Avatar>
+                    {!isCollapsed && (
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" fontWeight={600} noWrap>
+                            {auth?.admin?.FullName || "Admin"}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                            {owner ? "Owner" : "Branch Admin"}
+                        </Typography>
+                    </Box>
+                    )}
                 </Box>
-            </Box>
+            </Tooltip>
 
         </Box>
 
@@ -395,10 +481,11 @@ function Layout({ children }) {
                 color="inherit"
                 elevation={0}
                 sx={{
-                    width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-                    ml: { md: `${DRAWER_WIDTH}px` },
+                    width: { md: `calc(100% - ${drawerWidth}px)` },
+                    ml: { md: `${drawerWidth}px` },
                     backgroundColor: "#FFFFFF",
-                    boxShadow: "0 1px 2px rgba(17,24,39,.04), 0 6px 20px rgba(17,24,39,.04)"
+                    boxShadow: "0 1px 2px rgba(17,24,39,.04), 0 6px 20px rgba(17,24,39,.04)",
+                    transition: (theme) => theme.transitions.create(["width", "margin"], { duration: theme.transitions.duration.shorter })
                 }}
             >
 
@@ -482,7 +569,7 @@ function Layout({ children }) {
 
             </AppBar>
 
-            <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
+            <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter }) }}>
 
                 <Drawer
                     variant="temporary"
@@ -491,18 +578,23 @@ function Layout({ children }) {
                     ModalProps={{ keepMounted: true }}
                     sx={{ display: { xs: "block", md: "none" }, "& .MuiDrawer-paper": { width: DRAWER_WIDTH } }}
                 >
-                    {drawerContent}
+                    {renderDrawerContent(false, false)}
                 </Drawer>
 
                 <Drawer
                     variant="permanent"
                     sx={{
                         display: { xs: "none", md: "block" },
-                        "& .MuiDrawer-paper": { width: DRAWER_WIDTH, borderRight: "1px solid #E5E7EB" }
+                        "& .MuiDrawer-paper": {
+                            width: drawerWidth,
+                            borderRight: "1px solid #E5E7EB",
+                            overflowX: "hidden",
+                            transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter })
+                        }
                     }}
                     open
                 >
-                    {drawerContent}
+                    {renderDrawerContent(collapsed, true)}
                 </Drawer>
 
             </Box>
@@ -511,9 +603,10 @@ function Layout({ children }) {
                 component="main"
                 sx={{
                     flexGrow: 1,
-                    width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
+                    width: { md: `calc(100% - ${drawerWidth}px)` },
                     p: { xs: 2, md: 4 },
-                    mt: 8
+                    mt: 8,
+                    transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter })
                 }}
             >
                 {children}
