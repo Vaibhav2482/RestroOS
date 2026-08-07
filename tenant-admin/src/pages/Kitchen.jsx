@@ -7,13 +7,16 @@ import {
     Divider,
     FormControl,
     Grid,
+    IconButton,
     InputLabel,
     MenuItem,
     Paper,
     Select,
     Stack,
+    Tooltip,
     Typography
 } from "@mui/material";
+import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
@@ -21,6 +24,8 @@ import * as orderService from "../services/orderService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
 import { playNotificationSound } from "../utils/notificationSound";
+import KotReceipt from "../components/KotReceipt";
+import PrintDialog from "../components/PrintDialog";
 
 // The kitchen's job ends at Ready - Delivered/Out For Delivery is
 // front-of-house's concern, handled from Orders/POS instead. Pending jumps
@@ -58,7 +63,7 @@ function formatElapsed(minutes) {
 
 }
 
-function OrderTicket({ order, column, onAdvance, advancing }) {
+function OrderTicket({ order, column, onAdvance, advancing, onPrintKot }) {
 
     const minutes = elapsedMinutes(order.OrderDate);
 
@@ -68,11 +73,18 @@ function OrderTicket({ order, column, onAdvance, advancing }) {
 
             <Stack direction="row" spacing={1} sx={{ width: "100%", mb: 0.5, justifyContent: "space-between", alignItems: "center" }}>
                 <Typography fontWeight={700}>#{order.OrderId}</Typography>
-                <Chip
-                    label={formatElapsed(minutes)}
-                    size="small"
-                    color={minutes >= 15 ? "error" : minutes >= 8 ? "warning" : "default"}
-                />
+                <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+                    <Chip
+                        label={formatElapsed(minutes)}
+                        size="small"
+                        color={minutes >= 15 ? "error" : minutes >= 8 ? "warning" : "default"}
+                    />
+                    <Tooltip title="Print KOT">
+                        <IconButton size="small" onClick={() => onPrintKot(order)} aria-label={`Print KOT for order ${order.OrderId}`}>
+                            <PrintOutlinedIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Stack>
             </Stack>
 
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -144,6 +156,7 @@ function Kitchen() {
     // in-flight ticket disabled independently, same pattern as Pos.jsx's
     // pendingAdvanceOrderIds.
     const [advancingIds, setAdvancingIds] = useState(() => new Set());
+    const [kotOrder, setKotOrder] = useState(null);
     // Unused beyond forcing a re-render - elapsedMinutes() itself always
     // reads Date.now() fresh, but nothing was ever prompting React to
     // recompute it between actual data changes (a Pusher event or the 60s
@@ -380,6 +393,7 @@ function Kitchen() {
                                             column={column}
                                             advancing={advancingIds.has(order.OrderId)}
                                             onAdvance={handleAdvance}
+                                            onPrintKot={setKotOrder}
                                         />
                                     ))
 
@@ -394,6 +408,15 @@ function Kitchen() {
                 </Grid>
 
             )}
+
+            <PrintDialog open={Boolean(kotOrder)} onClose={() => setKotOrder(null)} printLabel="Print KOT">
+                {kotOrder && (
+                    <KotReceipt
+                        order={{ ...kotOrder, BranchName: branches.find((branch) => branch.BranchId === selectedBranchId)?.BranchName }}
+                        restaurantName={admin?.tenantName}
+                    />
+                )}
+            </PrintDialog>
 
         </Box>
 

@@ -61,9 +61,16 @@ function BillReceipt({ order, restaurantName }) {
 
                 </Box>
 
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-                    <StorefrontOutlinedIcon sx={{ color: "#4F46E5" }} />
-                    <Typography fontWeight={700}>{restaurantName}{order.BranchName ? ` · ${order.BranchName}` : ""}</Typography>
+                <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 2 }}>
+                    <StorefrontOutlinedIcon sx={{ color: "#4F46E5", mt: 0.25 }} />
+                    <Box>
+                        <Typography fontWeight={700}>{restaurantName}{order.BranchName ? ` · ${order.BranchName}` : ""}</Typography>
+                        {order.BranchAddress && (
+                            <Typography variant="caption" color="text.secondary" component="div">
+                                {[order.BranchAddress, order.BranchCity, order.BranchPincode].filter(Boolean).join(", ")}
+                            </Typography>
+                        )}
+                    </Box>
                 </Box>
 
                 <Table size="small">
@@ -87,13 +94,41 @@ function BillReceipt({ order, restaurantName }) {
 
                 <Divider sx={{ my: 1.5 }} />
 
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, mb: 1.5 }}>
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                        <Typography variant="body2" color="text.secondary">Subtotal</Typography>
+                        <Typography variant="body2">{formatMoney(order.SubTotal)}</Typography>
+                    </Box>
+
+                    {Number(order.DiscountAmount) > 0 && (
+                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                            <Typography variant="body2" color="text.secondary">Discount</Typography>
+                            <Typography variant="body2" color="success.main">-{formatMoney(order.DiscountAmount)}</Typography>
+                        </Box>
+                    )}
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                        <Typography variant="body2" color="text.secondary">CGST</Typography>
+                        <Typography variant="body2">{formatMoney(order.CgstAmount)}</Typography>
+                    </Box>
+
+                    <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                        <Typography variant="body2" color="text.secondary">SGST</Typography>
+                        <Typography variant="body2">{formatMoney(order.SgstAmount)}</Typography>
+                    </Box>
+
+                </Box>
+
+                <Divider sx={{ my: 1.5 }} />
+
                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                     <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>Total Bill</Typography>
                     <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>{formatMoney(order.TotalAmount)}</Typography>
                 </Box>
 
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.25 }}>
-                    <Typography variant="caption" color="text.secondary">Inclusive of taxes & charges</Typography>
+                    <Typography variant="caption" color="text.secondary">Inclusive of CGST + SGST</Typography>
                     <InfoOutlinedIcon sx={{ fontSize: 14, color: "text.disabled" }} />
                 </Box>
 

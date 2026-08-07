@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
+import SoupKitchenOutlinedIcon from "@mui/icons-material/SoupKitchenOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -34,6 +35,8 @@ import * as orderService from "../services/orderService";
 import * as menuService from "../services/menuService";
 import { getStoredAuth } from "../utils/adminAuth";
 import BillReceipt from "../components/BillReceipt";
+import KotReceipt from "../components/KotReceipt";
+import PrintDialog from "../components/PrintDialog";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
 import {
     formatCurrency,
@@ -75,6 +78,7 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
     const [actionLoading, setActionLoading] = useState(false);
     const [emailingBill, setEmailingBill] = useState(false);
     const [billOpen, setBillOpen] = useState(false);
+    const [kotOpen, setKotOpen] = useState(false);
 
     // Items can only be edited while an order is still Pending (enforced
     // server-side too - see OrderRepository.updateOrderItems). editLines is
@@ -607,6 +611,15 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                                 <Button
                                     size="small"
                                     variant="outlined"
+                                    startIcon={<SoupKitchenOutlinedIcon />}
+                                    onClick={() => setKotOpen(true)}
+                                >
+                                    Print KOT
+                                </Button>
+
+                                <Button
+                                    size="small"
+                                    variant="outlined"
                                     startIcon={<EmailOutlinedIcon />}
                                     disabled={emailingBill}
                                     onClick={handleEmailBill}
@@ -686,24 +699,17 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
             {order && (
 
-                <Dialog open={billOpen} onClose={() => setBillOpen(false)} maxWidth="xs" fullWidth>
+                <PrintDialog open={billOpen} onClose={() => setBillOpen(false)}>
+                    <BillReceipt order={order} restaurantName={auth?.admin?.tenantName} />
+                </PrintDialog>
 
-                    <DialogContent sx={{ pt: 3 }}>
-                        <BillReceipt order={order} restaurantName={auth?.admin?.tenantName} />
-                    </DialogContent>
+            )}
 
-                    <DialogActions>
-                        <Button onClick={() => setBillOpen(false)}>Close</Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<PrintOutlinedIcon />}
-                            onClick={() => window.print()}
-                        >
-                            Print
-                        </Button>
-                    </DialogActions>
+            {order && (
 
-                </Dialog>
+                <PrintDialog open={kotOpen} onClose={() => setKotOpen(false)} printLabel="Print KOT">
+                    <KotReceipt order={order} restaurantName={auth?.admin?.tenantName} />
+                </PrintDialog>
 
             )}
 

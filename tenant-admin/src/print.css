@@ -1,24 +1,28 @@
-/* The bill preview is a nested MUI Dialog, which portals outside #root
-   (straight onto <body>) - so hiding #root for print removes the whole
-   app (including the order-details dialog underneath it) in one shot,
-   leaving just the bill dialog's own content height. This avoids the
-   "extra blank page" bug that a visibility:hidden approach has, since
-   hidden-but-still-in-flow content behind the dialog no longer inflates
-   the page height being printed. */
+/* Every printable receipt (bill, KOT, ...) renders inside PrintDialog,
+   a nested MUI Dialog that portals outside #root (straight onto <body>) -
+   so hiding #root for print removes the whole app (including whatever
+   dialog PrintDialog itself is nested inside) in one shot, leaving just
+   the receipt's own content height. This avoids the "extra blank page"
+   bug that a visibility:hidden approach has, since hidden-but-still-in-flow
+   content behind the dialog no longer inflates the page height being
+   printed. */
 @media print {
 
     #root {
         display: none !important;
     }
 
-    /* The order-details dialog this is nested inside is also portaled
-       outside #root, so it needs hiding on its own - only the modal
-       root that actually contains the bill gets shown back. */
+    /* Any dialog this is nested inside (e.g. Order Details) is also
+       portaled outside #root, so it needs hiding on its own - only the
+       modal root that actually contains PrintDialog's content gets shown
+       back. Keying off print-dialog-content (not a receipt-specific class)
+       means any new receipt type works automatically as long as it's
+       rendered through PrintDialog. */
     .MuiModal-root {
         display: none !important;
     }
 
-    .MuiModal-root:has(.bill-receipt-print) {
+    .MuiModal-root:has(.print-dialog-content) {
         display: block !important;
     }
 

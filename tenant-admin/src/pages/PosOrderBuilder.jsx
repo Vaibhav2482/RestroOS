@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+    Alert,
     Box,
     Button,
     Card,
@@ -23,7 +24,10 @@ import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
 import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
+import { getStoredAuth } from "../utils/adminAuth";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
+import KotReceipt from "../components/KotReceipt";
+import PrintDialog from "../components/PrintDialog";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 const GUEST_PHONE = "0000000000";
@@ -106,7 +110,9 @@ function QuantityInput({ value, onCommit, sx }) {
 // a customer (or fall back to the shared guest placeholder), pick a payment
 // method and submit. GST is computed server-side, so only a pre-tax
 // subtotal is shown here.
-function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCancel }) {
+function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCancel }) {
+
+    const { admin } = getStoredAuth() || {};
 
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
@@ -126,6 +132,13 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
     const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
     const [notes, setNotes] = useState("");
     const [submitting, setSubmitting] = useState(false);
+    // Holds the just-placed order shaped for KotReceipt, built from the
+    // still-in-memory cart lines rather than re-fetching - the confirmation
+    // dialog this drives is the moment a real KOT/POS system prints or
+    // offers to print a kitchen ticket, so onCreated (which swaps this
+    // screen away) is deferred until that dialog is dismissed instead of
+    // firing immediately on a successful order.
+    const [placedOrder, setPlacedOrder] = useState(null);
 
     // Default to the shared guest placeholder so staff can start adding items
     // immediately; they can still swap in a real customer below.
@@ -501,7 +514,24 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
             }
 
             toast.success(`Order #${response.data.OrderId} placed — total ₹ ${Number(response.data.TotalAmount).toFixed(2)}.`);
-            onCreated(response.data);
+
+            setPlacedOrder({
+                createdOrder: response.data,
+                kotOrder: {
+                    OrderId: response.data.OrderId,
+                    DeliveryType: deliveryType,
+                    TableNumber: tableNumber,
+                    OrderNotes: notes.trim() || undefined,
+                    OrderDate: new Date().toISOString(),
+                    BranchName: branchName,
+                    Items: cartLines.map((line) => ({
+                        OrderItemId: line.lineKey,
+                        ItemName: line.itemName,
+                        Quantity: line.quantity,
+                        SelectedOptions: line.summary ? line.summary.split(", ").map((name) => ({ OptionName: name })) : []
+                    }))
+                }
+            });
 
         } catch (error) {
 
@@ -940,6 +970,21 @@ function PosOrderBuilder({ branchId, deliveryType, tableNumber, onCreated, onCan
                 onClose={() => setOptionsDialogItem(null)}
                 onConfirm={handleConfirmOptions}
             />
+
+            <PrintDialog
+                open={Boolean(placedOrder)}
+                onClose={() => { onCreated(placedOrder.createdOrder); setPlacedOrder(null); }}
+                printLabel="Print KOT"
+            >
+                {placedOrder && (
+                    <>
+                        <Alert severity="success" sx={{ mb: 2 }}>
+                            Order #{placedOrder.createdOrder.OrderId} placed. Send this ticket to the kitchen.
+                        </Alert>
+                        <KotReceipt order={placedOrder.kotOrder} restaurantName={admin?.tenantName} />
+                    </>
+                )}
+            </PrintDialog>
 
         </Grid>
 

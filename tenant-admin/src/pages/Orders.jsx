@@ -5,6 +5,7 @@ import {
     Chip,
     CircularProgress,
     FormControl,
+    IconButton,
     InputAdornment,
     InputLabel,
     MenuItem,
@@ -19,10 +20,13 @@ import {
     TablePagination,
     TableRow,
     TextField,
+    Tooltip,
     Typography
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
+import SoupKitchenOutlinedIcon from "@mui/icons-material/SoupKitchenOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
@@ -32,6 +36,9 @@ import { getPusherClient } from "../lib/pusherClient";
 import { playNotificationSound } from "../utils/notificationSound";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 import EmptyState from "../components/EmptyState";
+import BillReceipt from "../components/BillReceipt";
+import KotReceipt from "../components/KotReceipt";
+import PrintDialog from "../components/PrintDialog";
 import { formatCurrency, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
 
 // "All" first, then the sequence a Delivery order actually moves through -
@@ -60,6 +67,14 @@ function Orders() {
     // keeps every in-flight row disabled independently, same pattern as
     // Pos.jsx's pendingAdvanceOrderIds.
     const [advancingOrderIds, setAdvancingOrderIds] = useState(() => new Set());
+
+    // Row-level print actions fetch the full order (the list view doesn't
+    // carry line items/tax fields) on demand rather than up front for every
+    // row - printLoadingId disables just the clicked row's icon while that
+    // fetch is in flight, same per-row-independent pattern as advancing.
+    const [printOrder, setPrintOrder] = useState(null);
+    const [printMode, setPrintMode] = useState(null);
+    const [printLoadingId, setPrintLoadingId] = useState(null);
 
     // Client-side paging over the already-fetched (filtered) list - the
     // backend has no page/limit param on GET /orders.
@@ -251,6 +266,45 @@ function Orders() {
 
         }
 
+    };
+
+    const handlePrint = async (event, order, mode) => {
+
+        event.stopPropagation();
+
+        if (printLoadingId === order.OrderId) {
+            return;
+        }
+
+        setPrintLoadingId(order.OrderId);
+
+        try {
+
+            const response = await orderService.getOrderById(order.OrderId);
+
+            if (!response.success) {
+                toast.error(response.message || "Failed to load order.");
+                return;
+            }
+
+            setPrintOrder(response.data);
+            setPrintMode(mode);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to load order.");
+
+        } finally {
+
+            setPrintLoadingId(null);
+
+        }
+
+    };
+
+    const handleClosePrint = () => {
+        setPrintOrder(null);
+        setPrintMode(null);
     };
 
     const statusCounts = orders.reduce((counts, order) => {
@@ -458,6 +512,33 @@ function Orders() {
                                                 </TableCell>
 
                                                 <TableCell align="right" onClick={(event) => event.stopPropagation()}>
+
+                                                    <Stack direction="row" spacing={0.25} sx={{ display: "inline-flex", alignItems: "center", mr: 1 }}>
+
+                                                        <Tooltip title="Print KOT">
+                                                            <IconButton
+                                                                size="small"
+                                                                disabled={printLoadingId === order.OrderId}
+                                                                onClick={(event) => handlePrint(event, order, "kot")}
+                                                                aria-label={`Print KOT for order ${order.OrderId}`}
+                                                            >
+                                                                <SoupKitchenOutlinedIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+
+                                                        <Tooltip title="Print bill">
+                                                            <IconButton
+                                                                size="small"
+                                                                disabled={printLoadingId === order.OrderId}
+                                                                onClick={(event) => handlePrint(event, order, "bill")}
+                                                                aria-label={`Print bill for order ${order.OrderId}`}
+                                                            >
+                                                                <PrintOutlinedIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
+
+                                                    </Stack>
+
                                                     {!isTerminalStatus(order.OrderStatus) && nextStatus && (
                                                         <Button
                                                             size="small"
@@ -468,6 +549,7 @@ function Orders() {
                                                             {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
                                                         </Button>
                                                     )}
+
                                                 </TableCell>
 
                                             </TableRow>
@@ -511,6 +593,21 @@ function Orders() {
                 onClose={handleDialogClose}
                 onChanged={loadOrders}
             />
+
+            <PrintDialog
+                open={Boolean(printOrder) && printMode === "bill"}
+                onClose={handleClosePrint}
+            >
+                {printOrder && <BillReceipt order={printOrder} restaurantName={admin?.tenantName} />}
+            </PrintDialog>
+
+            <PrintDialog
+                open={Boolean(printOrder) && printMode === "kot"}
+                onClose={handleClosePrint}
+                printLabel="Print KOT"
+            >
+                {printOrder && <KotReceipt order={printOrder} restaurantName={admin?.tenantName} />}
+            </PrintDialog>
 
         </Box>
 

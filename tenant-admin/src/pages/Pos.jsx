@@ -28,6 +28,8 @@ function Pos() {
 
     const [mode, setMode] = useState("grid");
     const [pendingTable, setPendingTable] = useState(null);
+
+    const selectedBranchName = branches.find((branch) => branch.BranchId === selectedBranchId)?.BranchName;
     const [detailsOrder, setDetailsOrder] = useState(null);
     // A table with more than one still-active order (e.g. a second round
     // ordered after the first is already being prepared) needs a chooser -
@@ -374,6 +376,7 @@ function Pos() {
                     <PosOrderBuilder
                         key={`dine-in-${selectedBranchId}-${pendingTable.TableId}`}
                         branchId={selectedBranchId}
+                        branchName={selectedBranchName}
                         deliveryType="Dine In"
                         tableNumber={pendingTable.TableName}
                         onCreated={handleOrderCreated}
@@ -395,6 +398,7 @@ function Pos() {
                     <PosOrderBuilder
                         key={`takeaway-${selectedBranchId}`}
                         branchId={selectedBranchId}
+                        branchName={selectedBranchName}
                         deliveryType="Takeaway"
                         onCreated={handleOrderCreated}
                         onCancel={() => setMode("grid")}
