@@ -27,11 +27,7 @@ const DialogContent = forwardRef(({ className, children, showClose = true, ...pr
         <DialogPrimitive.Content
             ref={ref}
             className={cn(
-                // Radix portals this to document.body, outside any ancestor
-                // that sets font-sans - font-sans has to be set here
-                // directly or the dialog silently falls back to whatever
-                // font the body happens to have (MUI's Plus Jakarta Sans).
-                "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-border bg-card p-6 font-sans shadow-2xl duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+                "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border border-border bg-card p-6 shadow-2xl duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
                 className
             )}
             {...props}
