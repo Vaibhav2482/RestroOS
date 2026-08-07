@@ -180,7 +180,7 @@ describe("Tenants - search and status filter", () => {
 
         await user.type(screen.getByPlaceholderText(/search by name, slug, or owner email/i), "no-such-restaurant");
 
-        expect(await screen.findByText(/no restaurants match your search or filter/i)).toBeInTheDocument();
+        expect(await screen.findByText(/no restaurants match/i)).toBeInTheDocument();
 
     });
 

@@ -55,11 +55,11 @@ function Setup() {
 
             <Paper elevation={0} sx={{ width: 420, maxWidth: "100%", p: 5, border: "1px solid #E5E7EB" }} component="form" onSubmit={handleSubmit}>
 
-                <Typography variant="h5" fontWeight={800} textAlign="center" sx={{ color: "#4F46E5" }}>
+                <Typography variant="h5" fontWeight={800} sx={{ textAlign: "center", color: "#4F46E5" }}>
                     RestroOS
                 </Typography>
 
-                <Typography textAlign="center" color="text.secondary" sx={{ mb: 3 }}>
+                <Typography color="text.secondary" sx={{ textAlign: "center", mb: 3 }}>
                     First-time setup
                 </Typography>
 
@@ -103,7 +103,7 @@ function Setup() {
                     {loading ? "Creating..." : "Create Platform Admin Account"}
                 </Button>
 
-                <Typography textAlign="center" sx={{ mt: 3 }}>
+                <Typography sx={{ textAlign: "center", mt: 3 }}>
                     Already set up? <RouterLink to="/login">Log in</RouterLink>
                 </Typography>
 

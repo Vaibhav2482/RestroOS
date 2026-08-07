@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     AppBar,
     Avatar,
     Box,
     Button,
+    Card,
+    CardContent,
     Chip,
     CircularProgress,
     Container,
@@ -13,6 +15,7 @@ import {
     DialogContentText,
     DialogTitle,
     Divider,
+    Grid,
     IconButton,
     ListItemIcon,
     Menu,
@@ -32,6 +35,7 @@ import {
     Paper
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import SearchOffRoundedIcon from "@mui/icons-material/SearchOffRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
@@ -39,6 +43,9 @@ import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
+import StorefrontRoundedIcon from "@mui/icons-material/StorefrontRounded";
+import NewReleasesRoundedIcon from "@mui/icons-material/NewReleasesRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -47,6 +54,56 @@ import { clearStoredAuth, getStoredAuth } from "../utils/platformAuth";
 import TenantDialog from "./TenantDialog";
 import TemporaryPasswordDialog from "./TemporaryPasswordDialog";
 import TenantFeaturesDialog from "./TenantFeaturesDialog";
+import EmptyState from "../components/EmptyState";
+
+// Same visual language as tenant-admin's Dashboard stat cards, so the two
+// consoles read as one product rather than two differently-designed apps.
+function StatCard({ icon, label, value, color }) {
+
+    return (
+
+        <Card elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
+
+            <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+
+                <Box
+                    sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 2.5,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: `${color}1A`,
+                        color,
+                        flexShrink: 0
+                    }}
+                >
+                    {icon}
+                </Box>
+
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" color="text.secondary" noWrap>{label}</Typography>
+                    <Typography variant="h5" fontWeight={800}>{value}</Typography>
+                </Box>
+
+            </CardContent>
+
+        </Card>
+
+    );
+
+}
+
+// Deterministic color per restaurant, purely so the row-identity avatars in
+// the table aren't all the same flat purple - picked from the same palette
+// family already used across the app rather than random hues.
+const AVATAR_PALETTE = ["#4F46E5", "#0F766E", "#B45309", "#BE185D", "#0369A1", "#7C3AED"];
+
+function avatarColorFor(name) {
+    const code = (name || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return AVATAR_PALETTE[code % AVATAR_PALETTE.length];
+}
 
 function Tenants() {
 
@@ -255,6 +312,22 @@ function Tenants() {
         setPage(0);
     };
 
+    const stats = useMemo(() => {
+
+        const now = new Date();
+
+        return {
+            total: tenants.length,
+            active: tenants.filter((tenant) => tenant.IsActive).length,
+            inactive: tenants.filter((tenant) => !tenant.IsActive).length,
+            newThisMonth: tenants.filter((tenant) => {
+                const createdAt = new Date(tenant.CreatedAt);
+                return createdAt.getFullYear() === now.getFullYear() && createdAt.getMonth() === now.getMonth();
+            }).length
+        };
+
+    }, [tenants]);
+
     return (
 
         <Box>
@@ -268,9 +341,24 @@ function Tenants() {
 
                 <Toolbar>
 
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexGrow: 1, color: "#4F46E5" }}>
-                        <RestaurantRoundedIcon />
-                        <Typography variant="h6" fontWeight={800} sx={{ color: "inherit" }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flexGrow: 1 }}>
+                        <Box
+                            sx={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 2.5,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                flexShrink: 0,
+                                bgcolor: "#4F46E5",
+                                color: "#fff",
+                                boxShadow: "0 4px 12px rgba(79,70,229,.35)"
+                            }}
+                        >
+                            <RestaurantRoundedIcon fontSize="small" />
+                        </Box>
+                        <Typography variant="h6" fontWeight={800} sx={{ color: "#4F46E5" }}>
                             RestroOS
                         </Typography>
                         <Chip label="Platform Admin" size="small" sx={{ ml: 1, fontWeight: 600, display: { xs: "none", sm: "flex" } }} />
@@ -340,39 +428,25 @@ function Tenants() {
 
                 {!loading && tenants.length > 0 && (
 
-                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
 
-                        <TextField
-                            size="small"
-                            placeholder="Search by name, slug, or owner email"
-                            value={searchQuery}
-                            onChange={handleSearchChange}
-                            sx={{ minWidth: 280, flexGrow: 1 }}
-                            slotProps={{
-                                input: {
-                                    startAdornment: (
-                                        <InputAdornment position="start">
-                                            <SearchRoundedIcon fontSize="small" />
-                                        </InputAdornment>
-                                    )
-                                }
-                            }}
-                        />
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                            <StatCard icon={<StorefrontRoundedIcon />} label="Total Restaurants" value={stats.total} color="#4F46E5" />
+                        </Grid>
 
-                        <TextField
-                            select
-                            size="small"
-                            label="Status"
-                            value={statusFilter}
-                            onChange={handleStatusFilterChange}
-                            sx={{ minWidth: 140 }}
-                        >
-                            <MenuItem value="all">All</MenuItem>
-                            <MenuItem value="active">Active</MenuItem>
-                            <MenuItem value="inactive">Inactive</MenuItem>
-                        </TextField>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                            <StatCard icon={<CheckCircleRoundedIcon />} label="Active" value={stats.active} color="#22C55E" />
+                        </Grid>
 
-                    </Box>
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                            <StatCard icon={<BlockRoundedIcon />} label="Inactive" value={stats.inactive} color="#EF4444" />
+                        </Grid>
+
+                        <Grid size={{ xs: 6, sm: 3 }}>
+                            <StatCard icon={<NewReleasesRoundedIcon />} label="Onboarded This Month" value={stats.newThisMonth} color="#F59E0B" />
+                        </Grid>
+
+                    </Grid>
 
                 )}
 
@@ -384,7 +458,53 @@ function Tenants() {
 
                 ) : (
 
-                    <TableContainer component={Paper}>
+                    <Paper>
+
+                        {tenants.length > 0 && (
+
+                            <>
+
+                                <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", p: 2.5 }}>
+
+                                    <TextField
+                                        size="small"
+                                        placeholder="Search by name, slug, or owner email"
+                                        value={searchQuery}
+                                        onChange={handleSearchChange}
+                                        sx={{ minWidth: 280, flexGrow: 1 }}
+                                        slotProps={{
+                                            input: {
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <SearchRoundedIcon fontSize="small" />
+                                                    </InputAdornment>
+                                                )
+                                            }
+                                        }}
+                                    />
+
+                                    <TextField
+                                        select
+                                        size="small"
+                                        label="Status"
+                                        value={statusFilter}
+                                        onChange={handleStatusFilterChange}
+                                        sx={{ minWidth: 140 }}
+                                    >
+                                        <MenuItem value="all">All</MenuItem>
+                                        <MenuItem value="active">Active</MenuItem>
+                                        <MenuItem value="inactive">Inactive</MenuItem>
+                                    </TextField>
+
+                                </Box>
+
+                                <Divider />
+
+                            </>
+
+                        )}
+
+                        <TableContainer>
 
                         <Table>
 
@@ -392,7 +512,6 @@ function Tenants() {
 
                                 <TableRow>
                                     <TableCell>Restaurant</TableCell>
-                                    <TableCell>Slug</TableCell>
                                     <TableCell>Owner Email</TableCell>
                                     <TableCell>Plan</TableCell>
                                     <TableCell>Status</TableCell>
@@ -407,33 +526,46 @@ function Tenants() {
                                 {loadError && tenants.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                            <Typography color="error.main" sx={{ mb: 1.5 }}>
-                                                Couldn't load tenants.
-                                            </Typography>
-                                            <Button size="small" variant="outlined" onClick={handleRetry} disabled={retrying} startIcon={retrying ? <CircularProgress size={14} /> : null}>
-                                                {retrying ? "Retrying..." : "Retry"}
-                                            </Button>
+                                        <TableCell colSpan={6} sx={{ py: 0 }}>
+                                            <EmptyState
+                                                icon={<ErrorOutlineRoundedIcon />}
+                                                title="Couldn't load restaurants"
+                                                description="Check your connection and try again."
+                                                action={
+                                                    <Button size="small" variant="outlined" onClick={handleRetry} disabled={retrying} startIcon={retrying ? <CircularProgress size={14} /> : null}>
+                                                        {retrying ? "Retrying..." : "Retry"}
+                                                    </Button>
+                                                }
+                                            />
                                         </TableCell>
                                     </TableRow>
 
                                 ) : tenants.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                            <Typography color="text.secondary">
-                                                No tenants yet. Onboard your first restaurant to get started.
-                                            </Typography>
+                                        <TableCell colSpan={6} sx={{ py: 0 }}>
+                                            <EmptyState
+                                                icon={<StorefrontRoundedIcon />}
+                                                title="No restaurants yet"
+                                                description="Onboard your first restaurant to get started."
+                                                action={
+                                                    <Button size="small" variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setDialogOpen(true)}>
+                                                        Onboard Restaurant
+                                                    </Button>
+                                                }
+                                            />
                                         </TableCell>
                                     </TableRow>
 
                                 ) : filteredTenants.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                                            <Typography color="text.secondary">
-                                                No restaurants match your search or filter.
-                                            </Typography>
+                                        <TableCell colSpan={6} sx={{ py: 0 }}>
+                                            <EmptyState
+                                                icon={<SearchOffRoundedIcon />}
+                                                title="No restaurants match"
+                                                description="Try a different search term or status filter."
+                                            />
                                         </TableCell>
                                     </TableRow>
 
@@ -442,11 +574,37 @@ function Tenants() {
                                     pagedTenants.map((tenant) => (
 
                                         <TableRow key={tenant.TenantId} hover>
-                                            <TableCell sx={{ maxWidth: 220, overflowWrap: "anywhere" }}>{tenant.TenantName}</TableCell>
-                                            <TableCell sx={{ maxWidth: 160, overflowWrap: "anywhere" }}>{tenant.Slug}</TableCell>
+                                            <TableCell sx={{ maxWidth: 280 }}>
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                                                    <Avatar
+                                                        sx={{
+                                                            width: 36,
+                                                            height: 36,
+                                                            bgcolor: avatarColorFor(tenant.TenantName),
+                                                            fontSize: "0.9rem",
+                                                            fontWeight: 700
+                                                        }}
+                                                    >
+                                                        {tenant.TenantName?.[0]?.toUpperCase() || "?"}
+                                                    </Avatar>
+                                                    <Box sx={{ minWidth: 0 }}>
+                                                        <Typography fontWeight={600} sx={{ overflowWrap: "anywhere" }}>
+                                                            {tenant.TenantName}
+                                                        </Typography>
+                                                        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "anywhere" }}>
+                                                            {tenant.Slug}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+                                            </TableCell>
                                             <TableCell sx={{ maxWidth: 220, overflowWrap: "anywhere" }}>{tenant.OwnerEmail}</TableCell>
                                             <TableCell>
-                                                <Chip label={tenant.PlanType} size="small" />
+                                                <Chip
+                                                    label={tenant.PlanType}
+                                                    size="small"
+                                                    color={tenant.PlanType === "trial" ? "default" : "primary"}
+                                                    variant={tenant.PlanType === "trial" ? "outlined" : "filled"}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 <Chip
@@ -499,6 +657,8 @@ function Tenants() {
 
                         </Table>
 
+                        </TableContainer>
+
                         {filteredTenants.length > 0 && (
 
                             <TablePagination
@@ -516,7 +676,7 @@ function Tenants() {
 
                         )}
 
-                    </TableContainer>
+                    </Paper>
 
                 )}
 
