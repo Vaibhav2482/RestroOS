@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ShoppingBag, UtensilsCrossed } from "lucide-react";
+import { Box, Button, Card, MenuItem, Select, Typography } from "@mui/material";
 import toast from "react-hot-toast";
 
-import { cn } from "../lib/utils";
 import * as branchService from "../services/branchService";
 import * as tableService from "../services/tableService";
 import * as orderService from "../services/orderService";
@@ -241,11 +240,6 @@ function Pos() {
         setMode("takeaway");
     };
 
-    const handleBackToGrid = () => {
-        setPendingTable(null);
-        setMode("grid");
-    };
-
     const handleOrderCreated = () => {
         setMode("grid");
         setPendingTable(null);
@@ -316,79 +310,49 @@ function Pos() {
 
     return (
 
-        <div>
+        <Box>
 
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
 
-                <h1 className="text-2xl font-extrabold text-foreground">Take Order</h1>
+                <Typography variant="h4" fontWeight={700}>
+                    Take Order
+                </Typography>
 
-                <div className="flex items-center gap-3">
+                <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
 
                     {ownerMode && branches.length > 0 && (
 
-                        <div className="relative">
-                            <select
-                                value={selectedBranchId ?? ""}
-                                onChange={(event) => {
-                                    setSelectedBranchId(Number(event.target.value));
-                                    setMode("grid");
-                                    setPendingTable(null);
-                                }}
-                                className="h-10 appearance-none rounded-xl border border-border bg-card pl-3.5 pr-9 text-sm font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            >
-                                {branches.map((branch) => (
-                                    <option key={branch.BranchId} value={branch.BranchId}>
-                                        {branch.BranchName}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                        </div>
+                        <Select
+                            size="small"
+                            value={selectedBranchId ?? ""}
+                            onChange={(event) => {
+                                setSelectedBranchId(event.target.value);
+                                setMode("grid");
+                                setPendingTable(null);
+                            }}
+                        >
+                            {branches.map((branch) => (
+                                <MenuItem key={branch.BranchId} value={branch.BranchId}>
+                                    {branch.BranchName}
+                                </MenuItem>
+                            ))}
+                        </Select>
 
                     )}
 
-                    <div className="flex rounded-xl border border-border bg-muted p-1">
+                    {mode === "grid" && (
+                        <Button variant="outlined" onClick={handleTakeaway}>
+                            Takeaway / Counter Order
+                        </Button>
+                    )}
 
-                        <button
-                            type="button"
-                            onClick={handleBackToGrid}
-                            className={cn(
-                                "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                                mode !== "takeaway" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-                            )}
-                        >
-                            <UtensilsCrossed className="h-3.5 w-3.5" /> Dine In
-                        </button>
+                </Box>
 
-                        <button
-                            type="button"
-                            onClick={handleTakeaway}
-                            className={cn(
-                                "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                                mode === "takeaway" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground"
-                            )}
-                        >
-                            <ShoppingBag className="h-3.5 w-3.5" /> Takeaway
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </div>
+            </Box>
 
             {mode === "grid" && (
 
-                loading ? (
-
-                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                        {Array.from({ length: 6 }).map((_, index) => (
-                            <div key={index} className="h-52 animate-pulse rounded-2xl border border-border bg-card" />
-                        ))}
-                    </div>
-
-                ) : (
-
+                <>
                     <PosTableGrid
                         tables={tables}
                         activeOrdersByTable={activeOrdersByTable}
@@ -397,18 +361,17 @@ function Pos() {
                         onAddOrder={handleAddAnotherOrder}
                         pendingAdvanceOrderIds={pendingAdvanceOrderIds}
                     />
-
-                )
+                </>
 
             )}
 
             {mode === "dine-in" && pendingTable && selectedBranchId && (
 
-                <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                <Card sx={{ p: 3 }}>
 
-                    <h2 className="mb-4 text-base font-bold text-foreground">
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                         New Order — Table {pendingTable.TableName}
-                    </h2>
+                    </Typography>
 
                     <PosOrderBuilder
                         key={`dine-in-${selectedBranchId}-${pendingTable.TableId}`}
@@ -420,17 +383,17 @@ function Pos() {
                         onCancel={() => { setMode("grid"); setPendingTable(null); }}
                     />
 
-                </div>
+                </Card>
 
             )}
 
             {mode === "takeaway" && selectedBranchId && (
 
-                <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+                <Card sx={{ p: 3 }}>
 
-                    <h2 className="mb-4 text-base font-bold text-foreground">
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
                         New Order — Takeaway
-                    </h2>
+                    </Typography>
 
                     <PosOrderBuilder
                         key={`takeaway-${selectedBranchId}`}
@@ -441,7 +404,7 @@ function Pos() {
                         onCancel={() => setMode("grid")}
                     />
 
-                </div>
+                </Card>
 
             )}
 
@@ -462,7 +425,7 @@ function Pos() {
                 onClose={() => setTableOrdersView(null)}
             />
 
-        </div>
+        </Box>
 
     );
 
