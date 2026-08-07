@@ -723,7 +723,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 ) : (
 
-                    <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
 
                         {filteredItems.map((item) => {
 
@@ -734,83 +734,85 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                 <motion.div
                                     key={item.MenuItemId}
-                                    whileHover={{ y: -3 }}
+                                    whileHover={{ y: -2 }}
                                     transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                                    className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg"
+                                    className="group flex flex-col gap-2 rounded-2xl border border-border bg-card p-2.5 shadow-sm transition-shadow hover:shadow-md"
                                 >
 
-                                    <div className="relative aspect-[16/9] overflow-hidden">
+                                    <div className="flex items-start gap-2.5">
 
-                                        {item.ImageUrl ? (
-                                            <img
-                                                src={item.ImageUrl}
-                                                alt={item.ItemName}
-                                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            />
-                                        ) : (
-                                            // Most tenants haven't uploaded photography yet, so this is the
-                                            // common case, not a rare fallback - a per-item gradient (instead
-                                            // of one flat tint repeated on every card) plus a category-relevant
-                                            // icon keeps a full grid of unphotographed items from reading as a
-                                            // wall of identical empty boxes.
-                                            <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", tileGradientFor(item.ItemName))}>
-                                                <CategoryIcon className="h-7 w-7 text-white/90" strokeWidth={1.75} />
+                                        {/* A compact 52px thumbnail, not a full-width banner - a POS
+                                            grid is scanned fast and re-scrolled constantly through a
+                                            shift, so screen real estate per item matters far more here
+                                            than on a browsing/marketing surface. Most tenants haven't
+                                            uploaded photography yet (the common case, not a rare
+                                            fallback), so the fallback is a per-item hashed gradient with
+                                            a category-relevant icon rather than one flat tint repeated
+                                            on every card. */}
+                                        <div className="relative flex-shrink-0 overflow-hidden rounded-xl" style={{ height: 52, width: 52 }}>
+
+                                            {item.ImageUrl ? (
+                                                <img src={item.ImageUrl} alt={item.ItemName} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", tileGradientFor(item.ItemName))}>
+                                                    <CategoryIcon className="h-5 w-5 text-white/90" strokeWidth={1.75} />
+                                                </div>
+                                            )}
+
+                                            <div className={cn(
+                                                "absolute -left-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded border bg-white shadow-sm",
+                                                item.IsVeg ? "border-success" : "border-destructive"
+                                            )}>
+                                                <div className={cn("h-1.5 w-1.5 rounded-full", item.IsVeg ? "bg-success" : "bg-destructive")} />
                                             </div>
-                                        )}
 
-                                        <div className={cn(
-                                            "absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-md border-2 bg-white shadow-sm",
-                                            item.IsVeg ? "border-success" : "border-destructive"
-                                        )}>
-                                            <div className={cn("h-2 w-2 rounded-full", item.IsVeg ? "bg-success" : "bg-destructive")} />
                                         </div>
 
-                                        {item.IsPopular && (
-                                            <Badge className="absolute right-2 top-2 gap-1 border-transparent bg-white text-warning shadow-sm">
-                                                <Sparkles className="h-3 w-3" /> Popular
-                                            </Badge>
-                                        )}
+                                        <div className="min-w-0 flex-1">
+
+                                            <div className="flex items-start justify-between gap-1">
+                                                <p className="line-clamp-1 text-sm font-semibold leading-tight text-foreground">{item.ItemName}</p>
+                                                {item.IsPopular && (
+                                                    <Sparkles className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-warning" />
+                                                )}
+                                            </div>
+
+                                            {item.Description && (
+                                                <p className="line-clamp-1 text-xs text-muted-foreground">{item.Description}</p>
+                                            )}
+
+                                            <span className="text-sm font-bold text-foreground">₹{Number(item.Price).toFixed(0)}</span>
+
+                                        </div>
 
                                     </div>
 
-                                    <div className="flex flex-1 flex-col p-3">
+                                    <div className="flex justify-end">
 
-                                        <p className="line-clamp-1 font-semibold text-foreground">{item.ItemName}</p>
+                                        {item.HasOptions ? (
 
-                                        {item.Description && (
-                                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.Description}</p>
-                                        )}
-
-                                        <div className="mt-auto flex items-center justify-between pt-3">
-
-                                            <span className="font-bold text-foreground">₹{Number(item.Price).toFixed(0)}</span>
-
-                                            {item.HasOptions ? (
-
-                                                <div className="flex items-center gap-1.5">
-                                                    {quantity > 0 && <Badge>{quantity}</Badge>}
-                                                    <Button size="sm" onClick={() => handleAddClick(item)}>
-                                                        <Plus className="h-3.5 w-3.5" /> Add
-                                                    </Button>
-                                                </div>
-
-                                            ) : quantity === 0 ? (
-
-                                                <Button size="sm" onClick={() => handleAddClick(item)}>
-                                                    <Plus className="h-3.5 w-3.5" /> Add
+                                            <div className="flex items-center gap-1.5">
+                                                {quantity > 0 && <Badge>{quantity}</Badge>}
+                                                <Button size="sm" className="h-7 px-2.5 text-xs" onClick={() => handleAddClick(item)}>
+                                                    <Plus className="h-3 w-3" /> Add
                                                 </Button>
+                                            </div>
 
-                                            ) : (
+                                        ) : quantity === 0 ? (
 
-                                                <QuantityStepper
-                                                    size="sm"
-                                                    value={quantity}
-                                                    onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
-                                                />
+                                            <Button size="sm" className="h-7 px-2.5 text-xs" onClick={() => handleAddClick(item)}>
+                                                <Plus className="h-3 w-3" /> Add
+                                            </Button>
 
-                                            )}
+                                        ) : (
 
-                                        </div>
+                                            <QuantityStepper
+                                                size="sm"
+                                                value={quantity}
+                                                onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
+                                            />
+
+                                        )}
 
                                     </div>
 
