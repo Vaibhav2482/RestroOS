@@ -142,7 +142,7 @@ function InventoryTransactionsTab({ branchId }) {
                     label="From"
                     value={fromDate}
                     onChange={(event) => setFromDate(event.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                 />
 
                 <TextField
@@ -151,7 +151,7 @@ function InventoryTransactionsTab({ branchId }) {
                     label="To"
                     value={toDate}
                     onChange={(event) => setToDate(event.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                 />
 
             </Box>

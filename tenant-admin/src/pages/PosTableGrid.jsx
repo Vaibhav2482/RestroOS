@@ -5,6 +5,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
+import EmptyState from "../components/EmptyState";
 
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
@@ -14,9 +15,11 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
     if (tables.length === 0) {
 
         return (
-            <Typography color="text.secondary" sx={{ py: 6, textAlign: "center" }}>
-                No active tables set up for this branch yet.
-            </Typography>
+            <EmptyState
+                icon={<TableRestaurantRoundedIcon />}
+                title="No tables yet"
+                description="Add tables under Tables to start seating Dine In orders here."
+            />
         );
 
     }

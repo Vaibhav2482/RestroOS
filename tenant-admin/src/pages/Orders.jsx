@@ -22,6 +22,7 @@ import {
     Typography
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
@@ -30,6 +31,7 @@ import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import { getPusherClient } from "../lib/pusherClient";
 import { playNotificationSound } from "../utils/notificationSound";
 import OrderDetailsDialog from "./OrderDetailsDialog";
+import EmptyState from "../components/EmptyState";
 import { formatCurrency, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
 
 // "All" first, then the sequence a Delivery order actually moves through -
@@ -396,12 +398,12 @@ function Orders() {
                                 {filteredOrders.length === 0 ? (
 
                                     <TableRow>
-                                        <TableCell colSpan={ownerMode ? 8 : 7} align="center" sx={{ py: 6 }}>
-                                            <Typography color="text.secondary">
-                                                {orders.length === 0
-                                                    ? "No orders found."
-                                                    : "No orders match your search/filter."}
-                                            </Typography>
+                                        <TableCell colSpan={ownerMode ? 8 : 7} sx={{ py: 0 }}>
+                                            <EmptyState
+                                                icon={<ReceiptLongOutlinedIcon />}
+                                                title={orders.length === 0 ? "No orders yet" : "No orders match your search/filter"}
+                                                description={orders.length === 0 ? "Orders will show up here as customers or staff place them." : "Try a different search term or status filter."}
+                                            />
                                         </TableCell>
                                     </TableRow>
 

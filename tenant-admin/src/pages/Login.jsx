@@ -55,11 +55,11 @@ function Login() {
 
             <Paper elevation={0} sx={{ width: 420, maxWidth: "100%", p: 5, border: "1px solid #E5E7EB" }} component="form" onSubmit={handleSubmit}>
 
-                <Typography variant="h5" fontWeight={800} textAlign="center" sx={{ color: "#4F46E5" }}>
+                <Typography variant="h5" fontWeight={800} sx={{ color: "#4F46E5", textAlign: "center" }}>
                     RestroOS
                 </Typography>
 
-                <Typography textAlign="center" color="text.secondary" sx={{ mb: 4 }}>
+                <Typography color="text.secondary" sx={{ mb: 4, textAlign: "center" }}>
                     Restaurant Admin
                 </Typography>
 

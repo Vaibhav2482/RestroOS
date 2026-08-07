@@ -25,6 +25,7 @@ import { hasPermission } from "../utils/adminAuth";
 import { useStoredAuth } from "../hooks/useStoredAuth";
 import { formatCurrency, getStatusChipColor, isToday, isTerminalStatus } from "./orderStatusUtils";
 import OrderDetailsDialog from "./OrderDetailsDialog";
+import EmptyState from "../components/EmptyState";
 
 function StatCard({ icon, label, value, color }) {
 
@@ -251,8 +252,12 @@ function Dashboard() {
                                     {recentOrders.length === 0 ? (
 
                                         <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
-                                                <Typography color="text.secondary">No orders yet.</Typography>
+                                            <TableCell colSpan={6} sx={{ py: 0 }}>
+                                                <EmptyState
+                                                    icon={<ReceiptLongOutlinedIcon />}
+                                                    title="No orders yet"
+                                                    description="Orders will show up here as customers or staff place them."
+                                                />
                                             </TableCell>
                                         </TableRow>
 

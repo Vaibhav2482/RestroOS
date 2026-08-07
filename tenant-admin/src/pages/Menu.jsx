@@ -631,7 +631,7 @@ function Menu() {
 
                                                 <TableCell>
 
-                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 
                                                         <Tooltip title={item.IsVeg ? "Veg" : "Non-Veg"}>
                                                             <Box
@@ -679,7 +679,7 @@ function Menu() {
 
                                                 <TableCell>
 
-                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                    <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center", flexWrap: "wrap" }}>
 
                                                         <Tooltip title={item.IsAvailable ? "Mark out of stock" : "Mark available"}>
                                                             <Box sx={{ display: "flex", alignItems: "center" }}>

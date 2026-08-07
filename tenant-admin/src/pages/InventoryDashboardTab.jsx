@@ -8,6 +8,7 @@ import toast from "react-hot-toast";
 
 import * as inventoryService from "../services/inventoryService";
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_LABELS } from "../utils/units";
+import EmptyState from "../components/EmptyState";
 
 function StatCard({ icon, label, value, color, onClick }) {
 
@@ -176,9 +177,11 @@ function InventoryDashboardTab({ branchId, onNavigate }) {
 
                 {summary.recentTransactions.length === 0 ? (
 
-                    <Box sx={{ py: 6, textAlign: "center" }}>
-                        <Typography color="text.secondary">No stock activity yet.</Typography>
-                    </Box>
+                    <EmptyState
+                        icon={<Inventory2OutlinedIcon />}
+                        title="No stock activity yet"
+                        description="Restocks, wastage, and adjustments will show up here as they happen."
+                    />
 
                 ) : (
 

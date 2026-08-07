@@ -351,14 +351,6 @@ function Pos() {
             {mode === "grid" && (
 
                 <>
-                    {!loading && tables.length === 0 && (
-
-                        <Typography color="text.secondary" sx={{ py: 6, textAlign: "center" }}>
-                            No tables set up for this branch yet — add some under Tables.
-                        </Typography>
-
-                    )}
-
                     <PosTableGrid
                         tables={tables}
                         activeOrdersByTable={activeOrdersByTable}

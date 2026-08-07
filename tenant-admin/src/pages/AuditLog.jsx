@@ -135,7 +135,7 @@ function AuditLog() {
                     label="From"
                     value={fromDate}
                     onChange={(event) => setFromDate(event.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                 />
 
                 <TextField
@@ -144,7 +144,7 @@ function AuditLog() {
                     label="To"
                     value={toDate}
                     onChange={(event) => setToDate(event.target.value)}
-                    InputLabelProps={{ shrink: true }}
+                    slotProps={{ inputLabel: { shrink: true } }}
                 />
 
             </Box>

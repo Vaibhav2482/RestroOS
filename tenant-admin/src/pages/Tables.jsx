@@ -26,12 +26,14 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import toast from "react-hot-toast";
 
 import * as tableService from "../services/tableService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import TableDialog from "./TableDialog";
+import EmptyState from "../components/EmptyState";
 
 function Tables() {
 
@@ -325,10 +327,12 @@ function Tables() {
                             {tables.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 5 : 4} align="center" sx={{ py: 6 }}>
-                                        <Typography color="text.secondary">
-                                            No tables found for this branch.
-                                        </Typography>
+                                    <TableCell colSpan={owner ? 5 : 4} sx={{ py: 0 }}>
+                                        <EmptyState
+                                            icon={<TableRestaurantOutlinedIcon />}
+                                            title="No tables yet"
+                                            description="Add your first table to start seating Dine In orders."
+                                        />
                                     </TableCell>
                                 </TableRow>
 

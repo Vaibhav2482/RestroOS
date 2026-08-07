@@ -66,7 +66,7 @@ function OrderTicket({ order, column, onAdvance, advancing }) {
 
         <Paper elevation={0} sx={{ p: 2, mb: 2, border: "1px solid #E5E7EB" }}>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} sx={{ width: "100%", mb: 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ width: "100%", mb: 0.5, justifyContent: "space-between", alignItems: "center" }}>
                 <Typography fontWeight={700}>#{order.OrderId}</Typography>
                 <Chip
                     label={formatElapsed(minutes)}

@@ -193,8 +193,10 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
                             value={formData.costPerBaseUnit}
                             onChange={handleChange}
                             helperText="Optional - powers COGS and menu profitability reports. Leave blank if unknown."
-                            inputProps={{ min: 0, step: "0.0001" }}
-                            InputProps={{ startAdornment: <span style={{ marginRight: 4 }}>₹</span> }}
+                            slotProps={{
+                                htmlInput: { min: 0, step: "0.0001" },
+                                input: { startAdornment: <span style={{ marginRight: 4 }}>₹</span> }
+                            }}
                         />
                     </Grid>
 

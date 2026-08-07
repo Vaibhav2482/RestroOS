@@ -80,7 +80,19 @@ const theme = createTheme({
 
         MuiCssBaseline: {
             styleOverrides: {
-                body: { backgroundColor: "#F5F6FA" }
+                body: { backgroundColor: "#F5F6FA" },
+                // Every date-range field in the app is a plain
+                // TextField type="date" (report tabs, coupon validity) -
+                // the browser's own calendar-picker glyph is the one
+                // element on the page that isn't theme-drawn. Recoloring
+                // it to the theme's text-secondary keeps it from reading
+                // as a stray, unstyled native control against everything
+                // else. Chrome/Edge-only (-webkit- pseudo-element); other
+                // browsers just keep their own default, unchanged.
+                'input[type="date"]::-webkit-calendar-picker-indicator': {
+                    filter: "invert(46%) sepia(4%) saturate(464%) hue-rotate(182deg) brightness(93%) contrast(87%)",
+                    cursor: "pointer"
+                }
             }
         },
 

@@ -287,7 +287,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             name="validFrom"
                             value={formData.validFrom}
                             onChange={handleChange}
-                            InputLabelProps={{ shrink: true }}
+                            slotProps={{ inputLabel: { shrink: true } }}
                         />
                     </Grid>
 
@@ -301,7 +301,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             onChange={handleChange}
                             error={Boolean(errors.validUntil)}
                             helperText={errors.validUntil}
-                            InputLabelProps={{ shrink: true }}
+                            slotProps={{ inputLabel: { shrink: true } }}
                         />
                     </Grid>
 

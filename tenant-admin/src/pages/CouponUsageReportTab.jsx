@@ -92,7 +92,7 @@ function CouponUsageReportTab({ branchId, range, onRangeChange }) {
                         label="From"
                         value={range.from}
                         onChange={(event) => onRangeChange((prev) => ({ ...prev, from: event.target.value }))}
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{ inputLabel: { shrink: true } }}
                     />
 
                     <TextField
@@ -101,7 +101,7 @@ function CouponUsageReportTab({ branchId, range, onRangeChange }) {
                         label="To"
                         value={range.to}
                         onChange={(event) => onRangeChange((prev) => ({ ...prev, to: event.target.value }))}
-                        InputLabelProps={{ shrink: true }}
+                        slotProps={{ inputLabel: { shrink: true } }}
                     />
 
                 </Box>

@@ -114,7 +114,24 @@ function Reports() {
                 variant="scrollable"
                 scrollButtons="auto"
                 allowScrollButtonsMobile
-                sx={{ mb: 3, borderBottom: "1px solid #E5E7EB" }}
+                sx={{
+                    mb: 3,
+                    borderBottom: "1px solid #E5E7EB",
+                    minHeight: 44,
+                    // 8 report tabs don't all fit at typical desktop widths -
+                    // without this, the tab straddling the scroll edge gets
+                    // hard-clipped mid-word (a bare "M" of "Menu
+                    // Profitability") instead of fading out cleanly.
+                    "& .MuiTabs-scroller": {
+                        maskImage: "linear-gradient(to right, #000 calc(100% - 32px), transparent)",
+                        WebkitMaskImage: "linear-gradient(to right, #000 calc(100% - 32px), transparent)"
+                    },
+                    "& .MuiTab-root": {
+                        minHeight: 44,
+                        textTransform: "none",
+                        fontWeight: 600
+                    }
+                }}
             >
                 {TABS.map((label) => <Tab key={label} label={label} />)}
             </Tabs>

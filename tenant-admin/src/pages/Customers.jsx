@@ -113,12 +113,14 @@ function Customers() {
                         setSearch(event.target.value);
                         setPage(0);
                     }}
-                    InputProps={{
-                        startAdornment: (
-                            <InputAdornment position="start">
-                                <SearchRoundedIcon fontSize="small" />
-                            </InputAdornment>
-                        )
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRoundedIcon fontSize="small" />
+                                </InputAdornment>
+                            )
+                        }
                     }}
                     sx={{ minWidth: 280 }}
                 />
