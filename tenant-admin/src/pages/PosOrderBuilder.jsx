@@ -7,6 +7,7 @@ import {
     CreditCard,
     CupSoda,
     IceCreamCone,
+    Leaf,
     Minus,
     Plus,
     Salad,
@@ -27,6 +28,7 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import { Badge } from "../components/ui/badge";
 import { Separator } from "../components/ui/separator";
+import { Switch } from "../components/ui/switch";
 import PrintDialog from "../components/PrintDialog";
 import KotReceipt from "../components/KotReceipt";
 
@@ -164,6 +166,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     const [menuLoading, setMenuLoading] = useState(false);
     const [itemSearch, setItemSearch] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState("all");
+    const [vegOnly, setVegOnly] = useState(false);
 
     const [cartLines, setCartLines] = useState([]);
     const [optionsDialogItem, setOptionsDialogItem] = useState(null);
@@ -545,10 +548,11 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
         return menuItems.filter((item) =>
             (selectedCategoryId === "all" || item.CategoryId === selectedCategoryId) &&
+            (!vegOnly || item.IsVeg) &&
             item.ItemName.toLowerCase().includes(search)
         );
 
-    }, [menuItems, itemSearch, selectedCategoryId]);
+    }, [menuItems, itemSearch, selectedCategoryId, vegOnly]);
 
     const subtotal = cartLines.reduce((sum, line) => sum + line.price * line.quantity, 0);
     const cartItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
@@ -632,18 +636,28 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 <div className="sticky top-0 z-10 -mx-1 bg-background/90 px-1 pb-3 pt-1 backdrop-blur">
 
-                    <div className="relative">
-                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            ref={searchInputRef}
-                            value={itemSearch}
-                            onChange={(event) => setItemSearch(event.target.value)}
-                            placeholder="Search for dishes, drinks..."
-                            className="h-12 rounded-2xl pl-11 pr-16 text-sm shadow-sm"
-                        />
-                        <kbd className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                            Ctrl K
-                        </kbd>
+                    <div className="flex items-center gap-3">
+
+                        <div className="relative flex-1">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                ref={searchInputRef}
+                                value={itemSearch}
+                                onChange={(event) => setItemSearch(event.target.value)}
+                                placeholder="Search for dishes, drinks..."
+                                className="h-12 rounded-2xl pl-11 pr-16 text-sm shadow-sm"
+                            />
+                            <kbd className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                Ctrl K
+                            </kbd>
+                        </div>
+
+                        <label className="flex flex-shrink-0 items-center gap-2 rounded-2xl border border-border bg-card px-3.5 py-2.5 shadow-sm">
+                            <Leaf className={cn("h-4 w-4", vegOnly ? "text-success" : "text-muted-foreground")} />
+                            <span className="text-sm font-semibold text-foreground">Veg Only</span>
+                            <Switch checked={vegOnly} onCheckedChange={setVegOnly} />
+                        </label>
+
                     </div>
 
                     {categoriesWithItems.length > 0 && (
