@@ -1,11 +1,18 @@
-import { Box, Button, Card, Chip, IconButton, Grid, Tooltip, Typography } from "@mui/material";
-import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
-import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import { motion } from "framer-motion";
+import { Table2, Users, Plus, ArrowRight } from "lucide-react";
 
+import { cn } from "../lib/utils";
+import { Badge } from "../components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
-import EmptyState from "../components/EmptyState";
+
+const STATUS_BADGE_VARIANT = {
+    success: "success",
+    warning: "warning",
+    error: "destructive",
+    default: "outline"
+};
 
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
@@ -15,61 +22,53 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
     if (tables.length === 0) {
 
         return (
-            <EmptyState
-                icon={<TableRestaurantRoundedIcon />}
-                title="No tables yet"
-                description="Add tables under Tables to start seating Dine In orders here."
-            />
+
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card/50 py-16 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Table2 className="h-6 w-6" />
+                </div>
+                <p className="font-semibold text-foreground">No tables yet</p>
+                <p className="max-w-xs text-sm text-muted-foreground">
+                    Add tables under Tables to start seating Dine In orders here.
+                </p>
+            </div>
+
         );
 
     }
 
     return (
 
-        <Grid container spacing={2}>
+        <TooltipProvider delayDuration={200}>
 
-            {tables.map((table) => {
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
 
-                const orders = activeOrdersByTable.get(table.TableName) || [];
-                const isOccupied = orders.length > 0;
-                const hasMultipleOrders = orders.length > 1;
-                // The card can only summarize one status at a glance - with
-                // more than one active order at the table, the quick-advance
-                // shortcut is ambiguous (which order?), so it's only offered
-                // for the single-order case; multiple orders route through
-                // the table's chooser dialog instead.
-                const primaryOrder = orders[0];
-                const nextStatus = isOccupied && !hasMultipleOrders ? getPosForwardStatuses(primaryOrder.OrderStatus)[0] : null;
-                const combinedTotal = orders.reduce((sum, order) => sum + Number(order.TotalAmount), 0);
+                {tables.map((table) => {
 
-                return (
+                    const orders = activeOrdersByTable.get(table.TableName) || [];
+                    const isOccupied = orders.length > 0;
+                    const hasMultipleOrders = orders.length > 1;
+                    // The card can only summarize one status at a glance - with
+                    // more than one active order at the table, the quick-advance
+                    // shortcut is ambiguous (which order?), so it's only offered
+                    // for the single-order case; multiple orders route through
+                    // the table's chooser dialog instead.
+                    const primaryOrder = orders[0];
+                    const nextStatus = isOccupied && !hasMultipleOrders ? getPosForwardStatuses(primaryOrder.OrderStatus)[0] : null;
+                    const combinedTotal = orders.reduce((sum, order) => sum + Number(order.TotalAmount), 0);
+                    const statusVariant = STATUS_BADGE_VARIANT[POS_STATUS_COLOR[primaryOrder?.OrderStatus] || "default"];
 
-                    <Grid key={table.TableId} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
+                    return (
 
-                        {/* A fixed height (not just a floor) is deliberate - an
-                            occupied table's extra content (status/price/button)
-                            used to grow the card taller than an idle "Available"
-                            neighbor, so every table on the floor changed size as
-                            orders moved through the kitchen. Fixed top zone
-                            (icon/name/seats) plus a fixed-height, vertically
-                            centered status zone keeps every card identical
-                            regardless of what's happening at that table. */}
-                        <Card
+                        <motion.div
+                            key={table.TableId}
+                            whileHover={{ y: -4 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
                             onClick={() => onTableClick(table, orders)}
-                            sx={{
-                                position: "relative",
-                                height: 208,
-                                cursor: "pointer",
-                                textAlign: "center",
-                                border: "2px solid",
-                                borderColor: isOccupied ? "warning.main" : "success.main",
-                                bgcolor: isOccupied ? "#FFF8E1" : "#F0FDF4",
-                                transition: "transform .15s, box-shadow .15s",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0,0,0,.08)" }
-                            }}
+                            className={cn(
+                                "group relative flex h-52 cursor-pointer flex-col items-center rounded-2xl border bg-card shadow-sm transition-shadow hover:shadow-lg",
+                                isOccupied ? "border-l-4 border-l-warning border-y-border border-r-border" : "border-l-4 border-l-success border-y-border border-r-border"
+                            )}
                         >
 
                             {/* A direct shortcut to start another round on this
@@ -79,122 +78,97 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                 table. */}
                             {isOccupied && (
 
-                                <Tooltip title="Start another order for this table">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            onAddOrder(table);
-                                        }}
-                                        sx={{
-                                            position: "absolute",
-                                            top: 6,
-                                            right: 6,
-                                            bgcolor: "background.paper",
-                                            border: "1px solid",
-                                            borderColor: "divider",
-                                            "&:hover": { bgcolor: "primary.main", color: "#fff" }
-                                        }}
-                                    >
-                                        <AddRoundedIcon fontSize="small" />
-                                    </IconButton>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onAddOrder(table);
+                                            }}
+                                            className="absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-sm transition-all hover:bg-primary hover:text-primary-foreground group-hover:opacity-100"
+                                        >
+                                            <Plus className="h-3.5 w-3.5" />
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Start another order for this table</TooltipContent>
                                 </Tooltip>
 
                             )}
 
-                            <Box sx={{ pt: 2.5, px: 2 }}>
+                            <div className="flex flex-col items-center pt-6">
 
-                                <TableRestaurantRoundedIcon
-                                    sx={{ fontSize: 32, color: isOccupied ? "warning.main" : "success.main" }}
-                                />
+                                <div className={cn(
+                                    "flex h-11 w-11 items-center justify-center rounded-2xl",
+                                    isOccupied ? "bg-warning/10 text-warning" : "bg-success/10 text-success"
+                                )}>
+                                    <Table2 className="h-5 w-5" />
+                                </div>
 
-                                <Typography fontWeight={700} sx={{ mt: 0.5 }}>
-                                    {table.TableName}
-                                </Typography>
+                                <p className="mt-2 font-bold text-foreground">{table.TableName}</p>
 
-                                <Typography variant="caption" color="text.secondary">
-                                    {table.Capacity ? `Seats ${table.Capacity}` : " "}
-                                </Typography>
+                                {table.Capacity && (
+                                    <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                                        <Users className="h-3 w-3" /> Seats {table.Capacity}
+                                    </p>
+                                )}
 
-                            </Box>
+                            </div>
 
-                            <Box
-                                sx={{
-                                    flex: 1,
-                                    width: "100%",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 0.5,
-                                    px: 1.5,
-                                    pb: 2
-                                }}
-                            >
+                            <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-3 pb-4">
 
                                 {hasMultipleOrders ? (
 
                                     <>
-                                        <Chip
-                                            label={`${orders.length} Orders`}
-                                            color="warning"
-                                            size="small"
-                                        />
-
-                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
+                                        <Badge variant="warning">{orders.length} Orders</Badge>
+                                        <p className="max-w-full truncate text-xs text-muted-foreground">
                                             {formatCurrency(combinedTotal)} total
-                                        </Typography>
+                                        </p>
                                     </>
 
                                 ) : isOccupied ? (
 
                                     <>
-                                        <Chip
-                                            label={primaryOrder.OrderStatus}
-                                            color={POS_STATUS_COLOR[primaryOrder.OrderStatus] || "default"}
-                                            size="small"
-                                        />
+                                        <Badge variant={statusVariant}>{primaryOrder.OrderStatus}</Badge>
 
-                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
+                                        <p className="max-w-full truncate text-xs text-muted-foreground">
                                             #{primaryOrder.OrderId} &middot; {formatCurrency(primaryOrder.TotalAmount)}
-                                        </Typography>
+                                        </p>
 
                                         {nextStatus && (
 
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
+                                            <button
+                                                type="button"
                                                 disabled={pendingAdvanceOrderIds?.has(primaryOrder.OrderId)}
-                                                endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
                                                 onClick={(event) => {
                                                     event.stopPropagation();
                                                     onQuickAdvance(primaryOrder.OrderId, nextStatus);
                                                 }}
-                                                sx={{ mt: 0.25, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
+                                                className="mt-0.5 flex items-center gap-0.5 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground transition-colors hover:border-primary hover:bg-primary hover:text-primary-foreground disabled:opacity-50"
                                             >
-                                                {nextStatus}
-                                            </Button>
+                                                {nextStatus} <ArrowRight className="h-3 w-3" />
+                                            </button>
 
                                         )}
                                     </>
 
                                 ) : (
 
-                                    <Chip label="Available" color="success" size="small" />
+                                    <Badge variant="success">Available</Badge>
 
                                 )}
 
-                            </Box>
+                            </div>
 
-                        </Card>
+                        </motion.div>
 
-                    </Grid>
+                    );
 
-                );
+                })}
 
-            })}
+            </div>
 
-        </Grid>
+        </TooltipProvider>
 
     );
 

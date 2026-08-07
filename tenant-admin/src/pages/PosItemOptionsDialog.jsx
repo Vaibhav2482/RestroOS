@@ -1,24 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-    Box,
-    Button,
-    Checkbox,
-    CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
-    Divider,
-    FormControlLabel,
-    IconButton,
-    Radio,
-    RadioGroup,
-    Typography
-} from "@mui/material";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
+import { Loader2, Minus, Plus, Check } from "lucide-react";
 import toast from "react-hot-toast";
 
+import { cn } from "../lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { Button } from "../components/ui/button";
 import * as menuOptionService from "../services/menuOptionService";
 
 // Renders "+₹34" / "-₹34" for non-zero price deltas, nothing for a 0 delta.
@@ -64,6 +50,44 @@ const getGroupHint = (group) => {
     return `Select up to ${maxSelect}`;
 
 };
+
+// A single tappable row for one option - used for both radio (single-select)
+// and checkbox (multi-select) groups, just with a differently-shaped
+// indicator, matching how consumer food-ordering apps present variant
+// pickers rather than looking like a plain browser form control.
+function OptionRow({ label, delta, selected, disabled, shape, onClick }) {
+
+    return (
+
+        <button
+            type="button"
+            disabled={disabled}
+            onClick={onClick}
+            className={cn(
+                "flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-sm transition-colors",
+                selected ? "border-primary bg-primary/5" : "border-border hover:bg-accent",
+                disabled && "cursor-not-allowed opacity-40"
+            )}
+        >
+            <span className="font-medium text-foreground">
+                {label}
+                {delta && <span className="text-muted-foreground"> {delta}</span>}
+            </span>
+
+            <span
+                className={cn(
+                    "flex h-5 w-5 flex-shrink-0 items-center justify-center border-2 transition-colors",
+                    shape === "circle" ? "rounded-full" : "rounded-md",
+                    selected ? "border-primary bg-primary" : "border-border"
+                )}
+            >
+                {selected && <Check className="h-3 w-3 text-primary-foreground" strokeWidth={3} />}
+            </span>
+        </button>
+
+    );
+
+}
 
 // Opened when staff tap "Add" on a menu item that has HasOptions === true.
 // Fetches the item's option groups, lets staff pick required/optional
@@ -184,14 +208,15 @@ function PosItemOptionsDialog({ open, menuItem, onClose, onConfirm }) {
 
     };
 
-    const handleMultiSelect = (group, optionId, checked) => {
+    const handleMultiSelect = (group, optionId) => {
 
         setSelections((prev) => {
 
             const current = prev[group.GroupId] || [];
             const maxSelect = group.MaxSelect || current.length + 1;
+            const checked = current.includes(optionId);
 
-            if (checked) {
+            if (!checked) {
 
                 if (current.length >= maxSelect) {
                     return prev;
@@ -232,182 +257,115 @@ function PosItemOptionsDialog({ open, menuItem, onClose, onConfirm }) {
 
     return (
 
-        <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+        <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
 
-            <DialogTitle>
-                {menuItem.ItemName}
-            </DialogTitle>
+            <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto">
 
-            <DialogContent dividers>
+                <DialogHeader>
+                    <DialogTitle>{menuItem.ItemName}</DialogTitle>
+                </DialogHeader>
 
                 {loading ? (
 
-                    <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-                        <CircularProgress size={28} />
-                    </Box>
+                    <div className="flex justify-center py-10">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    </div>
 
                 ) : (
 
-                    groups.map((group) => {
+                    <div className="flex flex-col gap-5">
 
-                        const maxSelect = group.MaxSelect || 1;
-                        const currentSelection = selections[group.GroupId] || [];
-                        const activeOptions = (group.Options || []).filter((option) => option.IsActive !== false);
+                        {groups.map((group) => {
 
-                        return (
+                            const maxSelect = group.MaxSelect || 1;
+                            const currentSelection = selections[group.GroupId] || [];
+                            const activeOptions = (group.Options || []).filter((option) => option.IsActive !== false);
 
-                            <Box key={group.GroupId} sx={{ mb: 2.5 }}>
+                            return (
 
-                                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: 0.5 }}>
+                                <div key={group.GroupId}>
 
-                                    <Typography fontWeight={700}>
-                                        {group.GroupName}
-                                    </Typography>
+                                    <div className="mb-2 flex items-baseline justify-between">
+                                        <p className="font-bold text-foreground">{group.GroupName}</p>
+                                        <p className="text-xs text-muted-foreground">{getGroupHint(group)}</p>
+                                    </div>
 
-                                    <Typography variant="caption" color="text.secondary">
-                                        {getGroupHint(group)}
-                                    </Typography>
+                                    <div className="flex flex-col gap-2">
 
-                                </Box>
+                                        {activeOptions.map((option) => {
 
-                                {maxSelect === 1 ? (
+                                            const selected = currentSelection.includes(option.OptionId);
+                                            const disabled = maxSelect > 1 && !selected && currentSelection.length >= maxSelect;
 
-                                    <RadioGroup
-                                        value={currentSelection[0] ?? ""}
-                                        onChange={(event) => handleSingleSelect(group, Number(event.target.value))}
-                                    >
+                                            return (
 
-                                        {activeOptions.map((option) => (
+                                                <OptionRow
+                                                    key={option.OptionId}
+                                                    label={option.OptionName}
+                                                    delta={formatDelta(option.PriceDelta)}
+                                                    selected={selected}
+                                                    disabled={disabled}
+                                                    shape={maxSelect === 1 ? "circle" : "square"}
+                                                    onClick={() =>
+                                                        maxSelect === 1
+                                                            ? handleSingleSelect(group, option.OptionId)
+                                                            : handleMultiSelect(group, option.OptionId)
+                                                    }
+                                                />
 
-                                            <FormControlLabel
-                                                key={option.OptionId}
-                                                value={option.OptionId}
-                                                control={
-                                                    <Radio
-                                                        size="small"
-                                                        onClick={() => {
+                                            );
 
-                                                            if (!group.IsRequired && currentSelection[0] === option.OptionId) {
-                                                                handleSingleSelect(group, option.OptionId);
-                                                            }
+                                        })}
 
-                                                        }}
-                                                    />
-                                                }
-                                                label={`${option.OptionName}${formatDelta(option.PriceDelta)}`}
-                                            />
+                                    </div>
 
-                                        ))}
+                                </div>
 
-                                    </RadioGroup>
+                            );
 
-                                ) : (
+                        })}
 
-                                    activeOptions.map((option) => {
+                        <div className="flex items-center justify-between border-t border-border pt-4">
 
-                                        const checked = currentSelection.includes(option.OptionId);
-                                        const disableUnchecked = !checked && currentSelection.length >= maxSelect;
+                            <p className="font-semibold text-foreground">Quantity</p>
 
-                                        return (
+                            <div className="flex items-center gap-3 rounded-full border border-border px-1 py-1">
 
-                                            <FormControlLabel
-                                                key={option.OptionId}
-                                                control={
-                                                    <Checkbox
-                                                        size="small"
-                                                        checked={checked}
-                                                        disabled={disableUnchecked}
-                                                        onChange={(event) => handleMultiSelect(group, option.OptionId, event.target.checked)}
-                                                    />
-                                                }
-                                                label={`${option.OptionName}${formatDelta(option.PriceDelta)}`}
-                                            />
-
-                                        );
-
-                                    })
-
-                                )}
-
-                            </Box>
-
-                        );
-
-                    })
-
-                )}
-
-                {!loading && (
-
-                    <>
-
-                        <Divider sx={{ my: 1.5 }} />
-
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-
-                            <Typography fontWeight={600}>
-                                Quantity
-                            </Typography>
-
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    border: "1px solid #E5E7EB",
-                                    borderRadius: 5,
-                                    px: 0.5,
-                                    py: 0.25,
-                                    width: 112
-                                }}
-                            >
-
-                                <IconButton
-                                    size="small"
-                                    onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                                <button
+                                    type="button"
                                     disabled={quantity <= 1}
-                                    sx={{ p: 0.75 }}
+                                    onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent disabled:opacity-40"
                                 >
-                                    <RemoveRoundedIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
+                                    <Minus className="h-3.5 w-3.5" />
+                                </button>
 
-                                <Typography fontWeight={700} sx={{ minWidth: 20, textAlign: "center" }}>
-                                    {quantity}
-                                </Typography>
+                                <span className="w-5 text-center font-bold text-foreground">{quantity}</span>
 
-                                <IconButton
-                                    size="small"
+                                <button
+                                    type="button"
                                     onClick={() => setQuantity((current) => current + 1)}
-                                    sx={{ p: 0.75 }}
+                                    className="flex h-7 w-7 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent"
                                 >
-                                    <AddRoundedIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
+                                    <Plus className="h-3.5 w-3.5" />
+                                </button>
 
-                            </Box>
+                            </div>
 
-                        </Box>
+                        </div>
 
-                    </>
+                    </div>
 
                 )}
+
+                <DialogFooter>
+                    <Button variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button disabled={loading || !requiredGroupsSatisfied} onClick={handleConfirm}>
+                        Add Item — ₹{totalPrice.toFixed(2)}
+                    </Button>
+                </DialogFooter>
 
             </DialogContent>
-
-            <DialogActions>
-
-                <Button onClick={onClose}>
-                    Cancel
-                </Button>
-
-                <Button
-                    variant="contained"
-                    disabled={loading || !requiredGroupsSatisfied}
-                    onClick={handleConfirm}
-                >
-                    Add Item — ₹{totalPrice.toFixed(2)}
-                </Button>
-
-            </DialogActions>
 
         </Dialog>
 

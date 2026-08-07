@@ -1,24 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Alert } from "@mui/material";
 import {
-    Alert,
-    Box,
-    Button,
-    Card,
-    Chip,
-    Divider,
-    Grid,
-    IconButton,
-    InputBase,
-    TextField,
-    ToggleButton,
-    ToggleButtonGroup,
-    Typography
-} from "@mui/material";
-import AddRoundedIcon from "@mui/icons-material/AddRounded";
-import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
-import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
-import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
+    Banknote,
+    ChefHat,
+    CreditCard,
+    Minus,
+    Plus,
+    Search,
+    Smartphone,
+    Sparkles,
+    Trash2,
+    UserRound,
+    X
+} from "lucide-react";
 import toast from "react-hot-toast";
+
+import { cn } from "../lib/utils";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Badge } from "../components/ui/badge";
+import { Separator } from "../components/ui/separator";
+import PrintDialog from "../components/PrintDialog";
+import KotReceipt from "../components/KotReceipt";
 
 import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
@@ -26,54 +31,18 @@ import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth } from "../utils/adminAuth";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
-import KotReceipt from "../components/KotReceipt";
-import PrintDialog from "../components/PrintDialog";
 
-const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
+const PAYMENT_METHODS = [
+    { value: "Cash", label: "Cash", icon: Banknote },
+    { value: "Card", label: "Card", icon: CreditCard },
+    { value: "UPI", label: "UPI", icon: Smartphone }
+];
 const GUEST_PHONE = "0000000000";
 
-function ItemThumbnail({ imageUrl, itemName }) {
-
-    if (imageUrl) {
-
-        return (
-            <Box
-                component="img"
-                src={imageUrl}
-                alt={itemName}
-                sx={{ width: 56, height: 56, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
-            />
-        );
-
-    }
-
-    return (
-        <Box
-            sx={{
-                width: 56,
-                height: 56,
-                borderRadius: 1.5,
-                border: "1px solid #E5E7EB",
-                bgcolor: "#F5F6FA",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0
-            }}
-        >
-            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: 24 }} />
-        </Box>
-    );
-
-}
-
-// Was a plain controlled input tied straight to the committed cart
-// quantity - every keystroke (including a mid-edit backspace-to-clear)
-// committed immediately, so clearing "3" to type "13" fired a commit of 0
-// after the first backspace and deleted the line before the second digit
-// was ever typed. Keeping its own text buffer lets staff clear/retype
-// freely; the real quantity only updates on blur or Enter.
-function QuantityInput({ value, onCommit, sx }) {
+// Same buffered-text-then-commit behavior as before (clearing "3" to type
+// "13" used to commit a 0 quantity after the first backspace, deleting the
+// line before the second digit was typed) - just restyled.
+function QuantityStepper({ value, onCommit, size = "default" }) {
 
     const [text, setText] = useState(String(value));
 
@@ -88,20 +57,40 @@ function QuantityInput({ value, onCommit, sx }) {
     };
 
     return (
-        <InputBase
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onFocus={(event) => event.target.select()}
-            onBlur={commit}
-            onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                    event.target.blur();
-                }
-            }}
-            type="number"
-            slotProps={{ input: { min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } } }}
-            sx={{ "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 }, ...sx }}
-        />
+
+        <div className={cn(
+            "flex items-center justify-between rounded-full border border-border bg-card",
+            size === "sm" ? "h-8 gap-1 px-1" : "h-9 gap-1.5 px-1.5"
+        )}>
+
+            <button
+                type="button"
+                onClick={() => onCommit(Math.max(0, value - 1))}
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent"
+            >
+                <Minus className="h-3.5 w-3.5" />
+            </button>
+
+            <input
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                onFocus={(event) => event.target.select()}
+                onBlur={commit}
+                onKeyDown={(event) => event.key === "Enter" && event.target.blur()}
+                inputMode="numeric"
+                className="w-6 flex-shrink-0 bg-transparent text-center text-sm font-bold text-foreground outline-none"
+            />
+
+            <button
+                type="button"
+                onClick={() => onCommit(value + 1)}
+                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent"
+            >
+                <Plus className="h-3.5 w-3.5" />
+            </button>
+
+        </div>
+
     );
 
 }
@@ -129,7 +118,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     const [needsName, setNeedsName] = useState(false);
     const [checkingCustomer, setCheckingCustomer] = useState(false);
 
-    const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
+    const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0].value);
     const [notes, setNotes] = useState("");
     const [submitting, setSubmitting] = useState(false);
     // Holds the just-placed order shaped for KotReceipt, built from the
@@ -139,6 +128,34 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     // screen away) is deferred until that dialog is dismissed instead of
     // firing immediately on a successful order.
     const [placedOrder, setPlacedOrder] = useState(null);
+
+    const searchInputRef = useRef(null);
+
+    // Ctrl/Cmd+K focuses search (matches the shortcut hint shown next to the
+    // box); F9 places the order - both are pure client-side conveniences,
+    // handlePlaceOrder's own guards (customer attached, cart non-empty)
+    // still apply exactly as if the button had been clicked.
+    useEffect(() => {
+
+        const handleKeyDown = (event) => {
+
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                searchInputRef.current?.focus();
+            }
+
+            if (event.key === "F9") {
+                event.preventDefault();
+                handlePlaceOrder();
+            }
+
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [resolvedCustomer, cartLines, deliveryType, tableNumber, paymentMethod, notes, submitting]);
 
     // Default to the shared guest placeholder so staff can start adding items
     // immediately; they can still swap in a real customer below.
@@ -474,6 +491,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     }, [menuItems, itemSearch, selectedCategoryId]);
 
     const subtotal = cartLines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+    const cartItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
 
     // The sticky cart sidebar already shows every line item, the subtotal,
     // payment method and notes in full - a separate "review" dialog would
@@ -547,422 +565,398 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
     return (
 
-        <Grid container spacing={3}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
 
-            <Grid size={{ xs: 12, md: 7 }}>
+            {/* LEFT — menu browsing */}
+            <div>
 
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                    Menu
-                </Typography>
+                <div className="sticky top-0 z-10 -mx-1 bg-background/90 px-1 pb-3 pt-1 backdrop-blur">
 
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search menu items..."
-                    value={itemSearch}
-                    onChange={(event) => setItemSearch(event.target.value)}
-                    sx={{ mb: 2 }}
-                />
-
-                {categoriesWithItems.length > 0 && (
-
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, maxHeight: 92, overflowY: "auto" }}>
-
-                        <Chip
-                            label="All"
-                            color={selectedCategoryId === "all" ? "primary" : "default"}
-                            onClick={() => setSelectedCategoryId("all")}
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            ref={searchInputRef}
+                            value={itemSearch}
+                            onChange={(event) => setItemSearch(event.target.value)}
+                            placeholder="Search for dishes, drinks..."
+                            className="h-12 rounded-2xl pl-11 pr-16 text-sm shadow-sm"
                         />
+                        <kbd className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                            Ctrl K
+                        </kbd>
+                    </div>
 
-                        {categoriesWithItems.map((category) => (
+                    {categoriesWithItems.length > 0 && (
 
-                            <Chip
-                                key={category.CategoryId}
-                                label={category.CategoryName}
-                                color={selectedCategoryId === category.CategoryId ? "primary" : "default"}
-                                onClick={() => setSelectedCategoryId(category.CategoryId)}
-                            />
+                        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
 
-                        ))}
+                            <button
+                                type="button"
+                                onClick={() => setSelectedCategoryId("all")}
+                                className={cn(
+                                    "flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                                    selectedCategoryId === "all" ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent"
+                                )}
+                            >
+                                All
+                            </button>
 
-                    </Box>
+                            {categoriesWithItems.map((category) => (
 
-                )}
+                                <button
+                                    key={category.CategoryId}
+                                    type="button"
+                                    onClick={() => setSelectedCategoryId(category.CategoryId)}
+                                    className={cn(
+                                        "flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                                        selectedCategoryId === category.CategoryId ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground hover:bg-accent"
+                                    )}
+                                >
+                                    {category.CategoryName}
+                                </button>
 
-                <Box sx={{ maxHeight: 560, overflowY: "auto", pr: 0.5 }}>
+                            ))}
 
-                    {!menuLoading && filteredItems.length === 0 && (
-
-                        <Typography color="text.secondary" sx={{ py: 3, textAlign: "center" }}>
-                            No menu items found.
-                        </Typography>
+                        </div>
 
                     )}
 
-                    {filteredItems.map((item) => {
+                </div>
 
-                        const quantity = getQuantity(item.MenuItemId);
+                {menuLoading ? (
 
-                        return (
+                    <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                            <div key={index} className="animate-pulse overflow-hidden rounded-2xl border border-border bg-card">
+                                <div className="aspect-[4/3] bg-muted" />
+                                <div className="space-y-2 p-3">
+                                    <div className="h-4 w-3/4 rounded bg-muted" />
+                                    <div className="h-3 w-1/2 rounded bg-muted" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
-                            <Card
-                                key={item.MenuItemId}
-                                variant="outlined"
-                                sx={{
-                                    p: 1.5,
-                                    mb: 1,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 1.5
-                                }}
-                            >
+                ) : filteredItems.length === 0 ? (
 
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0, flex: 1 }}>
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border py-16 text-center">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <ChefHat className="h-5 w-5" />
+                        </div>
+                        <p className="font-semibold text-foreground">No menu items found</p>
+                        <p className="text-sm text-muted-foreground">Try a different search term or category.</p>
+                    </div>
 
-                                    <ItemThumbnail imageUrl={item.ImageUrl} itemName={item.ItemName} />
+                ) : (
 
-                                    <Box sx={{ minWidth: 0 }}>
+                    <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                        {filteredItems.map((item) => {
 
-                                            <Box
-                                                sx={{
-                                                    width: 10,
-                                                    height: 10,
-                                                    borderRadius: "2px",
-                                                    bgcolor: item.IsVeg ? "success.main" : "#8b3a3a",
-                                                    flexShrink: 0
-                                                }}
+                            const quantity = getQuantity(item.MenuItemId);
+
+                            return (
+
+                                <motion.div
+                                    key={item.MenuItemId}
+                                    whileHover={{ y: -3 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                    className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg"
+                                >
+
+                                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+
+                                        {item.ImageUrl ? (
+                                            <img
+                                                src={item.ImageUrl}
+                                                alt={item.ItemName}
+                                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+                                                <ChefHat className="h-8 w-8 text-primary/40" />
+                                            </div>
+                                        )}
 
-                                            <Typography fontWeight={600} noWrap>
-                                                {item.ItemName}
-                                            </Typography>
+                                        <div className={cn(
+                                            "absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-md border-2 bg-white/90",
+                                            item.IsVeg ? "border-success" : "border-destructive"
+                                        )}>
+                                            <div className={cn("h-2 w-2 rounded-full", item.IsVeg ? "bg-success" : "bg-destructive")} />
+                                        </div>
 
-                                            {item.IsPopular && (
-                                                <Chip label="Bestseller" size="small" sx={{ height: 18, fontSize: 10.5, bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 600 }} />
-                                            )}
+                                        {item.IsPopular && (
+                                            <Badge variant="warning" className="absolute right-2 top-2 bg-warning text-warning-foreground shadow-sm">
+                                                <Sparkles className="h-3 w-3" /> Popular
+                                            </Badge>
+                                        )}
 
-                                        </Box>
+                                    </div>
+
+                                    <div className="flex flex-1 flex-col p-3">
+
+                                        <p className="line-clamp-1 font-semibold text-foreground">{item.ItemName}</p>
 
                                         {item.Description && (
-                                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", maxWidth: 260 }}>
-                                                {item.Description}
-                                            </Typography>
+                                            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.Description}</p>
                                         )}
 
-                                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                                            ₹ {Number(item.Price).toFixed(2)}
-                                        </Typography>
+                                        <div className="mt-auto flex items-center justify-between pt-3">
 
-                                    </Box>
+                                            <span className="font-bold text-foreground">₹{Number(item.Price).toFixed(0)}</span>
 
-                                </Box>
+                                            {item.HasOptions ? (
 
-                                {item.HasOptions ? (
+                                                <div className="flex items-center gap-1.5">
+                                                    {quantity > 0 && <Badge>{quantity}</Badge>}
+                                                    <Button size="sm" onClick={() => handleAddClick(item)}>
+                                                        <Plus className="h-3.5 w-3.5" /> Add
+                                                    </Button>
+                                                </div>
 
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+                                            ) : quantity === 0 ? (
 
-                                        {quantity > 0 && (
-                                            <Chip size="small" color="primary" label={quantity} />
-                                        )}
+                                                <Button size="sm" onClick={() => handleAddClick(item)}>
+                                                    <Plus className="h-3.5 w-3.5" /> Add
+                                                </Button>
 
-                                        <Button
-                                            variant="outlined"
-                                            size="small"
-                                            startIcon={<AddRoundedIcon />}
-                                            onClick={() => handleAddClick(item)}
-                                        >
-                                            Add
-                                        </Button>
+                                            ) : (
 
-                                    </Box>
+                                                <QuantityStepper
+                                                    size="sm"
+                                                    value={quantity}
+                                                    onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
+                                                />
 
-                                ) : quantity === 0 ? (
+                                            )}
 
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        startIcon={<AddRoundedIcon />}
-                                        onClick={() => handleAddClick(item)}
-                                        sx={{ flexShrink: 0 }}
-                                    >
-                                        Add
-                                    </Button>
+                                        </div>
 
-                                ) : (
+                                    </div>
 
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            flexShrink: 0,
-                                            border: "1px solid #E5E7EB",
-                                            borderRadius: 5,
-                                            px: 0.5,
-                                            py: 0.25,
-                                            width: 112
-                                        }}
-                                    >
+                                </motion.div>
 
-                                        <IconButton size="small" onClick={() => handleDecrement(item)} sx={{ p: 0.75 }}>
-                                            <RemoveRoundedIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
+                            );
 
-                                        <QuantityInput
-                                            value={quantity}
-                                            onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
-                                            sx={{ width: 28 }}
-                                        />
+                        })}
 
-                                        <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
-                                            <AddRoundedIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
+                    </div>
 
-                                    </Box>
+                )}
 
-                                )}
+            </div>
 
-                            </Card>
+            {/* RIGHT — order summary, sticky */}
+            <div className="lg:sticky lg:top-0 lg:self-start">
 
-                        );
+                <div className="rounded-2xl border border-border bg-card shadow-sm">
 
-                    })}
+                    <div className="p-5">
 
-                </Box>
-
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 5 }}>
-
-                <Box sx={{ position: { md: "sticky" }, top: { md: 16 } }}>
-
-                    <Card variant="outlined" sx={{ p: 2.5 }}>
-
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                            Customer
-                        </Typography>
+                        <div className="mb-1.5 flex items-center gap-1.5 text-sm font-bold text-foreground">
+                            <UserRound className="h-4 w-4 text-primary" /> Customer
+                        </div>
 
                         {resolvedCustomer ? (
 
-                            <Chip
-                                label={
-                                    isGuest
-                                        ? "Walk-in Guest (no details given)"
-                                        : `${resolvedCustomer.FullName} — ${resolvedCustomer.Phone}`
-                                }
-                                color="success"
-                                onDelete={handleChangeCustomer}
-                                sx={{ mb: 1, maxWidth: "100%" }}
-                            />
+                            <div className="flex items-center justify-between rounded-xl bg-success/10 px-3 py-2">
+                                <span className="truncate text-sm font-semibold text-success">
+                                    {isGuest ? "Walk-in Guest (no details given)" : `${resolvedCustomer.FullName} — ${resolvedCustomer.Phone}`}
+                                </span>
+                                <button type="button" onClick={handleChangeCustomer} className="flex-shrink-0 text-success/70 hover:text-success">
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
 
                         ) : (
 
-                            <Grid container spacing={1.5}>
+                            <div className="flex flex-col gap-2">
 
-                                <Grid size={{ xs: 12 }}>
-
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        label="Phone Number"
-                                        value={customerPhone}
-                                        onChange={(event) => setCustomerPhone(event.target.value)}
-                                        onBlur={() => customerPhone.trim() && !needsName && handleFindCustomer()}
-                                    />
-
-                                </Grid>
+                                <Input
+                                    placeholder="Phone Number"
+                                    value={customerPhone}
+                                    onChange={(event) => setCustomerPhone(event.target.value)}
+                                    onBlur={() => customerPhone.trim() && !needsName && handleFindCustomer()}
+                                />
 
                                 {needsName && (
-
-                                    <Grid size={{ xs: 12 }}>
-
-                                        <TextField
-                                            fullWidth
-                                            size="small"
-                                            required
-                                            label="Customer Name"
-                                            value={customerName}
-                                            onChange={(event) => setCustomerName(event.target.value)}
-                                        />
-
-                                    </Grid>
-
+                                    <Input
+                                        placeholder="Customer Name"
+                                        value={customerName}
+                                        onChange={(event) => setCustomerName(event.target.value)}
+                                    />
                                 )}
 
-                                <Grid size={{ xs: needsName ? 12 : 8 }}>
+                                <div className="flex gap-2">
 
                                     <Button
-                                        variant="outlined"
-                                        fullWidth
+                                        variant="outline"
                                         disabled={checkingCustomer}
                                         onClick={handleFindCustomer}
+                                        className="flex-1"
                                     >
                                         {needsName ? "Create Customer" : "Find / Add Customer"}
                                     </Button>
 
-                                </Grid>
-
-                                {!needsName && (
-
-                                    <Grid size={{ xs: 4 }}>
-
-                                        <Button
-                                            variant="text"
-                                            fullWidth
-                                            disabled={checkingCustomer}
-                                            onClick={handleUseGuest}
-                                        >
+                                    {!needsName && (
+                                        <Button variant="ghost" disabled={checkingCustomer} onClick={handleUseGuest}>
                                             Guest
                                         </Button>
+                                    )}
 
-                                    </Grid>
+                                </div>
 
-                                )}
-
-                            </Grid>
+                            </div>
 
                         )}
 
-                        <Divider sx={{ my: 2 }} />
+                    </div>
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                            Cart
-                        </Typography>
+                    <Separator />
+
+                    <div className="p-5">
+
+                        <div className="mb-2 flex items-center justify-between">
+                            <p className="text-sm font-bold text-foreground">Cart</p>
+                            {cartItemCount > 0 && <Badge>{cartItemCount} item{cartItemCount === 1 ? "" : "s"}</Badge>}
+                        </div>
 
                         {cartLines.length === 0 ? (
 
-                            <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                                No items added yet.
-                            </Typography>
+                            <p className="py-2 text-sm text-muted-foreground">No items added yet.</p>
 
                         ) : (
 
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, maxHeight: 220, overflowY: "auto" }}>
+                            <div className="flex max-h-64 flex-col gap-2.5 overflow-y-auto pr-0.5">
 
-                                {cartLines.map((line) => (
+                                <AnimatePresence initial={false}>
 
-                                    <Box key={line.lineKey} sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                    {cartLines.map((line) => (
 
-                                        <Box sx={{ minWidth: 0 }}>
+                                        <motion.div
+                                            key={line.lineKey}
+                                            layout
+                                            initial={{ opacity: 0, height: 0 }}
+                                            animate={{ opacity: 1, height: "auto" }}
+                                            exit={{ opacity: 0, height: 0 }}
+                                            className="flex items-start justify-between gap-2"
+                                        >
 
-                                            <Typography variant="body2" noWrap>
-                                                {line.itemName}
-                                            </Typography>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-medium text-foreground">{line.itemName}</p>
+                                                {line.summary && (
+                                                    <p className="truncate text-xs text-muted-foreground">{line.summary}</p>
+                                                )}
+                                                <p className="text-xs font-semibold text-muted-foreground">₹{(line.price * line.quantity).toFixed(2)}</p>
+                                            </div>
 
-                                            {line.summary && (
-                                                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
-                                                    {line.summary}
-                                                </Typography>
-                                            )}
+                                            <div className="flex flex-shrink-0 items-center gap-1.5">
 
-                                        </Box>
+                                                <QuantityStepper
+                                                    size="sm"
+                                                    value={line.quantity}
+                                                    onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
+                                                />
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRemoveLine(line.lineKey)}
+                                                    className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-destructive/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+                                                >
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </button>
 
-                                            <Typography variant="body2" color="text.secondary">&times;</Typography>
+                                            </div>
 
-                                            <QuantityInput
-                                                value={line.quantity}
-                                                onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
-                                                sx={{ width: 28 }}
-                                            />
+                                        </motion.div>
 
-                                            <Typography variant="body2" fontWeight={600}>
-                                                ₹ {(line.price * line.quantity).toFixed(2)}
-                                            </Typography>
+                                    ))}
 
-                                            <IconButton size="small" color="error" onClick={() => handleRemoveLine(line.lineKey)}>
-                                                <DeleteRoundedIcon fontSize="small" />
-                                            </IconButton>
+                                </AnimatePresence>
 
-                                        </Box>
-
-                                    </Box>
-
-                                ))}
-
-                            </Box>
+                            </div>
 
                         )}
+
+                    </div>
+
+                    <Separator />
+
+                    <div className="p-5">
+
+                        <p className="mb-2 text-sm font-bold text-foreground">Payment Method</p>
+
+                        <div className="grid grid-cols-3 gap-2">
+
+                            {PAYMENT_METHODS.map(({ value, label, icon: Icon }) => (
+
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => setPaymentMethod(value)}
+                                    className={cn(
+                                        "flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-semibold transition-colors",
+                                        paymentMethod === value ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:bg-accent"
+                                    )}
+                                >
+                                    <Icon className="h-4 w-4" /> {label}
+                                </button>
+
+                            ))}
+
+                        </div>
+
+                        <Textarea
+                            placeholder="Order Notes (optional)"
+                            value={notes}
+                            onChange={(event) => setNotes(event.target.value)}
+                            className="mt-3"
+                            rows={2}
+                        />
+
+                    </div>
+
+                    <Separator />
+
+                    <div className="p-5">
 
                         {cartLines.length > 0 && (
 
-                            <Box sx={{ mt: 1.5, textAlign: "right" }}>
-
-                                <Typography variant="h6" fontWeight={700}>
-                                    Subtotal: ₹ {subtotal.toFixed(2)}
-                                </Typography>
-
-                                <Typography variant="caption" color="text.secondary">
-                                    Tax added at checkout
-                                </Typography>
-
-                            </Box>
+                            <div className="mb-3 flex items-baseline justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">Subtotal</p>
+                                    <p className="text-xs text-muted-foreground">Tax added at checkout</p>
+                                </div>
+                                <p className="text-xl font-extrabold text-foreground">₹{subtotal.toFixed(2)}</p>
+                            </div>
 
                         )}
 
-                        <Divider sx={{ my: 2 }} />
-
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                            Payment Method
-                        </Typography>
-
-                        <ToggleButtonGroup
-                            exclusive
-                            fullWidth
-                            color="primary"
-                            size="small"
-                            value={paymentMethod}
-                            onChange={(event, value) => value && setPaymentMethod(value)}
-                            sx={{ mb: 2 }}
-                        >
-
-                            {PAYMENT_METHODS.map((method) => (
-                                <ToggleButton key={method} value={method}>
-                                    {method}
-                                </ToggleButton>
-                            ))}
-
-                        </ToggleButtonGroup>
-
-                        <TextField
-                            fullWidth
-                            size="small"
-                            multiline
-                            rows={2}
-                            label="Order Notes (optional)"
-                            value={notes}
-                            onChange={(event) => setNotes(event.target.value)}
-                            sx={{ mb: 2 }}
-                        />
-
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+                        <div className="flex gap-2">
 
                             {onCancel && (
-                                <Button onClick={onCancel}>
+                                <Button variant="outline" onClick={onCancel}>
                                     Back
                                 </Button>
                             )}
 
                             <Button
-                                variant="contained"
-                                fullWidth={!onCancel}
+                                size="lg"
                                 disabled={submitting}
                                 onClick={handlePlaceOrder}
+                                className="flex-1 justify-between"
                             >
-                                {submitting ? "Placing Order..." : "Place Order"}
+                                <span>{submitting ? "Placing Order..." : "Place Order"}</span>
+                                <kbd className="rounded-md bg-white/15 px-1.5 py-0.5 text-[10px] font-bold">F9</kbd>
                             </Button>
 
-                        </Box>
+                        </div>
 
-                    </Card>
+                    </div>
 
-                </Box>
+                </div>
 
-            </Grid>
+            </div>
 
             <PosItemOptionsDialog
                 open={Boolean(optionsDialogItem)}
@@ -986,7 +980,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 )}
             </PrintDialog>
 
-        </Grid>
+        </div>
 
     );
 

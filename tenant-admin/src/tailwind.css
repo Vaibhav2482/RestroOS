@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* shadcn/ui-style design tokens, mapped to the app's existing brand
+   palette (#4F46E5 primary, #22C55E success, #EF4444 destructive,
+   #F59E0B warning, #F8FAFC background, #111827 foreground) so the
+   Tailwind-styled POS screen and the rest of the MUI app read as the
+   same product. Scoped to :root but harmless everywhere else - MUI
+   themes off a JS object, not CSS custom properties, so nothing here
+   is read outside components that opt in via Tailwind classes. */
+:root {
+    --background: 210 40% 98%;
+    --foreground: 221 39% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 221 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 221 39% 11%;
+    --primary: 243 75% 59%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 221 39% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 243 75% 96%;
+    --accent-foreground: 243 75% 40%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 243 75% 59%;
+    --radius: 1rem;
+}
