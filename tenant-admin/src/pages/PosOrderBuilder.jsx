@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Alert,
     Box,
@@ -141,6 +141,28 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     // screen away) is deferred until that dialog is dismissed instead of
     // firing immediately on a successful order.
     const [placedOrder, setPlacedOrder] = useState(null);
+
+    const searchInputRef = useRef(null);
+
+    // Ctrl/Cmd+K focuses search - the one keyboard shortcut worth having on
+    // a screen staff are searching from repeatedly through a shift; skipped
+    // whenever a dialog is already open so it doesn't steal focus from
+    // whatever's actually being typed into there.
+    useEffect(() => {
+
+        const handleKeyDown = (event) => {
+
+            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !optionsDialogItem && !placedOrder) {
+                event.preventDefault();
+                searchInputRef.current?.focus();
+            }
+
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+
+    }, [optionsDialogItem, placedOrder]);
 
     // Default to the shared guest placeholder so staff can start adding items
     // immediately; they can still swap in a real customer below.
@@ -553,18 +575,17 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
             <Grid size={{ xs: 12, md: 7 }}>
 
-                <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 1.5 }}>
-                    <Typography variant="subtitle2" fontWeight={700}>
-                        Menu
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                        {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
-                    </Typography>
-                </Box>
-
+                {/* This is the single most-used control on the whole screen
+                    (staff search it constantly through a shift) - it earns a
+                    heavier visual treatment than a plain small text field, a
+                    tinted background instead of a bare white box, and a
+                    working Ctrl/Cmd+K shortcut rather than just a decorative
+                    hint. The item count moved from its own separate label
+                    row into the field itself, where it's contextual to what
+                    you're actually searching. */}
                 <TextField
                     fullWidth
-                    size="small"
+                    inputRef={searchInputRef}
                     placeholder="Search menu items..."
                     value={itemSearch}
                     onChange={(event) => setItemSearch(event.target.value)}
@@ -572,12 +593,33 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         input: {
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchRoundedIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                                    <SearchRoundedIcon sx={{ color: "primary.main" }} />
+                                </InputAdornment>
+                            ),
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <Chip
+                                        label={itemSearch ? `${filteredItems.length} match${filteredItems.length === 1 ? "" : "es"}` : `${filteredItems.length} items`}
+                                        size="small"
+                                        sx={{ fontWeight: 700, bgcolor: "rgba(79, 70, 229, 0.1)", color: "primary.main" }}
+                                    />
                                 </InputAdornment>
                             )
                         }
                     }}
-                    sx={{ mb: 1.5, bgcolor: "background.paper", boxShadow: "0 1px 2px rgba(0,0,0,.04)" }}
+                    sx={{
+                        mb: 1.5,
+                        "& .MuiOutlinedInput-root": {
+                            height: 52,
+                            fontSize: "1.05rem",
+                            fontWeight: 600,
+                            bgcolor: "rgba(79, 70, 229, 0.04)",
+                            "& fieldset": { borderColor: "transparent" },
+                            "&:hover fieldset": { borderColor: "primary.main" },
+                            "&.Mui-focused": { bgcolor: "background.paper" },
+                            "&.Mui-focused fieldset": { borderColor: "primary.main", borderWidth: 2 }
+                        }
+                    }}
                 />
 
                 {categoriesWithItems.length > 0 && (

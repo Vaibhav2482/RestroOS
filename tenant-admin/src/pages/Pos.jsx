@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Card, MenuItem, Select, Typography } from "@mui/material";
+import { Box, Button, Card, Chip, MenuItem, Select, Typography } from "@mui/material";
+import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
+import ShoppingBagRoundedIcon from "@mui/icons-material/ShoppingBagRounded";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
@@ -369,9 +372,49 @@ function Pos() {
 
                 <Card sx={{ p: 2.5 }}>
 
-                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
-                        New Order — Table {pendingTable.TableName}
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
+
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+
+                            <Box
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 2.5,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    bgcolor: "rgba(79, 70, 229, 0.1)",
+                                    color: "primary.main"
+                                }}
+                            >
+                                <TableRestaurantRoundedIcon />
+                            </Box>
+
+                            <Box>
+                                <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
+                                    New Order
+                                </Typography>
+                                <Chip
+                                    label={`Table ${pendingTable.TableName}`}
+                                    size="small"
+                                    color="primary"
+                                    sx={{ fontWeight: 700, mt: 0.25 }}
+                                />
+                            </Box>
+
+                        </Box>
+
+                        <Button
+                            size="small"
+                            startIcon={<ArrowBackRoundedIcon />}
+                            onClick={() => { setMode("grid"); setPendingTable(null); }}
+                        >
+                            Back to Floor
+                        </Button>
+
+                    </Box>
 
                     <PosOrderBuilder
                         key={`dine-in-${selectedBranchId}-${pendingTable.TableId}`}
@@ -391,9 +434,44 @@ function Pos() {
 
                 <Card sx={{ p: 2.5 }}>
 
-                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
-                        New Order — Takeaway
-                    </Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
+
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+
+                            <Box
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: 2.5,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    bgcolor: "rgba(79, 70, 229, 0.1)",
+                                    color: "primary.main"
+                                }}
+                            >
+                                <ShoppingBagRoundedIcon />
+                            </Box>
+
+                            <Box>
+                                <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
+                                    New Order
+                                </Typography>
+                                <Chip label="Takeaway" size="small" color="primary" sx={{ fontWeight: 700, mt: 0.25 }} />
+                            </Box>
+
+                        </Box>
+
+                        <Button
+                            size="small"
+                            startIcon={<ArrowBackRoundedIcon />}
+                            onClick={() => setMode("grid")}
+                        >
+                            Back to Floor
+                        </Button>
+
+                    </Box>
 
                     <PosOrderBuilder
                         key={`takeaway-${selectedBranchId}`}
