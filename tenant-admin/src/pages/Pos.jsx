@@ -312,7 +312,7 @@ function Pos() {
 
         <Box>
 
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5, flexWrap: "wrap", gap: 2 }}>
 
                 <Typography variant="h4" fontWeight={700}>
                     Take Order
@@ -367,9 +367,9 @@ function Pos() {
 
             {mode === "dine-in" && pendingTable && selectedBranchId && (
 
-                <Card sx={{ p: 3 }}>
+                <Card sx={{ p: 2.5 }}>
 
-                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
                         New Order — Table {pendingTable.TableName}
                     </Typography>
 
@@ -389,9 +389,9 @@ function Pos() {
 
             {mode === "takeaway" && selectedBranchId && (
 
-                <Card sx={{ p: 3 }}>
+                <Card sx={{ p: 2.5 }}>
 
-                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 1.5 }}>
                         New Order — Takeaway
                     </Typography>
 

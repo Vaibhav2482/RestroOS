@@ -8,6 +8,7 @@ import {
     Divider,
     Grid,
     IconButton,
+    InputAdornment,
     InputBase,
     TextField,
     ToggleButton,
@@ -18,6 +19,7 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -551,9 +553,14 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
             <Grid size={{ xs: 12, md: 7 }}>
 
-                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
-                    Menu
-                </Typography>
+                <Box sx={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", mb: 1.5 }}>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                        Menu
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                        {filteredItems.length} item{filteredItems.length === 1 ? "" : "s"}
+                    </Typography>
+                </Box>
 
                 <TextField
                     fullWidth
@@ -561,17 +568,30 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                     placeholder="Search menu items..."
                     value={itemSearch}
                     onChange={(event) => setItemSearch(event.target.value)}
-                    sx={{ mb: 2 }}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRoundedIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                                </InputAdornment>
+                            )
+                        }
+                    }}
+                    sx={{ mb: 1.5, bgcolor: "background.paper", boxShadow: "0 1px 2px rgba(0,0,0,.04)" }}
                 />
 
                 {categoriesWithItems.length > 0 && (
 
-                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, maxHeight: 92, overflowY: "auto" }}>
+                    // A single scrollable row instead of wrapping - wrapping
+                    // to 2-3 rows was pushing the actual menu items down by
+                    // as much as 72px before a single item was even visible.
+                    <Box sx={{ display: "flex", flexWrap: "nowrap", gap: 1, mb: 1.5, overflowX: "auto", pb: 0.5 }}>
 
                         <Chip
                             label="All"
                             color={selectedCategoryId === "all" ? "primary" : "default"}
                             onClick={() => setSelectedCategoryId("all")}
+                            sx={{ flexShrink: 0 }}
                         />
 
                         {categoriesWithItems.map((category) => (
@@ -581,6 +601,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                 label={category.CategoryName}
                                 color={selectedCategoryId === category.CategoryId ? "primary" : "default"}
                                 onClick={() => setSelectedCategoryId(category.CategoryId)}
+                                sx={{ flexShrink: 0 }}
                             />
 
                         ))}
@@ -599,6 +620,14 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                     )}
 
+                    {/* Two columns instead of one full-width row per item -
+                        measured against the previous single-column layout,
+                        each row left 36-52% of its width empty between the
+                        text and the Add button, and only ~5 of 12 items in a
+                        category were visible without scrolling. This roughly
+                        doubles visible items for the same screen height. */}
+                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.25 }}>
+
                     {filteredItems.map((item) => {
 
                         const quantity = getQuantity(item.MenuItemId);
@@ -608,21 +637,14 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             <Card
                                 key={item.MenuItemId}
                                 variant="outlined"
-                                sx={{
-                                    p: 1.5,
-                                    mb: 1,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    gap: 1.5
-                                }}
+                                sx={{ p: 1.25, display: "flex", flexDirection: "column", gap: 0.75 }}
                             >
 
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0, flex: 1 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
 
                                     <ItemThumbnail imageUrl={item.ImageUrl} itemName={item.ItemName} />
 
-                                    <Box sx={{ minWidth: 0 }}>
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
 
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
 
@@ -636,7 +658,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                                 }}
                                             />
 
-                                            <Typography fontWeight={600} noWrap>
+                                            <Typography fontWeight={600} noWrap sx={{ fontSize: "0.9rem" }}>
                                                 {item.ItemName}
                                             </Typography>
 
@@ -647,89 +669,95 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                         </Box>
 
                                         {item.Description && (
-                                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block", maxWidth: 260 }}>
+                                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
                                                 {item.Description}
                                             </Typography>
                                         )}
-
-                                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                                            ₹ {Number(item.Price).toFixed(2)}
-                                        </Typography>
 
                                     </Box>
 
                                 </Box>
 
-                                {item.HasOptions ? (
+                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
 
-                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                                        ₹ {Number(item.Price).toFixed(2)}
+                                    </Typography>
 
-                                        {quantity > 0 && (
-                                            <Chip size="small" color="primary" label={quantity} />
-                                        )}
+                                    {item.HasOptions ? (
+
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0 }}>
+
+                                            {quantity > 0 && (
+                                                <Chip size="small" color="primary" label={quantity} />
+                                            )}
+
+                                            <Button
+                                                variant="outlined"
+                                                size="small"
+                                                startIcon={<AddRoundedIcon />}
+                                                onClick={() => handleAddClick(item)}
+                                            >
+                                                Add
+                                            </Button>
+
+                                        </Box>
+
+                                    ) : quantity === 0 ? (
 
                                         <Button
                                             variant="outlined"
                                             size="small"
                                             startIcon={<AddRoundedIcon />}
                                             onClick={() => handleAddClick(item)}
+                                            sx={{ flexShrink: 0 }}
                                         >
                                             Add
                                         </Button>
 
-                                    </Box>
+                                    ) : (
 
-                                ) : quantity === 0 ? (
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "space-between",
+                                                flexShrink: 0,
+                                                border: "1px solid #E5E7EB",
+                                                borderRadius: 5,
+                                                px: 0.5,
+                                                py: 0.25,
+                                                width: 112
+                                            }}
+                                        >
 
-                                    <Button
-                                        variant="outlined"
-                                        size="small"
-                                        startIcon={<AddRoundedIcon />}
-                                        onClick={() => handleAddClick(item)}
-                                        sx={{ flexShrink: 0 }}
-                                    >
-                                        Add
-                                    </Button>
+                                            <IconButton size="small" onClick={() => handleDecrement(item)} sx={{ p: 0.75 }}>
+                                                <RemoveRoundedIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
 
-                                ) : (
+                                            <QuantityInput
+                                                value={quantity}
+                                                onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
+                                                sx={{ width: 28 }}
+                                            />
 
-                                    <Box
-                                        sx={{
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "space-between",
-                                            flexShrink: 0,
-                                            border: "1px solid #E5E7EB",
-                                            borderRadius: 5,
-                                            px: 0.5,
-                                            py: 0.25,
-                                            width: 112
-                                        }}
-                                    >
+                                            <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
+                                                <AddRoundedIcon sx={{ fontSize: 18 }} />
+                                            </IconButton>
 
-                                        <IconButton size="small" onClick={() => handleDecrement(item)} sx={{ p: 0.75 }}>
-                                            <RemoveRoundedIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
+                                        </Box>
 
-                                        <QuantityInput
-                                            value={quantity}
-                                            onCommit={(next) => handleSetLineQuantity(String(item.MenuItemId), next)}
-                                            sx={{ width: 28 }}
-                                        />
+                                    )}
 
-                                        <IconButton size="small" onClick={() => handleIncrement(item)} sx={{ p: 0.75 }}>
-                                            <AddRoundedIcon sx={{ fontSize: 18 }} />
-                                        </IconButton>
-
-                                    </Box>
-
-                                )}
+                                </Box>
 
                             </Card>
 
                         );
 
                     })}
+
+                    </Box>
 
                 </Box>
 
@@ -862,13 +890,45 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                         <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 }}>
 
-                                            <Typography variant="body2" color="text.secondary">&times;</Typography>
+                                            {/* Same +/- stepper pattern as the menu list - the cart
+                                                previously had only a bare 28px number field with no
+                                                visible way to change quantity short of clicking in and
+                                                typing, inconsistent with how quantity works everywhere
+                                                else on this screen. */}
+                                            <Box
+                                                sx={{
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    border: "1px solid #E5E7EB",
+                                                    borderRadius: 5,
+                                                    px: 0.25,
+                                                    py: 0.125
+                                                }}
+                                            >
 
-                                            <QuantityInput
-                                                value={line.quantity}
-                                                onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
-                                                sx={{ width: 28 }}
-                                            />
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleSetLineQuantity(line.lineKey, line.quantity - 1)}
+                                                    sx={{ p: 0.5 }}
+                                                >
+                                                    <RemoveRoundedIcon sx={{ fontSize: 15 }} />
+                                                </IconButton>
+
+                                                <QuantityInput
+                                                    value={line.quantity}
+                                                    onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
+                                                    sx={{ width: 22 }}
+                                                />
+
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleSetLineQuantity(line.lineKey, line.quantity + 1)}
+                                                    sx={{ p: 0.5 }}
+                                                >
+                                                    <AddRoundedIcon sx={{ fontSize: 15 }} />
+                                                </IconButton>
+
+                                            </Box>
 
                                             <Typography variant="body2" fontWeight={600}>
                                                 ₹ {(line.price * line.quantity).toFixed(2)}
