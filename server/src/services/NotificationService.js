@@ -266,6 +266,32 @@ export const emailBill = async (order) => {
 
 };
 
+// Covers both onboarding (a brand-new owner account) and a platform admin's
+// reset-password action - same "here's a one-time credential" shape either
+// way. Best-effort like every other channel here: TenantService still
+// returns the temporary password in its own response regardless of whether
+// this send succeeds, so a platform admin can always relay it by hand if
+// Resend isn't configured or the send fails.
+export const notifyOwnerCredentials = async ({ tenantName, email, temporaryPassword, isReset }) => {
+
+    const loginLine = process.env.TENANT_ADMIN_URL
+        ? `<p>Log in at <a href="${process.env.TENANT_ADMIN_URL}">${process.env.TENANT_ADMIN_URL}</a> with:</p>`
+        : `<p>Log in to your restaurant's admin dashboard with:</p>`;
+
+    await sendEmail(
+        email,
+        isReset ? `Your ${tenantName} password has been reset` : `Welcome to RestroOS - ${tenantName} is ready`,
+        `<p>Hi,</p>
+         <p>${isReset
+            ? `Your RestroOS login for <strong>${tenantName}</strong> has been reset by a platform administrator.`
+            : `Your restaurant <strong>${tenantName}</strong> is now set up on RestroOS.`}</p>
+         ${loginLine}
+         <p>Email: <strong>${email}</strong><br/>Temporary password: <strong>${temporaryPassword}</strong></p>
+         <p>Please log in and change this password as soon as possible.</p>`
+    );
+
+};
+
 export const notifyOrderCancelled = async (order, refunded) => {
 
     const [customer, items] = await Promise.all([

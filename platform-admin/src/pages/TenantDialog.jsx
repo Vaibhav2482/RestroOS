@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, TextField } from "@mui/material";
 
 const emptyForm = { tenantName: "", slug: "", ownerEmail: "", ownerPhone: "" };
+const emptyErrors = { tenantName: "", ownerEmail: "" };
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function TenantDialog({ open, onClose, onSave }) {
 
     const [formData, setFormData] = useState(emptyForm);
+    const [errors, setErrors] = useState(emptyErrors);
     const [saving, setSaving] = useState(false);
 
     // This dialog stays mounted the whole time (Tenants.jsx just toggles
@@ -16,17 +20,55 @@ function TenantDialog({ open, onClose, onSave }) {
 
         if (!open) {
             setFormData(emptyForm);
+            setErrors(emptyErrors);
         }
 
     }, [open]);
 
     const handleChange = (event) => {
-        setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+
+        const { name, value } = event.target;
+
+        setFormData((prev) => ({ ...prev, [name]: value }));
+
+        if (errors[name]) {
+            setErrors((prev) => ({ ...prev, [name]: "" }));
+        }
+
+    };
+
+    // Backs up the `required`/type="email" native validation (see the
+    // noValidate note below) with inline messages - a native validation
+    // bubble anchored to a field inside an MUI Dialog can render in the
+    // wrong place or not at all depending on browser/zoom, so this is the
+    // primary feedback path, not just a decoration on top of it.
+    const validate = () => {
+
+        const nextErrors = { ...emptyErrors };
+
+        if (formData.tenantName.trim() === "") {
+            nextErrors.tenantName = "Restaurant name is required.";
+        }
+
+        if (formData.ownerEmail.trim() === "") {
+            nextErrors.ownerEmail = "Owner email is required.";
+        } else if (!EMAIL_PATTERN.test(formData.ownerEmail.trim())) {
+            nextErrors.ownerEmail = "Enter a valid email address.";
+        }
+
+        setErrors(nextErrors);
+
+        return Object.values(nextErrors).every((error) => error === "");
+
     };
 
     const handleSubmit = async (event) => {
 
         event.preventDefault();
+
+        if (!validate()) {
+            return;
+        }
 
         setSaving(true);
 
@@ -65,8 +107,10 @@ function TenantDialog({ open, onClose, onSave }) {
                     attribute on that button (below) associates it with this
                     form by id despite being outside it in the DOM, so Enter
                     submits and `required` actually blocks empty submission
-                    instead of being purely cosmetic. */}
-                <Box component="form" id="tenant-onboard-form" onSubmit={handleSubmit} noValidate>
+                    instead of being purely cosmetic. noValidate must NOT be
+                    set here - it would silently defeat that `required`
+                    blocking and let handleSubmit fire with blank fields. */}
+                <Box component="form" id="tenant-onboard-form" onSubmit={handleSubmit}>
 
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
 
@@ -78,6 +122,8 @@ function TenantDialog({ open, onClose, onSave }) {
                             name="tenantName"
                             value={formData.tenantName}
                             onChange={handleChange}
+                            error={Boolean(errors.tenantName)}
+                            helperText={errors.tenantName}
                         />
                     </Grid>
 
@@ -101,6 +147,8 @@ function TenantDialog({ open, onClose, onSave }) {
                             name="ownerEmail"
                             value={formData.ownerEmail}
                             onChange={handleChange}
+                            error={Boolean(errors.ownerEmail)}
+                            helperText={errors.ownerEmail}
                         />
                     </Grid>
 

@@ -23,3 +23,19 @@ export const resetOwnerPassword = async (tenantId) => {
     return response.data;
 
 };
+
+export const suspendTenant = async (tenantId) => {
+
+    const response = await axiosClient.post(`/platform-admin/tenants/${tenantId}/suspend`);
+
+    return response.data;
+
+};
+
+export const reactivateTenant = async (tenantId) => {
+
+    const response = await axiosClient.post(`/platform-admin/tenants/${tenantId}/reactivate`);
+
+    return response.data;
+
+};

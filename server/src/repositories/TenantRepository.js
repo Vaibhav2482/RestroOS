@@ -106,6 +106,23 @@ export const getById = async (tenantId) => {
 
 };
 
+// Suspend/reactivate, not delete - a tenant has orders, payments, and admin
+// accounts hanging off it, so hard-deleting one would cascade destructively
+// through a paying (or recently paying) customer's history. IsActive already
+// gates both the public storefront (getPublicBySlug) and tenant-admin login
+// (AdminAuthService.login), so flipping it here immediately cuts off both.
+export const setActive = async (tenantId, isActive) => {
+
+    const result = await pool.query(
+        `UPDATE "Tenants" SET "IsActive" = $1, "UpdatedAt" = NOW() WHERE "TenantId" = $2
+         RETURNING "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt"`,
+        [isActive, tenantId]
+    );
+
+    return result.rows[0];
+
+};
+
 // Creates the Tenant row and its owner Admin account (BranchId NULL = owner,
 // unrestricted across all of that tenant's branches, same convention as
 // ChaiChakhna's single-tenant Admins table) in one transaction - a tenant

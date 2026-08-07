@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import crypto from "crypto";
 import * as TenantRepository from "../repositories/TenantRepository.js";
 import * as AdminRepository from "../repositories/AdminRepository.js";
+import * as NotificationService from "./NotificationService.js";
+import { sanitizeDisabledFeatures } from "../config/permissions.js";
 
 const slugify = (text) =>
     text
@@ -48,6 +50,14 @@ export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
 
 };
 
+export const updateDisabledFeatures = async (tenantId, disabledFeatures) => {
+
+    const tenant = await TenantRepository.updateDisabledFeatures(tenantId, sanitizeDisabledFeatures(disabledFeatures));
+
+    return { success: true, message: "Features updated.", data: tenant };
+
+};
+
 export const getAllTenants = async () => {
 
     const tenants = await TenantRepository.getAll();
@@ -78,10 +88,12 @@ export const createTenant = async (tenant) => {
         return { success: false, message: `The slug "${slug}" is already taken. Try a different restaurant name or a custom slug.` };
     }
 
-    // No email delivery is wired up yet, so the one-time owner password is
-    // handed back in this response for you (the platform admin) to relay -
-    // same "shown once, never stored in plaintext" pattern as a cloud
-    // console creating a new account's initial credentials.
+    // The one-time owner password is also handed back in this response for
+    // you (the platform admin) to relay yourself - notifyOwnerCredentials is
+    // best-effort (silently skips if Resend isn't configured, or if the
+    // send fails), so this stays the guaranteed path, same "shown once,
+    // never stored in plaintext" pattern as a cloud console creating a new
+    // account's initial credentials.
     const temporaryPassword = crypto.randomBytes(9).toString("base64url");
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
@@ -89,6 +101,13 @@ export const createTenant = async (tenant) => {
         { ...tenant, slug },
         hashedPassword
     );
+
+    await NotificationService.notifyOwnerCredentials({
+        tenantName: createdTenant.TenantName,
+        email: admin.Email,
+        temporaryPassword,
+        isReset: false
+    });
 
     return {
         success: true,
@@ -101,10 +120,47 @@ export const createTenant = async (tenant) => {
 
 };
 
-// There's no self-service "forgot password" for tenant-admin logins (this
-// app deliberately has no email channel) - a platform admin generating and
-// relaying a new one is the recovery path instead. Same "shown once, never
-// stored in plaintext" pattern as the temporary password from onboarding.
+export const suspendTenant = async (tenantId) => {
+
+    const tenant = await TenantRepository.getById(tenantId);
+
+    if (!tenant) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    if (!tenant.IsActive) {
+        return { success: false, message: "This restaurant is already suspended." };
+    }
+
+    const updated = await TenantRepository.setActive(tenantId, false);
+
+    return { success: true, message: "Restaurant suspended.", data: updated };
+
+};
+
+export const reactivateTenant = async (tenantId) => {
+
+    const tenant = await TenantRepository.getById(tenantId);
+
+    if (!tenant) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    if (tenant.IsActive) {
+        return { success: false, message: "This restaurant is already active." };
+    }
+
+    const updated = await TenantRepository.setActive(tenantId, true);
+
+    return { success: true, message: "Restaurant reactivated.", data: updated };
+
+};
+
+// There's no self-service "forgot password" for tenant-admin logins - a
+// platform admin generating and relaying a new one is the recovery path
+// instead. notifyOwnerCredentials emails it too when Resend is configured,
+// but the response below still carries it (same "shown once, never stored
+// in plaintext" pattern as onboarding) since that email is best-effort.
 export const resetOwnerPassword = async (tenantId) => {
 
     const tenant = await TenantRepository.getById(tenantId);
@@ -123,6 +179,13 @@ export const resetOwnerPassword = async (tenantId) => {
     const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
     await AdminRepository.resetPassword(admin.AdminId, hashedPassword);
+
+    await NotificationService.notifyOwnerCredentials({
+        tenantName: tenant.TenantName,
+        email: admin.Email,
+        temporaryPassword,
+        isReset: true
+    });
 
     return {
         success: true,

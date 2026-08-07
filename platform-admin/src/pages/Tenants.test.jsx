@@ -18,6 +18,16 @@ const sampleTenant = {
     CreatedAt: "2026-07-25T00:00:00.000Z"
 };
 
+const suspendedTenant = {
+    TenantId: 2,
+    TenantName: "Regal",
+    Slug: "regal",
+    OwnerEmail: "owner@regal.test",
+    PlanType: "trial",
+    IsActive: false,
+    CreatedAt: "2026-07-21T00:00:00.000Z"
+};
+
 function renderTenants() {
     return render(
         <MemoryRouter>
@@ -117,6 +127,139 @@ describe("Tenants - owner password reset", () => {
 
         await waitFor(() => expect(screen.queryByRole("heading", { name: /reset password\?/i })).not.toBeInTheDocument());
         expect(tenantService.resetOwnerPassword).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("Tenants - search and status filter", () => {
+
+    beforeEach(() => {
+        tenantService.getAllTenants.mockResolvedValue({ success: true, data: [sampleTenant, suspendedTenant] });
+    });
+
+    it("filters by name, slug, or owner email", async () => {
+
+        const user = userEvent.setup();
+
+        renderTenants();
+
+        await screen.findByText("Satish Bhau Dhaba");
+        expect(screen.getByText("Regal")).toBeInTheDocument();
+
+        await user.type(screen.getByPlaceholderText(/search by name, slug, or owner email/i), "regal");
+
+        expect(screen.queryByText("Satish Bhau Dhaba")).not.toBeInTheDocument();
+        expect(screen.getByText("Regal")).toBeInTheDocument();
+
+    });
+
+    it("filters by status", async () => {
+
+        const user = userEvent.setup();
+
+        renderTenants();
+
+        await screen.findByText("Satish Bhau Dhaba");
+
+        await user.click(screen.getByLabelText(/status/i));
+        await user.click(await screen.findByRole("option", { name: "Inactive" }));
+
+        expect(screen.queryByText("Satish Bhau Dhaba")).not.toBeInTheDocument();
+        expect(screen.getByText("Regal")).toBeInTheDocument();
+
+    });
+
+    it("shows a distinct message when the filter matches nothing", async () => {
+
+        const user = userEvent.setup();
+
+        renderTenants();
+
+        await screen.findByText("Satish Bhau Dhaba");
+
+        await user.type(screen.getByPlaceholderText(/search by name, slug, or owner email/i), "no-such-restaurant");
+
+        expect(await screen.findByText(/no restaurants match your search or filter/i)).toBeInTheDocument();
+
+    });
+
+});
+
+describe("Tenants - suspend and reactivate", () => {
+
+    it("confirms and suspends an active restaurant", async () => {
+
+        const user = userEvent.setup();
+
+        tenantService.getAllTenants.mockResolvedValue({ success: true, data: [sampleTenant] });
+        tenantService.suspendTenant.mockResolvedValue({
+            success: true,
+            message: "Restaurant suspended.",
+            data: { ...sampleTenant, IsActive: false }
+        });
+
+        renderTenants();
+
+        await screen.findByText(sampleTenant.TenantName);
+
+        await user.click(screen.getByRole("button", { name: `Suspend ${sampleTenant.TenantName}` }));
+
+        expect(await screen.findByText(/suspend restaurant\?/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /^suspend$/i }));
+
+        await waitFor(() => expect(tenantService.suspendTenant).toHaveBeenCalledWith(sampleTenant.TenantId));
+
+        // The row now offers "Reactivate" instead - confirms the response
+        // was actually wired back into the table, not just the API called.
+        expect(await screen.findByRole("button", { name: `Reactivate ${sampleTenant.TenantName}` })).toBeInTheDocument();
+
+    });
+
+    it("confirms and reactivates a suspended restaurant", async () => {
+
+        const user = userEvent.setup();
+
+        tenantService.getAllTenants.mockResolvedValue({ success: true, data: [suspendedTenant] });
+        tenantService.reactivateTenant.mockResolvedValue({
+            success: true,
+            message: "Restaurant reactivated.",
+            data: { ...suspendedTenant, IsActive: true }
+        });
+
+        renderTenants();
+
+        await screen.findByText(suspendedTenant.TenantName);
+
+        await user.click(screen.getByRole("button", { name: `Reactivate ${suspendedTenant.TenantName}` }));
+
+        expect(await screen.findByText(/reactivate restaurant\?/i)).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: /^reactivate$/i }));
+
+        await waitFor(() => expect(tenantService.reactivateTenant).toHaveBeenCalledWith(suspendedTenant.TenantId));
+        expect(await screen.findByRole("button", { name: `Suspend ${suspendedTenant.TenantName}` })).toBeInTheDocument();
+
+    });
+
+    it("cancelling the suspend confirmation does not call the endpoint", async () => {
+
+        const user = userEvent.setup();
+
+        tenantService.getAllTenants.mockResolvedValue({ success: true, data: [sampleTenant] });
+
+        renderTenants();
+
+        await screen.findByText(sampleTenant.TenantName);
+
+        await user.click(screen.getByRole("button", { name: `Suspend ${sampleTenant.TenantName}` }));
+        await screen.findByText(/suspend restaurant\?/i);
+
+        await user.click(screen.getByRole("button", { name: /cancel/i }));
+
+        await waitFor(() => expect(screen.queryByRole("heading", { name: /suspend restaurant\?/i })).not.toBeInTheDocument());
+        expect(tenantService.suspendTenant).not.toHaveBeenCalled();
 
     });
 

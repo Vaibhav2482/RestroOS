@@ -33,3 +33,27 @@ export const resetOwnerPassword = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message);
 
 });
+
+export const suspendTenant = asyncHandler(async (req, res) => {
+
+    const result = await TenantService.suspendTenant(req.params.tenantId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const reactivateTenant = asyncHandler(async (req, res) => {
+
+    const result = await TenantService.reactivateTenant(req.params.tenantId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

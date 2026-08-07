@@ -22,20 +22,26 @@ import {
     TableCell,
     TableContainer,
     TableHead,
+    TablePagination,
     TableRow,
+    TextField,
+    InputAdornment,
     Toolbar,
     Tooltip,
     Typography,
     Paper
 } from "@mui/material";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
+import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
+import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
-import { getAllTenants, createTenant, resetOwnerPassword } from "../services/tenantService";
+import { getAllTenants, createTenant, resetOwnerPassword, suspendTenant, reactivateTenant } from "../services/tenantService";
 import { clearStoredAuth, getStoredAuth } from "../utils/platformAuth";
 import TenantDialog from "./TenantDialog";
 import TemporaryPasswordDialog from "./TemporaryPasswordDialog";
@@ -58,6 +64,13 @@ function Tenants() {
     const [resettingTenantId, setResettingTenantId] = useState(null);
     const [credentialResult, setCredentialResult] = useState(null);
     const [menuAnchor, setMenuAnchor] = useState(null);
+    const [retrying, setRetrying] = useState(false);
+    const [confirmStatusTenant, setConfirmStatusTenant] = useState(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState(null);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Only the first load shows the blocking spinner - reloading after
     // onboarding a tenant keeps the existing table visible instead of
@@ -98,6 +111,18 @@ function Tenants() {
             setLoading(false);
             hasLoadedRef.current = true;
 
+        }
+
+    };
+
+    const handleRetry = async () => {
+
+        setRetrying(true);
+
+        try {
+            await loadTenants();
+        } finally {
+            setRetrying(false);
         }
 
     };
@@ -162,9 +187,65 @@ function Tenants() {
 
     };
 
+    const handleToggleStatus = async (tenant) => {
+
+        try {
+
+            setUpdatingStatusId(tenant.TenantId);
+
+            const response = tenant.IsActive
+                ? await suspendTenant(tenant.TenantId)
+                : await reactivateTenant(tenant.TenantId);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            setTenants((prev) => prev.map((row) => (row.TenantId === tenant.TenantId ? response.data : row)));
+            toast.success(response.message);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update restaurant status.");
+
+        } finally {
+
+            setUpdatingStatusId(null);
+            setConfirmStatusTenant(null);
+
+        }
+
+    };
+
     const handleLogout = () => {
         clearStoredAuth();
         navigate("/login");
+    };
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    const filteredTenants = tenants.filter((tenant) => {
+
+        const matchesStatus = statusFilter === "all" || (statusFilter === "active") === tenant.IsActive;
+
+        const matchesQuery = !normalizedQuery || [tenant.TenantName, tenant.Slug, tenant.OwnerEmail]
+            .some((field) => field?.toLowerCase().includes(normalizedQuery));
+
+        return matchesStatus && matchesQuery;
+
+    });
+
+    const pagedTenants = filteredTenants.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+    const handleSearchChange = (event) => {
+        setSearchQuery(event.target.value);
+        setPage(0);
+    };
+
+    const handleStatusFilterChange = (event) => {
+        setStatusFilter(event.target.value);
+        setPage(0);
     };
 
     return (
@@ -250,6 +331,44 @@ function Tenants() {
 
                 </Box>
 
+                {!loading && tenants.length > 0 && (
+
+                    <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 2 }}>
+
+                        <TextField
+                            size="small"
+                            placeholder="Search by name, slug, or owner email"
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            sx={{ minWidth: 280, flexGrow: 1 }}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchRoundedIcon fontSize="small" />
+                                        </InputAdornment>
+                                    )
+                                }
+                            }}
+                        />
+
+                        <TextField
+                            select
+                            size="small"
+                            label="Status"
+                            value={statusFilter}
+                            onChange={handleStatusFilterChange}
+                            sx={{ minWidth: 140 }}
+                        >
+                            <MenuItem value="all">All</MenuItem>
+                            <MenuItem value="active">Active</MenuItem>
+                            <MenuItem value="inactive">Inactive</MenuItem>
+                        </TextField>
+
+                    </Box>
+
+                )}
+
                 {loading ? (
 
                     <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -278,15 +397,15 @@ function Tenants() {
 
                             <TableBody>
 
-                                {loadError ? (
+                                {loadError && tenants.length === 0 ? (
 
                                     <TableRow>
                                         <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                             <Typography color="error.main" sx={{ mb: 1.5 }}>
                                                 Couldn't load tenants.
                                             </Typography>
-                                            <Button size="small" variant="outlined" onClick={loadTenants}>
-                                                Retry
+                                            <Button size="small" variant="outlined" onClick={handleRetry} disabled={retrying} startIcon={retrying ? <CircularProgress size={14} /> : null}>
+                                                {retrying ? "Retrying..." : "Retry"}
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -301,9 +420,19 @@ function Tenants() {
                                         </TableCell>
                                     </TableRow>
 
+                                ) : filteredTenants.length === 0 ? (
+
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                                            <Typography color="text.secondary">
+                                                No restaurants match your search or filter.
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+
                                 ) : (
 
-                                    tenants.map((tenant) => (
+                                    pagedTenants.map((tenant) => (
 
                                         <TableRow key={tenant.TenantId} hover>
                                             <TableCell sx={{ maxWidth: 220, overflowWrap: "anywhere" }}>{tenant.TenantName}</TableCell>
@@ -331,6 +460,18 @@ function Tenants() {
                                                         <LockResetRoundedIcon fontSize="small" />
                                                     </IconButton>
                                                 </Tooltip>
+                                                <Tooltip title={tenant.IsActive ? "Suspend restaurant" : "Reactivate restaurant"}>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => setConfirmStatusTenant(tenant)}
+                                                        disabled={updatingStatusId === tenant.TenantId}
+                                                        aria-label={`${tenant.IsActive ? "Suspend" : "Reactivate"} ${tenant.TenantName}`}
+                                                    >
+                                                        {tenant.IsActive
+                                                            ? <BlockRoundedIcon fontSize="small" />
+                                                            : <CheckCircleRoundedIcon fontSize="small" />}
+                                                    </IconButton>
+                                                </Tooltip>
                                             </TableCell>
                                         </TableRow>
 
@@ -341,6 +482,23 @@ function Tenants() {
                             </TableBody>
 
                         </Table>
+
+                        {filteredTenants.length > 0 && (
+
+                            <TablePagination
+                                component="div"
+                                count={filteredTenants.length}
+                                page={page}
+                                onPageChange={(event, newPage) => setPage(newPage)}
+                                rowsPerPage={rowsPerPage}
+                                onRowsPerPageChange={(event) => {
+                                    setRowsPerPage(Number(event.target.value));
+                                    setPage(0);
+                                }}
+                                rowsPerPageOptions={[10, 25, 50]}
+                            />
+
+                        )}
 
                     </TableContainer>
 
@@ -397,6 +555,52 @@ function Tenants() {
                         disabled={resettingTenantId === confirmResetTenant?.TenantId}
                     >
                         {resettingTenantId === confirmResetTenant?.TenantId ? "Resetting..." : "Reset Password"}
+                    </Button>
+
+                </DialogActions>
+
+            </Dialog>
+
+            <Dialog
+                open={Boolean(confirmStatusTenant)}
+                onClose={() => {
+                    if (updatingStatusId === confirmStatusTenant?.TenantId) {
+                        return;
+                    }
+                    setConfirmStatusTenant(null);
+                }}
+                disableEscapeKeyDown={updatingStatusId === confirmStatusTenant?.TenantId}
+            >
+
+                <DialogTitle>
+                    {confirmStatusTenant?.IsActive ? "Suspend restaurant?" : "Reactivate restaurant?"}
+                </DialogTitle>
+
+                <DialogContent>
+                    <DialogContentText>
+                        {confirmStatusTenant?.IsActive
+                            ? `This immediately blocks "${confirmStatusTenant?.TenantName}"'s storefront and staff logins. Reactivating later restores both.`
+                            : `This restores "${confirmStatusTenant?.TenantName}"'s storefront and lets staff log in again.`}
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions>
+
+                    <Button
+                        onClick={() => setConfirmStatusTenant(null)}
+                        disabled={updatingStatusId === confirmStatusTenant?.TenantId}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button
+                        color={confirmStatusTenant?.IsActive ? "error" : "primary"}
+                        onClick={() => handleToggleStatus(confirmStatusTenant)}
+                        disabled={updatingStatusId === confirmStatusTenant?.TenantId}
+                    >
+                        {updatingStatusId === confirmStatusTenant?.TenantId
+                            ? "Updating..."
+                            : confirmStatusTenant?.IsActive ? "Suspend" : "Reactivate"}
                     </Button>
 
                 </DialogActions>
