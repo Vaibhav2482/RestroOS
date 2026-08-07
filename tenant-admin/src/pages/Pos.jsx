@@ -316,7 +316,7 @@ function Pos() {
 
     return (
 
-        <div>
+        <div className="font-sans">
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
 

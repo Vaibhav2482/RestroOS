@@ -5,13 +5,18 @@ import {
     Banknote,
     ChefHat,
     CreditCard,
+    CupSoda,
+    IceCreamCone,
     Minus,
     Plus,
+    Salad,
     Search,
     Smartphone,
+    Soup,
     Sparkles,
     Trash2,
     UserRound,
+    UtensilsCrossed,
     X
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -31,6 +36,57 @@ import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth } from "../utils/adminAuth";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
+
+// Most tenants haven't uploaded menu photography, so the no-photo state is
+// the common case, not a rare fallback - a wall of identical pale boxes for
+// every single card (the first cut of this) read as broken/unfinished, not
+// premium. Hashing a varied gradient per item name (same technique as the
+// platform-admin tenant-avatar colors) means adjacent cards are never
+// visually identical even with zero real images among them.
+const TILE_GRADIENTS = [
+    "from-violet-400 to-indigo-500",
+    "from-rose-400 to-orange-400",
+    "from-emerald-400 to-teal-500",
+    "from-amber-400 to-orange-500",
+    "from-sky-400 to-blue-500",
+    "from-fuchsia-400 to-pink-500"
+];
+
+function tileGradientFor(name) {
+    const code = (name || "").split("").reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    return TILE_GRADIENTS[code % TILE_GRADIENTS.length];
+}
+
+// Category-appropriate icon (not the same chef-hat on every card) - keyed
+// by loose keyword match against the category name so it still degrades
+// sensibly for any tenant's own category naming.
+function categoryIconFor(categoryName) {
+
+    const name = (categoryName || "").toLowerCase();
+
+    if (/tea|coffee|juice|shake|drink|beverage|lassi|soda/.test(name)) {
+        return CupSoda;
+    }
+
+    if (/dessert|sweet|ice.?cream|kheer/.test(name)) {
+        return IceCreamCone;
+    }
+
+    if (/starter|soup|snack|appetizer/.test(name)) {
+        return Soup;
+    }
+
+    if (/salad/.test(name)) {
+        return Salad;
+    }
+
+    if (/main|meal|curry|rice|biryani|thali/.test(name)) {
+        return UtensilsCrossed;
+    }
+
+    return ChefHat;
+
+}
 
 const PAYMENT_METHODS = [
     { value: "Cash", label: "Cash", icon: Banknote },
@@ -479,6 +535,10 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
         ),
     [categories, menuItems]);
 
+    const categoryNameById = useMemo(() =>
+        new Map(categories.map((category) => [category.CategoryId, category.CategoryName])),
+    [categories]);
+
     const filteredItems = useMemo(() => {
 
         const search = itemSearch.trim().toLowerCase();
@@ -654,6 +714,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         {filteredItems.map((item) => {
 
                             const quantity = getQuantity(item.MenuItemId);
+                            const CategoryIcon = categoryIconFor(categoryNameById.get(item.CategoryId));
 
                             return (
 
@@ -664,7 +725,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                     className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-lg"
                                 >
 
-                                    <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+                                    <div className="relative aspect-[16/9] overflow-hidden">
 
                                         {item.ImageUrl ? (
                                             <img
@@ -673,20 +734,25 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                                             />
                                         ) : (
-                                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-                                                <ChefHat className="h-8 w-8 text-primary/40" />
+                                            // Most tenants haven't uploaded photography yet, so this is the
+                                            // common case, not a rare fallback - a per-item gradient (instead
+                                            // of one flat tint repeated on every card) plus a category-relevant
+                                            // icon keeps a full grid of unphotographed items from reading as a
+                                            // wall of identical empty boxes.
+                                            <div className={cn("flex h-full w-full items-center justify-center bg-gradient-to-br", tileGradientFor(item.ItemName))}>
+                                                <CategoryIcon className="h-7 w-7 text-white/90" strokeWidth={1.75} />
                                             </div>
                                         )}
 
                                         <div className={cn(
-                                            "absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-md border-2 bg-white/90",
+                                            "absolute left-2 top-2 flex h-5 w-5 items-center justify-center rounded-md border-2 bg-white shadow-sm",
                                             item.IsVeg ? "border-success" : "border-destructive"
                                         )}>
                                             <div className={cn("h-2 w-2 rounded-full", item.IsVeg ? "bg-success" : "bg-destructive")} />
                                         </div>
 
                                         {item.IsPopular && (
-                                            <Badge variant="warning" className="absolute right-2 top-2 bg-warning text-warning-foreground shadow-sm">
+                                            <Badge className="absolute right-2 top-2 gap-1 border-transparent bg-white text-warning shadow-sm">
                                                 <Sparkles className="h-3 w-3" /> Popular
                                             </Badge>
                                         )}
