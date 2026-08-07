@@ -261,13 +261,13 @@ function Categories() {
                                         <TableCell align="right">
 
                                             <Tooltip title="Edit">
-                                                <IconButton color="primary" onClick={() => openEditDialog(category)}>
+                                                <IconButton size="small" onClick={() => openEditDialog(category)}>
                                                     <EditRoundedIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
 
                                             <Tooltip title="Delete permanently">
-                                                <IconButton color="error" onClick={() => setDeleteTarget(category)}>
+                                                <IconButton size="small" color="error" onClick={() => setDeleteTarget(category)}>
                                                     <DeleteRoundedIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>

@@ -128,7 +128,7 @@ function StockActionDialog({ open, mode, onClose, onSave, ingredient, currentBal
                             label={config.quantityLabel}
                             value={quantity}
                             onChange={(event) => setQuantity(event.target.value)}
-                            inputProps={{ min: 0, step: "0.001" }}
+                            slotProps={{ htmlInput: { min: 0, step: "0.001" } }}
                         />
                     </Grid>
 

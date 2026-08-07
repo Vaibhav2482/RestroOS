@@ -369,7 +369,7 @@ function Tables() {
                                         <TableCell align="right">
 
                                             <Tooltip title="Edit">
-                                                <IconButton color="primary" onClick={() => openEditDialog(table)}>
+                                                <IconButton size="small" onClick={() => openEditDialog(table)}>
                                                     <EditRoundedIcon fontSize="small" />
                                                 </IconButton>
                                             </Tooltip>
@@ -377,6 +377,7 @@ function Tables() {
                                             <Tooltip title={table.IsActive ? "Deactivate" : "Already inactive"}>
                                                 <span>
                                                     <IconButton
+                                                        size="small"
                                                         color="error"
                                                         disabled={!table.IsActive}
                                                         onClick={() => setDeactivateTarget(table)}

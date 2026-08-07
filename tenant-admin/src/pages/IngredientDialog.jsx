@@ -180,7 +180,7 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
                             value={formData.lowStockThreshold}
                             onChange={handleChange}
                             helperText="Optional - flags this ingredient as Low Stock below this level."
-                            inputProps={{ min: 0, step: "0.001" }}
+                            slotProps={{ htmlInput: { min: 0, step: "0.001" } }}
                         />
                     </Grid>
 

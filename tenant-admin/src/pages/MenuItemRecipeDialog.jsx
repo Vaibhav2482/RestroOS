@@ -270,7 +270,7 @@ function MenuItemRecipeDialog({ open, onClose, menuItem }) {
                                             label="Quantity"
                                             value={line.quantity}
                                             onChange={(event) => handleLineChange(line.key, "quantity", event.target.value)}
-                                            inputProps={{ min: 0, step: "0.001" }}
+                                            slotProps={{ htmlInput: { min: 0, step: "0.001" } }}
                                         />
                                     </Grid>
 

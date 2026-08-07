@@ -235,7 +235,33 @@ function Layout({ children }) {
 
             <Divider />
 
-            <List sx={{ flex: 1, px: 1.5, py: 2, overflowY: "auto" }}>
+            <List
+                sx={(theme) => ({
+                    flex: 1,
+                    px: 1.5,
+                    py: 2,
+                    overflowY: "auto",
+                    // Pure-CSS scroll shadow: the two radial-gradient layers
+                    // are pinned to the viewport (backgroundAttachment:
+                    // "scroll") while the two solid-fade layers scroll WITH
+                    // the content (backgroundAttachment: "local") - the
+                    // interplay hides the shadow at each end automatically,
+                    // so a short/unscrolled nav shows no cue while a long
+                    // one (most Owner accounts) gets a visible fade instead
+                    // of hard-clipping the last item with no affordance.
+                    // NOTE: the per-layer position offsets ("0 100%") are only
+                    // valid inside the `background` shorthand, not the
+                    // `backgroundImage` longhand - putting them there makes the
+                    // whole declaration invalid and silently dropped. The
+                    // longhand overrides below must come after the shorthand so
+                    // they win the cascade for their sub-property.
+                    background: `linear-gradient(${theme.palette.background.paper} 30%, transparent), linear-gradient(transparent, ${theme.palette.background.paper} 70%) 0 100%, radial-gradient(farthest-side at 50% 0, rgba(0,0,0,.15), rgba(0,0,0,0)), radial-gradient(farthest-side at 50% 100%, rgba(0,0,0,.15), rgba(0,0,0,0)) 0 100%`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundColor: theme.palette.background.paper,
+                    backgroundSize: "100% 24px, 100% 24px, 100% 10px, 100% 10px",
+                    backgroundAttachment: "local, local, scroll, scroll"
+                })}
+            >
 
                 {NAV_GROUPS.map((group) => {
 

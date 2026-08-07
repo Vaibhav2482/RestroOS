@@ -127,7 +127,7 @@ function TableDialog({ open, onClose, onSave, selectedTable, isEditMode }) {
                             name="capacity"
                             value={formData.capacity}
                             onChange={handleChange}
-                            inputProps={{ min: 1 }}
+                            slotProps={{ htmlInput: { min: 1 } }}
                         />
                     </Grid>
 

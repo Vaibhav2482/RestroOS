@@ -159,7 +159,7 @@ function CategoryDialog({ open, onClose, onSave, selectedCategory, isEditMode })
                             onChange={handleChange}
                             error={Boolean(errors.displayOrder)}
                             helperText={errors.displayOrder}
-                            inputProps={{ min: 1, step: 1 }}
+                            slotProps={{ htmlInput: { min: 1, step: 1 } }}
                         />
                     </Grid>
 

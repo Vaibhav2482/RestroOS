@@ -196,7 +196,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             disabled={isEditMode}
                             error={Boolean(errors.code)}
                             helperText={errors.code || (isEditMode ? "Code cannot be changed after creation." : "e.g. WELCOME50")}
-                            inputProps={{ style: { textTransform: "uppercase" } }}
+                            slotProps={{ htmlInput: { style: { textTransform: "uppercase" } } }}
                         />
                     </Grid>
 
@@ -225,7 +225,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             onChange={handleChange}
                             error={Boolean(errors.discountValue)}
                             helperText={errors.discountValue}
-                            inputProps={{ min: 0, step: "0.01" }}
+                            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
                         />
                     </Grid>
 
@@ -237,7 +237,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             name="minOrderValue"
                             value={formData.minOrderValue}
                             onChange={handleChange}
-                            inputProps={{ min: 0, step: "0.01" }}
+                            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
                         />
                     </Grid>
 
@@ -251,7 +251,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             onChange={handleChange}
                             disabled={formData.discountType !== "Percentage"}
                             helperText={formData.discountType !== "Percentage" ? "Only applies to Percentage discounts." : ""}
-                            inputProps={{ min: 0, step: "0.01" }}
+                            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
                         />
                     </Grid>
 
@@ -263,7 +263,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             name="usageLimitTotal"
                             value={formData.usageLimitTotal}
                             onChange={handleChange}
-                            inputProps={{ min: 0, step: 1 }}
+                            slotProps={{ htmlInput: { min: 0, step: 1 } }}
                         />
                     </Grid>
 
@@ -275,7 +275,7 @@ function CouponDialog({ open, onClose, onSave, editingCoupon, saving }) {
                             name="usageLimitPerCustomer"
                             value={formData.usageLimitPerCustomer}
                             onChange={handleChange}
-                            inputProps={{ min: 0, step: 1 }}
+                            slotProps={{ htmlInput: { min: 0, step: 1 } }}
                         />
                     </Grid>
 

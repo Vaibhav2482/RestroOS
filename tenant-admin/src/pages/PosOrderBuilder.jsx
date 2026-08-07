@@ -95,7 +95,7 @@ function QuantityInput({ value, onCommit, sx }) {
                 }
             }}
             type="number"
-            inputProps={{ min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } }}
+            slotProps={{ input: { min: 1, style: { textAlign: "center", padding: 0, fontWeight: 700, MozAppearance: "textfield" } } }}
             sx={{ "& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button": { WebkitAppearance: "none", margin: 0 }, ...sx }}
         />
     );
