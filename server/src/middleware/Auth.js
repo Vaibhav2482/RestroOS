@@ -39,11 +39,12 @@ const isStillActive = async (user) => {
 //
 // Permissions are read fresh here too, unlike branchId (a JWT claim from
 // login) - a revoked permission should take effect immediately, not after
-// JWT_EXPIRES_IN.
+// JWT_EXPIRES_IN. Same for the tenant's own DisabledFeatures - already
+// joining Tenants for TenantActive, so this is free.
 const loadAdminState = async (adminId) => {
 
     const result = await pool.query(
-        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions"
+        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions", T."DisabledFeatures"
          FROM "Admins" A INNER JOIN "Tenants" T ON A."TenantId" = T."TenantId"
          WHERE A."AdminId" = $1`,
         [adminId]
@@ -78,6 +79,7 @@ export const authenticate = async (req, res, next) => {
             }
 
             user.permissions = state.Permissions || [];
+            user.disabledFeatures = state.DisabledFeatures || [];
 
         } else if (!(await isStillActive(user))) {
             return errorResponse(res, "This account is no longer active.", 401);
@@ -138,12 +140,35 @@ export const requireOwner = (req, res, next) => {
 
 };
 
+// A tenant-wide kill switch (config/permissions.js TENANT_FEATURES) an
+// Owner sets for their own restaurant - blocks EVERYONE in that tenant,
+// Owner included, which is the whole point of it (unlike requirePermission/
+// requireOwner below, which only ever narrow a Branch Admin, never an
+// Owner). Standalone export for routes with no per-admin permission layer
+// at all (e.g. BranchRoutes, gated by requireOwner not requirePermission);
+// requirePermission also checks this same thing internally.
+export const requireFeatureEnabled = (key) => (req, res, next) => {
+
+    if (req.user?.role === "admin" && req.user.disabledFeatures?.includes(key)) {
+        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403);
+    }
+
+    return next();
+
+};
+
 // Like requireOwner, but delegable per key to a Branch Admin (see
-// config/permissions.js for what's delegable). An Owner always passes.
+// config/permissions.js for what's delegable). An Owner always passes -
+// unless the tenant itself has this key disabled, checked first, since
+// that's meant to block the Owner too.
 export const requirePermission = (key) => (req, res, next) => {
 
     if (!req.user || req.user.role !== "admin") {
         return errorResponse(res, "You are not authorized to perform this action.", 403);
+    }
+
+    if (req.user.disabledFeatures?.includes(key)) {
+        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403);
     }
 
     if (!req.user.branchId) {

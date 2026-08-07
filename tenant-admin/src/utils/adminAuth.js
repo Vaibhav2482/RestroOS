@@ -30,8 +30,14 @@ export const clearStoredAuth = () => {
 // backend's requireOwner check in middleware/Auth.js.
 export const isOwner = (admin) => Boolean(admin && !admin.BranchId);
 
+// A tenant-wide kill switch, distinct from Permissions above - checked
+// FIRST, before the isOwner bypass, since it's meant to block the Owner
+// too. Mirrors the backend's requireFeatureEnabled.
+export const isFeatureEnabled = (admin, key) => !admin?.tenantDisabledFeatures?.includes(key);
+
 // Mirrors the backend's requirePermission. Reads from the admin cached in
 // localStorage at login, so a newly-granted permission won't show here
 // until the Branch Admin's next login - only affects what the UI offers to
 // click, since the backend re-checks fresh on every request regardless.
-export const hasPermission = (admin, key) => isOwner(admin) || Boolean(admin?.Permissions?.includes(key));
+export const hasPermission = (admin, key) =>
+    isFeatureEnabled(admin, key) && (isOwner(admin) || Boolean(admin?.Permissions?.includes(key)));

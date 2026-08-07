@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import jwt from "jsonwebtoken";
 
-import { authenticate, authorize, requireOwner, requirePermission } from "./Auth.js";
+import { authenticate, authorize, requireOwner, requirePermission, requireFeatureEnabled } from "./Auth.js";
 import pool from "../config/db.js";
 
 vi.mock("../config/db.js", () => ({ default: { query: vi.fn() } }));
@@ -111,6 +111,22 @@ describe("authenticate", () => {
 
         expect(next).toHaveBeenCalled();
         expect(req.user.permissions).toEqual(["manage_ingredients"]);
+
+    });
+
+    it("attaches the tenant's DisabledFeatures alongside Permissions", async () => {
+
+        const token = sign({ id: 7, role: "admin", tenantId: 3, branchId: null });
+        pool.query.mockResolvedValue({ rows: [{ AdminActive: true, TenantActive: true, Permissions: [], DisabledFeatures: ["manage_branches"] }] });
+
+        const req = { headers: { authorization: `Bearer ${token}` } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        await authenticate(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+        expect(req.user.disabledFeatures).toEqual(["manage_branches"]);
 
     });
 
@@ -268,6 +284,73 @@ describe("requirePermission", () => {
 
         expect(res.status).toHaveBeenCalledWith(403);
         expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("blocks an OWNER when the tenant itself has disabled the feature - the whole point of the tenant-level toggle", () => {
+
+        const req = { user: { role: "admin", branchId: null, permissions: [], disabledFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("blocks a branch admin even with the permission granted, when the tenant has disabled it", () => {
+
+        const req = { user: { role: "admin", branchId: 4, permissions: ["manage_ingredients"], disabledFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("requireFeatureEnabled", () => {
+
+    it("allows when the tenant has not disabled the feature", () => {
+
+        const req = { user: { role: "admin", disabledFeatures: [] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requireFeatureEnabled("manage_branches")(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+
+    });
+
+    it("blocks even an Owner when the tenant has disabled the feature", () => {
+
+        const req = { user: { role: "admin", branchId: null, disabledFeatures: ["manage_branches"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requireFeatureEnabled("manage_branches")(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("is a no-op for non-admin roles (customer/platform_admin routes never carry disabledFeatures)", () => {
+
+        const req = { user: { role: "customer" } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requireFeatureEnabled("manage_branches")(req, res, next);
+
+        expect(next).toHaveBeenCalled();
 
     });
 

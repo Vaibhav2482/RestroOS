@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CORE_PERMISSION_KEYS, GRANTABLE_PERMISSIONS, sanitizePermissions } from "./permissions.js";
+import { CORE_PERMISSION_KEYS, GRANTABLE_PERMISSIONS, TENANT_FEATURES, sanitizeDisabledFeatures, sanitizePermissions } from "./permissions.js";
 
 describe("GRANTABLE_PERMISSIONS / CORE_PERMISSION_KEYS", () => {
 
@@ -58,6 +58,43 @@ describe("sanitizePermissions", () => {
         expect(sanitizePermissions(undefined)).toEqual([]);
         expect(sanitizePermissions(null)).toEqual([]);
         expect(sanitizePermissions("manage_coupons")).toEqual([]);
+
+    });
+
+});
+
+describe("TENANT_FEATURES", () => {
+
+    it("includes every GRANTABLE_PERMISSIONS key plus manage_branches", () => {
+
+        const keys = TENANT_FEATURES.map((feature) => feature.key);
+        GRANTABLE_PERMISSIONS.forEach((permission) => expect(keys).toContain(permission.key));
+        expect(keys).toContain("manage_branches");
+        expect(keys).not.toContain("manage_staff");
+
+    });
+
+});
+
+describe("sanitizeDisabledFeatures", () => {
+
+    it("keeps manage_branches (a tenant-only key, not staff-grantable) unlike sanitizePermissions", () => {
+
+        expect(sanitizeDisabledFeatures(["manage_branches", "manage_ingredients"]))
+            .toEqual(["manage_branches", "manage_ingredients"]);
+
+    });
+
+    it("drops unknown keys and de-duplicates, same as sanitizePermissions", () => {
+
+        expect(sanitizeDisabledFeatures(["manage_branches", "manage_branches", "manage_staff"]))
+            .toEqual(["manage_branches"]);
+
+    });
+
+    it("returns an empty array for non-array input", () => {
+
+        expect(sanitizeDisabledFeatures(undefined)).toEqual([]);
 
     });
 

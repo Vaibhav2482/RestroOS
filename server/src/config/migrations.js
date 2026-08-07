@@ -248,5 +248,19 @@ export const MIGRATIONS = [
             )
             WHERE "BranchId" IS NOT NULL;
         `
+    },
+    {
+        // A tenant-wide kill switch, distinct from Admins.Permissions - an
+        // Owner can turn a whole module off for their restaurant (e.g. a
+        // single-location tenant hiding Branches, or one that doesn't track
+        // stock hiding Inventory) so it disappears for EVERYONE in that
+        // tenant, themselves included, not just specific staff. Defaults to
+        // empty - nothing disabled, identical behavior to today - so this
+        // needs no backfill. See requirePermission/requireFeatureEnabled in
+        // middleware/Auth.js.
+        id: "0017_tenant_disabled_features",
+        sql: `
+            ALTER TABLE "Tenants" ADD COLUMN "DisabledFeatures" TEXT[] NOT NULL DEFAULT '{}';
+        `
     }
 ];

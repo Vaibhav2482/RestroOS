@@ -25,3 +25,13 @@ export const GRANTABLE_PERMISSIONS = [
 export const CORE_PERMISSION_KEYS = GRANTABLE_PERMISSIONS
     .filter((permission) => permission.core)
     .map((permission) => permission.key);
+
+// A tenant-wide on/off switch, distinct from staff Permissions above - this
+// blocks EVERYONE in the tenant, Owner included. Reuses every
+// GRANTABLE_PERMISSIONS key plus manage_branches, which is deliberately not
+// staff-grantable but still makes sense as a whole-tenant toggle (e.g. a
+// single-location restaurant hiding the Branches page for good).
+export const TENANT_FEATURES = [
+    ...GRANTABLE_PERMISSIONS,
+    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" }
+];

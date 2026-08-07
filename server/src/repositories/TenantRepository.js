@@ -70,6 +70,20 @@ export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
 
 };
 
+export const updateDisabledFeatures = async (tenantId, disabledFeatures) => {
+
+    const result = await pool.query(
+        `UPDATE "Tenants"
+         SET "DisabledFeatures" = $1, "UpdatedAt" = NOW()
+         WHERE "TenantId" = $2
+         RETURNING "TenantId", "TenantName", "Slug", "DisabledFeatures"`,
+        [disabledFeatures, tenantId]
+    );
+
+    return result.rows[0];
+
+};
+
 export const getBySlug = async (slug) => {
 
     const result = await pool.query(

@@ -4,12 +4,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 import Layout from "./Layout";
 import * as adminService from "../services/adminService";
+import * as tenantService from "../services/tenantService";
 
 vi.mock("../services/adminService");
+vi.mock("../services/tenantService");
 
 const BRANCH_ADMIN_AUTH = {
     token: "test-token",
-    admin: { AdminId: 1, TenantId: 9, BranchId: 5, FullName: "Test Staff", Email: "staff@test.com", Permissions: [] }
+    admin: { AdminId: 1, TenantId: 9, BranchId: 5, FullName: "Test Staff", Email: "staff@test.com", Permissions: [], tenantDisabledFeatures: [] }
 };
 
 beforeEach(() => {
@@ -17,6 +19,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     localStorage.setItem("tenantAdmin", JSON.stringify(BRANCH_ADMIN_AUTH));
+    tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [] } });
 
 });
 
@@ -54,6 +57,36 @@ describe("Layout - live permission refresh", () => {
         });
 
         expect(screen.getAllByText("Coupons").length).toBeGreaterThan(0);
+
+    });
+
+    it("hides an owner-only nav item when the tenant disables its feature, even for the Owner", async () => {
+
+        const OWNER_AUTH = {
+            token: "test-token",
+            admin: { AdminId: 2, TenantId: 9, BranchId: null, FullName: "Test Owner", Email: "owner@test.com", Permissions: [], tenantDisabledFeatures: [] }
+        };
+
+        localStorage.setItem("tenantAdmin", JSON.stringify(OWNER_AUTH));
+        adminService.getOwnProfile.mockResolvedValue({ success: true, data: OWNER_AUTH.admin });
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [] } });
+
+        render(
+            <MemoryRouter>
+                <Layout><div>content</div></Layout>
+            </MemoryRouter>
+        );
+
+        expect(screen.getAllByText("Branches").length).toBeGreaterThan(0);
+
+        // The Owner disabled manage_branches from another device/tab.
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: ["manage_branches"] } });
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60000);
+        });
+
+        expect(screen.queryAllByText("Branches")).toHaveLength(0);
 
     });
 

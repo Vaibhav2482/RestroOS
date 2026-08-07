@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
-import { getStoredAuth, hasPermission } from "../utils/adminAuth";
+import { getStoredAuth, hasPermission, isFeatureEnabled } from "../utils/adminAuth";
 
-function ProtectedRoute({ children, ownerOnly = false, permission }) {
+function ProtectedRoute({ children, ownerOnly = false, permission, feature }) {
 
     const auth = getStoredAuth();
 
@@ -16,6 +16,9 @@ function ProtectedRoute({ children, ownerOnly = false, permission }) {
     // permission may be a single key or an array of keys where any one of
     // them is enough (e.g. Inventory holds the Ingredients tab too, so
     // either manage_inventory or manage_ingredients should let someone in).
+    // permission already folds in the tenant-level check (see hasPermission)
+    // - feature is only for ownerOnly pages like Branches that have no
+    // per-admin permission of their own but still need the tenant toggle.
     if (permission) {
 
         const required = Array.isArray(permission) ? permission : [permission];
@@ -24,6 +27,10 @@ function ProtectedRoute({ children, ownerOnly = false, permission }) {
             return <Navigate to="/" replace />;
         }
 
+    }
+
+    if (feature && !isFeatureEnabled(auth.admin, feature)) {
+        return <Navigate to="/" replace />;
     }
 
     return children;

@@ -9,3 +9,8 @@ export const updateBranding = async (branding) => {
     const response = await axiosClient.put("/tenants/me/branding", branding);
     return response.data;
 };
+
+export const updateDisabledFeatures = async (disabledFeatures) => {
+    const response = await axiosClient.put("/tenants/me/features", { disabledFeatures });
+    return response.data;
+};

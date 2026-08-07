@@ -33,14 +33,16 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import ExtensionOutlinedIcon from "@mui/icons-material/ExtensionOutlined";
 import HistoryOutlinedIcon from "@mui/icons-material/HistoryOutlined";
 import PaletteOutlinedIcon from "@mui/icons-material/PaletteOutlined";
+import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { NavLink, useNavigate } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 
-import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, hasPermission, isOwner, setStoredAuth } from "../utils/adminAuth";
+import { AUTH_CHANGED_EVENT, clearStoredAuth, getStoredAuth, hasPermission, isFeatureEnabled, isOwner, setStoredAuth } from "../utils/adminAuth";
 import * as adminService from "../services/adminService";
+import * as tenantService from "../services/tenantService";
 
 const DRAWER_WIDTH = 260;
 
@@ -79,7 +81,7 @@ const NAV_GROUPS = [
         label: "Management",
         items: [
             { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, permission: "manage_coupons" },
-            { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true },
+            { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true, feature: "manage_branches" },
             { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
             { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, permission: "manage_integrations" }
         ]
@@ -88,7 +90,8 @@ const NAV_GROUPS = [
         label: "System",
         items: [
             { label: "Activity Log", to: "/activity-log", icon: <HistoryOutlinedIcon />, permission: "view_activity_log" },
-            { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, permission: "manage_branding" }
+            { label: "Branding", to: "/settings", icon: <PaletteOutlinedIcon />, permission: "manage_branding" },
+            { label: "Features", to: "/features", icon: <TuneOutlinedIcon />, ownerOnly: true }
         ]
     }
 ];
@@ -136,24 +139,36 @@ function Layout({ children }) {
 
             try {
 
-                const response = await adminService.getOwnProfile();
+                // allSettled, not all - a hiccup fetching the tenant record
+                // shouldn't also block the admin profile refresh (or vice
+                // versa); each just falls back to its last-known value.
+                const [profileResult, tenantResult] = await Promise.allSettled([
+                    adminService.getOwnProfile(),
+                    tenantService.getOwnTenant()
+                ]);
 
-                if (!response.success) {
+                if (profileResult.status !== "fulfilled" || !profileResult.value.success) {
                     return;
                 }
 
-                const fresh = response.data;
+                const fresh = profileResult.value.data;
+                const freshTenantDisabledFeatures = tenantResult.status === "fulfilled" && tenantResult.value.success
+                    ? (tenantResult.value.data.DisabledFeatures || [])
+                    : current.admin?.tenantDisabledFeatures;
 
                 const permissionsChanged = JSON.stringify([...(current.admin?.Permissions || [])].sort()) !==
                     JSON.stringify([...(fresh.Permissions || [])].sort());
 
-                const changed = permissionsChanged ||
+                const featuresChanged = JSON.stringify([...(current.admin?.tenantDisabledFeatures || [])].sort()) !==
+                    JSON.stringify([...(freshTenantDisabledFeatures || [])].sort());
+
+                const changed = permissionsChanged || featuresChanged ||
                     String(current.admin?.BranchId ?? "") !== String(fresh.BranchId ?? "") ||
                     current.admin?.FullName !== fresh.FullName ||
                     current.admin?.AvatarUrl !== fresh.AvatarUrl;
 
                 if (changed) {
-                    setStoredAuth({ ...current, admin: { ...current.admin, ...fresh } });
+                    setStoredAuth({ ...current, admin: { ...current.admin, ...fresh, tenantDisabledFeatures: freshTenantDisabledFeatures } });
                 }
 
             } catch {
@@ -226,8 +241,15 @@ function Layout({ children }) {
 
                     const visibleItems = group.items.filter((item) => {
 
-                        if (item.ownerOnly) {
-                            return owner;
+                        if (item.ownerOnly && !owner) {
+                            return false;
+                        }
+
+                        // feature is for ownerOnly pages (Branches) with no
+                        // per-admin permission of their own but that still
+                        // respect the tenant-wide toggle.
+                        if (item.feature && !isFeatureEnabled(auth?.admin, item.feature)) {
+                            return false;
                         }
 
                         if (item.permission) {

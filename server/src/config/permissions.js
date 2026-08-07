@@ -1,6 +1,8 @@
-// Deliberately excludes staff management (would let a Branch Admin promote
-// themselves to Owner) and branch management (structural) - both stay
-// requireOwner-only with no override.
+// Deliberately excludes staff management - granting it would let a Branch
+// Admin promote themselves to Owner, so it stays requireOwner-only with no
+// override, on this list or the tenant-feature one below. Branch management
+// isn't grantable to staff either, but IS toggleable per-tenant - see
+// TENANT_FEATURES.
 //
 // "core" marks the day-to-day operational screens a Branch Admin already
 // had unconditional access to before this list existed - migration
@@ -40,5 +42,29 @@ export const sanitizePermissions = (permissions) => {
     }
 
     return [...new Set(permissions.filter((key) => GRANTABLE_KEYS.has(key)))];
+
+};
+
+// A tenant-wide kill switch an Owner sets for their own restaurant (e.g. a
+// single-location tenant hiding Branches, or one that doesn't track stock
+// hiding Inventory) - this blocks EVERYONE in that tenant, Owner included,
+// unlike Admins.Permissions which only ever narrows a Branch Admin.
+// Reuses every GRANTABLE_PERMISSIONS key (same screens) plus
+// manage_branches, which is deliberately absent from the staff-grantable
+// list above but still makes sense as a whole-tenant on/off switch.
+export const TENANT_FEATURES = [
+    ...GRANTABLE_PERMISSIONS,
+    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" }
+];
+
+const TENANT_FEATURE_KEYS = new Set(TENANT_FEATURES.map((feature) => feature.key));
+
+export const sanitizeDisabledFeatures = (features) => {
+
+    if (!Array.isArray(features)) {
+        return [];
+    }
+
+    return [...new Set(features.filter((key) => TENANT_FEATURE_KEYS.has(key)))];
 
 };

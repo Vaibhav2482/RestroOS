@@ -19,6 +19,7 @@ import Admins from "./pages/Admins";
 import Integrations from "./pages/Integrations";
 import AuditLog from "./pages/AuditLog";
 import Settings from "./pages/Settings";
+import Features from "./pages/Features";
 import MyProfile from "./pages/MyProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Layout from "./components/Layout";
@@ -68,11 +69,12 @@ function App() {
                 <Route path="/reports" element={withLayout(<Reports />, { permission: "view_reports" })} />
                 <Route path="/categories" element={withLayout(<Categories />, { permission: "manage_categories" })} />
                 <Route path="/coupons" element={withLayout(<Coupons />, { permission: "manage_coupons" })} />
-                <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true })} />
+                <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true, feature: "manage_branches" })} />
                 <Route path="/admins" element={withLayout(<Admins />, { ownerOnly: true })} />
                 <Route path="/integrations" element={withLayout(<Integrations />, { permission: "manage_integrations" })} />
                 <Route path="/activity-log" element={withLayout(<AuditLog />, { permission: "view_activity_log" })} />
                 <Route path="/settings" element={withLayout(<Settings />, { permission: "manage_branding" })} />
+                <Route path="/features" element={withLayout(<Features />, { ownerOnly: true })} />
                 <Route path="/profile" element={withLayout(<MyProfile />)} />
 
                 <Route path="*" element={<Navigate to="/" replace />} />

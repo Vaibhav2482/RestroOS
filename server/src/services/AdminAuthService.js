@@ -58,6 +58,10 @@ export const login = async (tenantSlug, email, password) => {
     delete admin.FailedLoginAttempts;
     delete admin.LockedUntil;
 
-    return { success: true, message: "Login successful.", data: { ...admin, tenantSlug: tenant.Slug, tenantName: tenant.TenantName } };
+    return {
+        success: true,
+        message: "Login successful.",
+        data: { ...admin, tenantSlug: tenant.Slug, tenantName: tenant.TenantName, tenantDisabledFeatures: tenant.DisabledFeatures || [] }
+    };
 
 };
