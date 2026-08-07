@@ -47,9 +47,9 @@ export const getTransactions = asyncHandler(async (req, res) => {
         return errorResponse(res, "Branch Id is required.", 400);
     }
 
-    const { ingredientId, transactionType, from, to } = req.query;
+    const { ingredientId, transactionType, from, to, page, limit } = req.query;
 
-    const result = await InventoryService.getTransactions(branchId, req.user.tenantId, { ingredientId, transactionType, from, to });
+    const result = await InventoryService.getTransactions(branchId, req.user.tenantId, { ingredientId, transactionType, from, to, page, limit });
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

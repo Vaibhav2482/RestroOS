@@ -140,18 +140,36 @@ export const getTransactions = async (branchId, filters = {}) => {
         conditions.push(`T."CreatedAt" < $${params.length}`);
     }
 
+    const whereClause = conditions.join(" AND ");
+
+    // Counted against the same filtered WHERE clause, before LIMIT/OFFSET
+    // are appended to params below - a busy branch writes a CONSUMPTION row
+    // on every single order, so a flat LIMIT 200 with no total (the
+    // previous shape) silently made any date range wider than "the last
+    // few hours" untrustworthy, with nothing telling the caller there was
+    // more to see.
+    const countResult = await pool.query(
+        `SELECT COUNT(*) AS "TotalCount" FROM "InventoryTransactions" T WHERE ${whereClause}`,
+        params
+    );
+
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100);
+    const page = Math.max(Number(filters.page) || 0, 0);
+
+    params.push(limit, page * limit);
+
     const result = await pool.query(
         `SELECT T.*, I."Name" AS "IngredientName", I."BaseUnit", A."FullName" AS "ActorName"
          FROM "InventoryTransactions" T
          INNER JOIN "Ingredients" I ON I."IngredientId" = T."IngredientId"
          LEFT JOIN "Admins" A ON A."AdminId" = T."ActorAdminId"
-         WHERE ${conditions.join(" AND ")}
+         WHERE ${whereClause}
          ORDER BY T."CreatedAt" DESC
-         LIMIT 200`,
+         LIMIT $${params.length - 1} OFFSET $${params.length}`,
         params
     );
 
-    return result.rows;
+    return { rows: result.rows, totalCount: Number(countResult.rows[0].TotalCount) };
 
 };
 
@@ -178,10 +196,21 @@ export const getDashboardSummary = async (branchId) => {
         [branchId]
     );
 
+    // "35g of paneer + 500ml of milk" isn't a meaningful sum (mixing weight
+    // and volume across different ingredients' base units), so the raw
+    // quantity total was never actually useful - what an owner wants from
+    // this card is "what did wastage cost us", which needs a join out to
+    // each ingredient's CostPerBaseUnit. Same honesty convention as the
+    // Valuation report: an ingredient with no cost set is excluded from the
+    // total and counted separately, not silently treated as free.
     const wastage = await pool.query(
-        `SELECT COALESCE(SUM(ABS("QuantityBase")), 0) AS "TotalWastageBase", COUNT(*) AS "WastageCount"
-         FROM "InventoryTransactions"
-         WHERE "BranchId" = $1 AND "TransactionType" = 'WASTAGE' AND "CreatedAt" >= NOW() - INTERVAL '30 days'`,
+        `SELECT
+            COUNT(*) AS "WastageCount",
+            COALESCE(SUM(ABS(T."QuantityBase") * I."CostPerBaseUnit") FILTER (WHERE I."CostPerBaseUnit" IS NOT NULL), 0) AS "TotalWastageValue",
+            COUNT(*) FILTER (WHERE I."CostPerBaseUnit" IS NULL) AS "WastageMissingCost"
+         FROM "InventoryTransactions" T
+         INNER JOIN "Ingredients" I ON I."IngredientId" = T."IngredientId"
+         WHERE T."BranchId" = $1 AND T."TransactionType" = 'WASTAGE' AND T."CreatedAt" >= NOW() - INTERVAL '30 days'`,
         [branchId]
     );
 

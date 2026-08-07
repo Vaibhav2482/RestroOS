@@ -43,6 +43,7 @@ const referenceLabel = (row) => {
 function InventoryTransactionsTab({ branchId }) {
 
     const [transactions, setTransactions] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
     const [ingredients, setIngredients] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -51,12 +52,22 @@ function InventoryTransactionsTab({ branchId }) {
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
 
-    // Client-side paging over the already-fetched (filtered) result set -
-    // the backend has no page/limit param on this endpoint.
+    // Real server-side paging now - a busy branch writes a CONSUMPTION row
+    // on every order, so the backend no longer hands back a flat "first 200
+    // rows, take it or leave it"; each page is its own request, and
+    // TablePagination's count reflects the true filtered total instead of
+    // however many of a 200-row cap happened to match.
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(25);
 
     const hasLoadedRef = useRef(false);
+    // Tracks the filter values as of the last completed load, so a filter
+    // change can be told apart from a plain page/rowsPerPage change - only
+    // the former should reset back to page 0. Comparing against this
+    // (rather than depending on `page` conditionally) is what lets a single
+    // effect handle both without either double-fetching or missing a page
+    // change entirely.
+    const lastFiltersRef = useRef({ ingredientFilter, typeFilter, fromDate, toDate });
 
     useEffect(() => {
 
@@ -69,14 +80,26 @@ function InventoryTransactionsTab({ branchId }) {
 
     useEffect(() => {
 
+        const previous = lastFiltersRef.current;
+        const filtersChanged = previous.ingredientFilter !== ingredientFilter ||
+            previous.typeFilter !== typeFilter || previous.fromDate !== fromDate || previous.toDate !== toDate;
+
+        lastFiltersRef.current = { ingredientFilter, typeFilter, fromDate, toDate };
+
+        // Bail without fetching - the page=0 update below re-triggers this
+        // same effect, which will then fall through to the fetch exactly
+        // once instead of firing here too with the stale page number.
+        if (filtersChanged && page !== 0) {
+            setPage(0);
+            return;
+        }
+
         if (branchId) {
             loadTransactions();
         }
 
-        setPage(0);
-
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [branchId, ingredientFilter, typeFilter, fromDate, toDate]);
+    }, [branchId, ingredientFilter, typeFilter, fromDate, toDate, page, rowsPerPage]);
 
     const loadTransactions = async () => {
 
@@ -90,11 +113,14 @@ function InventoryTransactionsTab({ branchId }) {
                 ingredientId: ingredientFilter === "all" ? undefined : ingredientFilter,
                 transactionType: typeFilter === "all" ? undefined : typeFilter,
                 from: fromDate || undefined,
-                to: toDate || undefined
+                to: toDate || undefined,
+                page,
+                limit: rowsPerPage
             });
 
             if (response.success) {
-                setTransactions(response.data);
+                setTransactions(response.data.transactions);
+                setTotalCount(response.data.totalCount);
             }
 
         } catch (error) {
@@ -186,7 +212,7 @@ function InventoryTransactionsTab({ branchId }) {
                                     </TableCell>
                                 </TableRow>
 
-                            ) : transactions.length === 0 ? (
+                            ) : totalCount === 0 ? (
 
                                 <TableRow>
                                     <TableCell colSpan={7} sx={{ py: 0 }}>
@@ -200,7 +226,7 @@ function InventoryTransactionsTab({ branchId }) {
 
                             ) : (
 
-                                transactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+                                transactions.map((row) => (
 
                                     <TableRow key={row.TransactionId} hover>
 
@@ -243,11 +269,11 @@ function InventoryTransactionsTab({ branchId }) {
 
                 </TableContainer>
 
-                {transactions.length > 0 && (
+                {totalCount > 0 && (
 
                     <TablePagination
                         component="div"
-                        count={transactions.length}
+                        count={totalCount}
                         page={page}
                         onPageChange={(event, newPage) => setPage(newPage)}
                         rowsPerPage={rowsPerPage}

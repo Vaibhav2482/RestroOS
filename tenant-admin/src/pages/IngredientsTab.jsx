@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -33,6 +33,26 @@ function IngredientsTab({ canManage }) {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingIngredient, setEditingIngredient] = useState(null);
     const [saving, setSaving] = useState(false);
+
+    // No dedicated Category table exists (unlike Menu Categories, which get
+    // their own management screen) - Category is just free text on the
+    // Ingredients row. Suggesting what's already in use, rather than
+    // leaving the field to plain typing, is the cheap way to keep "Dairy"
+    // from quietly fragmenting into "Dairy" / "dairy" / "Diary" across
+    // different ingredients without a schema change.
+    const categoryOptions = useMemo(() => {
+
+        const seen = new Set();
+
+        ingredients.forEach((ingredient) => {
+            if (ingredient.Category?.trim()) {
+                seen.add(ingredient.Category.trim());
+            }
+        });
+
+        return [...seen].sort((a, b) => a.localeCompare(b));
+
+    }, [ingredients]);
 
     const hasLoadedRef = useRef(false);
 
@@ -249,6 +269,7 @@ function IngredientsTab({ canManage }) {
                 onSave={handleSave}
                 editingIngredient={editingIngredient}
                 saving={saving}
+                categoryOptions={categoryOptions}
             />
 
         </Box>

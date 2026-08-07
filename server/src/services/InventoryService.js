@@ -226,9 +226,9 @@ export const getTransactions = async (branchId, tenantId, filters) => {
         return { success: false, message: "Branch not found." };
     }
 
-    const transactions = await InventoryRepository.getTransactions(branchId, filters);
+    const { rows, totalCount } = await InventoryRepository.getTransactions(branchId, filters);
 
-    return { success: true, message: "Transactions fetched successfully.", data: transactions };
+    return { success: true, message: "Transactions fetched successfully.", data: { transactions: rows, totalCount } };
 
 };
 

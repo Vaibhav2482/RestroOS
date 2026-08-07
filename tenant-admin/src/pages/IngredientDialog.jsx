@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+    Autocomplete,
     Button,
     Dialog,
     DialogActions,
@@ -26,7 +27,7 @@ const emptyForm = {
 
 const emptyErrors = { name: "", baseUnit: "" };
 
-function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) {
+function IngredientDialog({ open, onClose, onSave, editingIngredient, saving, categoryOptions = [] }) {
 
     const [formData, setFormData] = useState(emptyForm);
     const [errors, setErrors] = useState(emptyErrors);
@@ -142,13 +143,15 @@ function IngredientDialog({ open, onClose, onSave, editingIngredient, saving }) 
                     </Grid>
 
                     <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField
-                            fullWidth
-                            label="Category"
-                            name="category"
+                        <Autocomplete
+                            freeSolo
+                            options={categoryOptions}
                             value={formData.category}
-                            onChange={handleChange}
-                            placeholder="e.g. Grains, Dairy"
+                            onChange={(event, newValue) => setFormData((prev) => ({ ...prev, category: newValue || "" }))}
+                            onInputChange={(event, newValue) => setFormData((prev) => ({ ...prev, category: newValue }))}
+                            renderInput={(params) => (
+                                <TextField {...params} fullWidth label="Category" placeholder="e.g. Grains, Dairy" />
+                            )}
                         />
                     </Grid>
 

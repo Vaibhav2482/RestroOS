@@ -10,7 +10,7 @@ import * as inventoryService from "../services/inventoryService";
 import { TRANSACTION_TYPE_COLORS, TRANSACTION_TYPE_LABELS } from "../utils/units";
 import EmptyState from "../components/EmptyState";
 
-function StatCard({ icon, label, value, color, onClick }) {
+function StatCard({ icon, label, value, caption, color, onClick }) {
 
     return (
 
@@ -38,15 +38,21 @@ function StatCard({ icon, label, value, color, onClick }) {
                         alignItems: "center",
                         justifyContent: "center",
                         backgroundColor: `${color}1A`,
-                        color
+                        color,
+                        flexShrink: 0
                     }}
                 >
                     {icon}
                 </Box>
 
-                <Box>
+                <Box sx={{ minWidth: 0 }}>
                     <Typography variant="body2" color="text.secondary">{label}</Typography>
                     <Typography variant="h5" fontWeight={800}>{value}</Typography>
+                    {caption && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            {caption}
+                        </Typography>
+                    )}
                 </Box>
 
             </CardContent>
@@ -123,6 +129,23 @@ function InventoryDashboardTab({ branchId, onNavigate }) {
         return null;
     }
 
+    // "N events" alone doesn't say whether that's ₹50 or ₹5,000 of loss - an
+    // owner cares about the cost, not the count. Falls back to the count if
+    // every wasted ingredient this period happens to have no cost set,
+    // rather than showing a misleading "₹0" (same honesty convention the
+    // Valuation report uses for ingredients missing a cost).
+    const wastageCount = Number(summary.wastage30Days?.WastageCount || 0);
+    const wastageMissingCost = Number(summary.wastage30Days?.WastageMissingCost || 0);
+    const wastageHasCostData = wastageCount > 0 && wastageMissingCost < wastageCount;
+    const wastageValue = wastageHasCostData
+        ? `₹${Number(summary.wastage30Days.TotalWastageValue).toFixed(0)}`
+        : wastageCount;
+    const wastageCaption = wastageCount === 0
+        ? undefined
+        : wastageHasCostData
+            ? `${wastageCount} event${wastageCount === 1 ? "" : "s"}${wastageMissingCost > 0 ? ` · ${wastageMissingCost} missing cost` : ""}`
+            : "no cost data set";
+
     return (
 
         <Box>
@@ -163,7 +186,8 @@ function InventoryDashboardTab({ branchId, onNavigate }) {
                     <StatCard
                         icon={<DeleteOutlineRoundedIcon />}
                         label="Wastage (30 Days)"
-                        value={Number(summary.wastage30Days?.WastageCount || 0)}
+                        value={wastageValue}
+                        caption={wastageCaption}
                         color="#0F766E"
                         onClick={onNavigate && (() => onNavigate(TAB_TRANSACTIONS))}
                     />
