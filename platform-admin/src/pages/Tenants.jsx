@@ -37,6 +37,7 @@ import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
+import TuneRoundedIcon from "@mui/icons-material/TuneRounded";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -45,6 +46,7 @@ import { getAllTenants, createTenant, resetOwnerPassword, suspendTenant, reactiv
 import { clearStoredAuth, getStoredAuth } from "../utils/platformAuth";
 import TenantDialog from "./TenantDialog";
 import TemporaryPasswordDialog from "./TemporaryPasswordDialog";
+import TenantFeaturesDialog from "./TenantFeaturesDialog";
 
 function Tenants() {
 
@@ -67,6 +69,7 @@ function Tenants() {
     const [retrying, setRetrying] = useState(false);
     const [confirmStatusTenant, setConfirmStatusTenant] = useState(null);
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
+    const [featuresTenant, setFeaturesTenant] = useState(null);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState("all");
     const [page, setPage] = useState(0);
@@ -216,6 +219,10 @@ function Tenants() {
 
         }
 
+    };
+
+    const handleFeaturesSaved = (updatedTenant) => {
+        setTenants((prev) => prev.map((row) => (row.TenantId === updatedTenant.TenantId ? updatedTenant : row)));
     };
 
     const handleLogout = () => {
@@ -472,6 +479,15 @@ function Tenants() {
                                                             : <CheckCircleRoundedIcon fontSize="small" />}
                                                     </IconButton>
                                                 </Tooltip>
+                                                <Tooltip title="Manage features">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => setFeaturesTenant(tenant)}
+                                                        aria-label={`Manage features for ${tenant.TenantName}`}
+                                                    >
+                                                        <TuneRoundedIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
                                             </TableCell>
                                         </TableRow>
 
@@ -612,6 +628,13 @@ function Tenants() {
                 onClose={() => setCredentialResult(null)}
                 email={credentialResult?.email}
                 password={credentialResult?.temporaryPassword}
+            />
+
+            <TenantFeaturesDialog
+                open={Boolean(featuresTenant)}
+                tenant={featuresTenant}
+                onClose={() => setFeaturesTenant(null)}
+                onSaved={handleFeaturesSaved}
             />
 
         </Box>

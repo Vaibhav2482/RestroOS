@@ -57,3 +57,18 @@ export const reactivateTenant = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message);
 
 });
+
+// Same TenantService.updateDisabledFeatures a tenant's own Owner uses via
+// PUT /tenants/me/features - this is the platform-admin path to the exact
+// same column, for any tenant by id rather than only the caller's own.
+export const updateTenantFeatures = asyncHandler(async (req, res) => {
+
+    const result = await TenantService.updateDisabledFeatures(req.params.tenantId, req.body.disabledFeatures);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

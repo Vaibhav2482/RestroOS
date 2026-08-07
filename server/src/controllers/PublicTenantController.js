@@ -44,6 +44,10 @@ export const updateDisabledFeatures = asyncHandler(async (req, res) => {
 
     const result = await TenantService.updateDisabledFeatures(req.user.tenantId, req.body.disabledFeatures);
 
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
+    }
+
     return successResponse(res, result.data, result.message);
 
 });

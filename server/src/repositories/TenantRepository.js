@@ -28,7 +28,7 @@ const ensureBrandingColumns = async () => {
 export const getAll = async () => {
 
     const result = await pool.query(
-        `SELECT "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt"
+        `SELECT "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures"
          FROM "Tenants"
          ORDER BY "CreatedAt" DESC`
     );
@@ -70,13 +70,17 @@ export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
 
 };
 
+// Full row, not just the touched columns - the platform-admin Tenants
+// table replaces its cached row with this response wholesale (same as
+// setActive's RETURNING below), so a narrower set here would blank out
+// OwnerEmail/PlanType/IsActive/CreatedAt in that table after a save.
 export const updateDisabledFeatures = async (tenantId, disabledFeatures) => {
 
     const result = await pool.query(
         `UPDATE "Tenants"
          SET "DisabledFeatures" = $1, "UpdatedAt" = NOW()
          WHERE "TenantId" = $2
-         RETURNING "TenantId", "TenantName", "Slug", "DisabledFeatures"`,
+         RETURNING "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures"`,
         [disabledFeatures, tenantId]
     );
 

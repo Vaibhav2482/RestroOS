@@ -50,7 +50,17 @@ export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
 
 };
 
+// Reachable two ways: a tenant's own Owner via PUT /tenants/me/features
+// (tenantId always valid there - it's their own JWT's tenantId) and a
+// platform admin via PUT /platform-admin/tenants/:tenantId/features (an
+// arbitrary, typeable id) - the existence check matters for the second path.
 export const updateDisabledFeatures = async (tenantId, disabledFeatures) => {
+
+    const existing = await TenantRepository.getById(tenantId);
+
+    if (!existing) {
+        return { success: false, message: "Restaurant not found." };
+    }
 
     const tenant = await TenantRepository.updateDisabledFeatures(tenantId, sanitizeDisabledFeatures(disabledFeatures));
 

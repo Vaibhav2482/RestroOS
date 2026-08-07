@@ -159,3 +159,33 @@ describe("TenantService.suspendTenant / reactivateTenant", () => {
     });
 
 });
+
+describe("TenantService.updateDisabledFeatures", () => {
+
+    it("sanitizes and saves the disabled feature list for a known tenant", async () => {
+
+        TenantRepository.getById.mockResolvedValue(activeTenant);
+        TenantRepository.updateDisabledFeatures.mockResolvedValue({ ...activeTenant, DisabledFeatures: ["manage_branches"] });
+
+        const result = await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_branches", "manage_staff"]);
+
+        expect(result.success).toBe(true);
+        expect(TenantRepository.updateDisabledFeatures).toHaveBeenCalledWith(TENANT_ID, ["manage_branches"]);
+
+    });
+
+    // The reachable-by-arbitrary-id path (a platform admin typing/passing
+    // any tenantId, not just "me") - this must not silently "succeed" with
+    // undefined data the way it would without this check.
+    it("returns a not-found failure for an unknown tenant, without writing anything", async () => {
+
+        TenantRepository.getById.mockResolvedValue(undefined);
+
+        const result = await TenantService.updateDisabledFeatures(999, ["manage_branches"]);
+
+        expect(result.success).toBe(false);
+        expect(TenantRepository.updateDisabledFeatures).not.toHaveBeenCalled();
+
+    });
+
+});

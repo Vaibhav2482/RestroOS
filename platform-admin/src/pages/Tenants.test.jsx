@@ -265,6 +265,77 @@ describe("Tenants - suspend and reactivate", () => {
 
 });
 
+describe("Tenants - manage features", () => {
+
+    it("opens pre-checked from the tenant's current DisabledFeatures, unchecking one saves it", async () => {
+
+        const user = userEvent.setup();
+
+        tenantService.getAllTenants.mockResolvedValue({
+            success: true,
+            data: [{ ...sampleTenant, DisabledFeatures: ["manage_branches"] }]
+        });
+        tenantService.updateTenantFeatures.mockResolvedValue({
+            success: true,
+            message: "Features updated.",
+            data: { ...sampleTenant, DisabledFeatures: ["manage_branches", "manage_coupons"] }
+        });
+
+        renderTenants();
+
+        await screen.findByText(sampleTenant.TenantName);
+
+        await user.click(screen.getByRole("button", { name: `Manage features for ${sampleTenant.TenantName}` }));
+
+        expect(await screen.findByText(`Features - ${sampleTenant.TenantName}`)).toBeInTheDocument();
+
+        // Reflects the tenant's existing DisabledFeatures - Branches starts
+        // unchecked, everything else starts checked.
+        expect(screen.getByRole("checkbox", { name: /branches \(multi-location\)/i })).not.toBeChecked();
+        expect(screen.getByRole("checkbox", { name: /manage coupons/i })).toBeChecked();
+
+        await user.click(screen.getByRole("checkbox", { name: /manage coupons/i }));
+        await user.click(screen.getByRole("button", { name: /save features/i }));
+
+        await waitFor(() => expect(tenantService.updateTenantFeatures).toHaveBeenCalledWith(
+            sampleTenant.TenantId,
+            expect.arrayContaining(["manage_branches", "manage_coupons"])
+        ));
+
+    });
+
+    it("does not touch tenants it wasn't opened for when the row list re-renders", async () => {
+
+        const user = userEvent.setup();
+
+        tenantService.getAllTenants.mockResolvedValue({
+            success: true,
+            data: [sampleTenant, suspendedTenant]
+        });
+        tenantService.updateTenantFeatures.mockResolvedValue({
+            success: true,
+            message: "Features updated.",
+            data: { ...sampleTenant, DisabledFeatures: ["manage_orders"] }
+        });
+
+        renderTenants();
+
+        await screen.findByText(sampleTenant.TenantName);
+
+        await user.click(screen.getByRole("button", { name: `Manage features for ${sampleTenant.TenantName}` }));
+        await screen.findByText(`Features - ${sampleTenant.TenantName}`);
+        await user.click(screen.getByRole("button", { name: /save features/i }));
+
+        await waitFor(() => expect(tenantService.updateTenantFeatures).toHaveBeenCalled());
+
+        // The other tenant's row is untouched - a naive "replace by id"
+        // update wouldn't corrupt a DIFFERENT row, but this confirms it.
+        expect(screen.getByText(suspendedTenant.TenantName)).toBeInTheDocument();
+
+    });
+
+});
+
 describe("Tenants - onboarding shows the temporary password", () => {
 
     it("displays the owner's temporary password after creating a tenant", async () => {
