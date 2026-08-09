@@ -204,3 +204,49 @@ describe("Home - add to cart", () => {
     });
 
 });
+
+describe("Home - rapid quantity taps", () => {
+
+    it("applies every tap immediately and collapses the burst into one server call", async () => {
+
+        const user = userEvent.setup();
+
+        cartService.addToCart.mockResolvedValue({ success: true, data: { CartId: 501 } });
+        cartService.updateCartQuantity.mockResolvedValue({ success: true });
+
+        renderHome();
+        await screen.findByText("Chicken Wings");
+
+        await user.click(screen.getAllByRole("button", { name: "Add" })[0]);
+
+        // The stepper replacing the Add button is what confirms the line
+        // exists; read the quantity from inside it rather than searching the
+        // whole page, where a bare "1" also matches prices and counts.
+        // This item is IsPopular, so it renders in both Recommended and its
+        // own category - two steppers for one line. Either reflects the same
+        // state; the first will do.
+        await waitFor(() => expect(screen.getAllByTestId("RemoveIcon").length).toBeGreaterThan(0));
+        const stepper = screen.getAllByTestId("RemoveIcon")[0].closest("button").parentElement;
+        const quantityOf = () => stepper.querySelector("p").textContent;
+
+        expect(quantityOf()).toBe("1");
+
+        // Four quick taps. Each used to be swallowed while the previous
+        // request was still in flight, so the count lagged the finger.
+        const plus = screen.getAllByTestId("AddIcon")[0].closest("button");
+        await user.click(plus);
+        await user.click(plus);
+        await user.click(plus);
+        await user.click(plus);
+
+        // Every tap landed, without waiting on the network.
+        await waitFor(() => expect(quantityOf()).toBe("5"));
+
+        // ...and the burst debounced down to a single sync carrying the
+        // final quantity, rather than one request per tap.
+        await waitFor(() => expect(cartService.updateCartQuantity).toHaveBeenCalledTimes(1));
+        expect(cartService.updateCartQuantity).toHaveBeenCalledWith(501, 5);
+
+    });
+
+});

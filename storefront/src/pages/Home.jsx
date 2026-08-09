@@ -5,7 +5,6 @@ import {
     Card,
     Chip,
     Grid,
-    Grow,
     IconButton,
     InputAdornment,
     Skeleton,
@@ -30,6 +29,12 @@ import ItemCustomizationDialog from "./ItemCustomizationDialog";
 // below sticks right underneath it, so this offset has to match the
 // AppBar's rendered height at each breakpoint or the two would overlap.
 const APPBAR_HEIGHT = { xs: 56, sm: 64 };
+
+// How long to wait after the last +/- tap before syncing that line to the
+// server. Long enough that a burst of taps collapses into one request,
+// short enough that leaving the page immediately after a single tap still
+// flushes well within the time it takes to navigate.
+const QUANTITY_SYNC_DELAY_MS = 350;
 
 const FILTER_CHIPS = [
     { id: "veg", label: "Pure Veg", dotColor: "#0B8A3D" },
@@ -160,15 +165,13 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 
                 <Box sx={{ position: "absolute", right: 8, bottom: -12, display: "flex" }}>
 
-                    {/* A plain ternary here swaps Button for Stack in a single
-                        instant DOM replacement - combined with the optimistic
-                        update firing on the same tick as the click, that gave
-                        zero visible feedback that the tap registered at all.
-                        Grow (re-triggered on every mount via the key) eases
-                        each swap in instead of hard-cutting to it. */}
+                    {/* Swapped instantly. The Grow transition that used to
+                        ease this in was there to make the tap feel
+                        acknowledged, but it reads as lag once the quantity
+                        itself updates on the same tick - the number changing
+                        is the acknowledgement. */}
                     {quantity > 0 ? (
 
-                        <Grow in key="stepper">
                             <Stack
                                 direction="row"
                                 alignItems="center"
@@ -186,52 +189,39 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     // full-width row. Matches the Add button's
                                     // width so the swap doesn't jump.
                                     width: 72,
-                                    boxShadow: "0 2px 8px rgba(17,24,39,.12)",
-                                    opacity: busy ? 0.6 : 1
+                                    boxShadow: "0 2px 8px rgba(17,24,39,.12)"
                                 }}
                             >
 
                                 {/* MUI's default IconButton padding is oversized for a pill this
                                     narrow, which is what made the whole control look off-center -
-                                    p:0.75 keeps a real tap target without breaking the layout. */}
-                                <IconButton size="small" onClick={onDecrement} disabled={busy} sx={{ p: 0.75 }}>
+                                    p:0.75 keeps a real tap target without breaking the layout.
+                                    No longer disabled while a sync is in flight: taps apply to
+                                    the local quantity immediately and the server call is
+                                    debounced, so there's nothing to guard against. */}
+                                <IconButton size="small" onClick={onDecrement} sx={{ p: 0.75 }}>
                                     <RemoveIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
-                                {/* key={quantity} restarts the pulse animation on every
-                                    +/- tap, not just on the button->stepper swap, so
-                                    incrementing/decrementing has its own tactile beat. */}
                                 <Typography
-                                    key={quantity}
                                     fontWeight={700}
-                                    sx={{
-                                        color: "primary.main",
-                                        minWidth: 16,
-                                        textAlign: "center",
-                                        animation: "qtyPulse 0.2s ease-out",
-                                        "@keyframes qtyPulse": {
-                                            "0%": { transform: "scale(1.4)" },
-                                            "100%": { transform: "scale(1)" }
-                                        }
-                                    }}
+                                    sx={{ color: "primary.main", minWidth: 16, textAlign: "center" }}
                                 >
                                     {quantity}
                                 </Typography>
 
-                                <IconButton size="small" onClick={onIncrement} disabled={busy} sx={{ p: 0.75 }}>
+                                <IconButton size="small" onClick={onIncrement} sx={{ p: 0.75 }}>
                                     <AddIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
                             </Stack>
-                        </Grow>
 
                     ) : (
 
-                        <Grow in key="add-button">
-                            {/* White-on-bordered rather than solid: sitting over
-                                the photo, a filled block hid the food behind it,
-                                and this reads as a control rather than a slab of
-                                colour. */}
+                            /* White-on-bordered rather than solid: sitting over
+                               the photo, a filled block hid the food behind it,
+                               and this reads as a control rather than a slab of
+                               colour. */
                             <Button
                                 variant="outlined"
                                 size="small"
@@ -256,7 +246,6 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                             >
                                 Add
                             </Button>
-                        </Grow>
 
                     )}
 
@@ -366,6 +355,12 @@ function Home() {
     // up one toast per straggler). This blocks a new tap on a line from
     // firing until its previous request has actually resolved.
     const [pendingLineIds, setPendingLineIds] = useState(() => new Set());
+
+    // Per-line debounce timers, plus the last server-confirmed state of each
+    // line to roll back to if a sync fails. Refs, not state, so updating them
+    // never costs a re-render on a hot path like holding down "+".
+    const quantityTimersRef = useRef(new Map());
+    const confirmedLinesRef = useRef(new Map());
     // MenuItemIds currently mid-add - a plain item has no CartId yet to key
     // off of until the request resolves, so a rapid double-tap on "Add"
     // (which renders identically for both taps, since neither has committed
@@ -775,6 +770,18 @@ function Home() {
 
     };
 
+    // A debounced sync still owes the server its last quantity when the page
+    // goes away - without this, tapping "+" and immediately opening the cart
+    // would drop that tap entirely.
+    useEffect(() => () => {
+
+        quantityTimersRef.current.forEach(({ timer, sync }) => {
+            clearTimeout(timer);
+            sync();
+        });
+
+    }, []);
+
     // Shared by increment and decrement - applies the new quantity to
     // `cartLines` right away and fires the request in the background,
     // rolling the line back to its pre-tap state if the request fails.
@@ -790,40 +797,61 @@ function Home() {
             ));
         }
 
-        setPendingLineIds((prev) => new Set(prev).add(line.CartId));
+        // Remember what the server last agreed the line was, so a failure
+        // rolls back to that rather than to whatever intermediate quantity
+        // this particular tap happened to start from.
+        if (!confirmedLinesRef.current.has(line.CartId)) {
+            confirmedLinesRef.current.set(line.CartId, line);
+        }
 
-        const request = newQuantity <= 0
-            ? cartService.removeCartItem(line.CartId)
-            : cartService.updateCartQuantity(line.CartId, newQuantity);
+        // Each tap replaces the previous pending call instead of queueing
+        // another one: only the final quantity actually needs to reach the
+        // server, and firing one request per tap is what made a run of
+        // taps feel like it was lagging behind the finger.
+        const existing = quantityTimersRef.current.get(line.CartId);
 
-        request
-            .then((response) => {
+        if (existing) {
+            clearTimeout(existing.timer);
+        }
 
-                if (!response.success) {
-                    throw new Error(response.message);
-                }
+        const sync = () => {
 
-            })
-            .catch((error) => {
+            quantityTimersRef.current.delete(line.CartId);
 
-                setCartLines((prev) => prev.some((current) => current.CartId === line.CartId)
-                    ? prev.map((current) => (current.CartId === line.CartId ? line : current))
-                    : [...prev, line]);
+            const request = newQuantity <= 0
+                ? cartService.removeCartItem(line.CartId)
+                : cartService.updateCartQuantity(line.CartId, newQuantity);
 
-                // Stable id collapses repeat failures for the same line into
-                // one toast instead of stacking a new one per straggler.
-                toast.error(error.response?.data?.message || error.message || "Failed to update cart.", { id: `cart-line-${line.CartId}` });
+            request
+                .then((response) => {
 
-            })
-            .finally(() => {
+                    if (!response.success) {
+                        throw new Error(response.message);
+                    }
 
-                setPendingLineIds((prev) => {
-                    const next = new Set(prev);
-                    next.delete(line.CartId);
-                    return next;
+                    confirmedLinesRef.current.set(line.CartId, { ...line, Quantity: newQuantity });
+
+                })
+                .catch((error) => {
+
+                    const confirmed = confirmedLinesRef.current.get(line.CartId) || line;
+
+                    setCartLines((prev) => prev.some((current) => current.CartId === confirmed.CartId)
+                        ? prev.map((current) => (current.CartId === confirmed.CartId ? confirmed : current))
+                        : [...prev, confirmed]);
+
+                    // Stable id collapses repeat failures for the same line into
+                    // one toast instead of stacking a new one per straggler.
+                    toast.error(error.response?.data?.message || error.message || "Failed to update cart.", { id: `cart-line-${line.CartId}` });
+
                 });
 
-            });
+        };
+
+        quantityTimersRef.current.set(line.CartId, {
+            timer: setTimeout(sync, QUANTITY_SYNC_DELAY_MS),
+            sync
+        });
 
     };
 
@@ -836,7 +864,11 @@ function Home() {
             return;
         }
 
-        if (isPendingCartId(line.CartId) || pendingLineIds.has(line.CartId)) {
+        // A line that hasn't come back from the server yet has no real CartId
+        // to update, so that one tap still has to wait. Every other tap now
+        // applies immediately - previously an in-flight request silently
+        // swallowed them, so tapping "+" four times quickly added one.
+        if (isPendingCartId(line.CartId)) {
             return;
         }
 
@@ -848,7 +880,7 @@ function Home() {
 
         const line = getPlainCartLine(item.MenuItemId);
 
-        if (!line || isPendingCartId(line.CartId) || pendingLineIds.has(line.CartId)) {
+        if (!line || isPendingCartId(line.CartId)) {
             return;
         }
 
