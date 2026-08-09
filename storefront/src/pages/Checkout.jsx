@@ -180,6 +180,14 @@ function Checkout() {
     const discountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
     const estimatedTotalAfterDiscount = Math.max(0, subtotal - discountAmount);
 
+    // Mirrors OrderRepository.js's roundGst - CGST and SGST are each rounded
+    // independently rather than rounding their sum, so this has to replicate
+    // that same per-tax rounding to land on the figure the server will charge.
+    const roundGst = (amount) => Math.round(amount * 0.025 * 100) / 100;
+    const estimatedCgst = roundGst(estimatedTotalAfterDiscount);
+    const estimatedSgst = roundGst(estimatedTotalAfterDiscount);
+    const estimatedGrandTotal = estimatedTotalAfterDiscount + estimatedCgst + estimatedSgst;
+
     const handleApplyCoupon = async () => {
 
         const code = couponInput.trim();
@@ -230,6 +238,13 @@ function Checkout() {
     };
 
     const handlePlaceOrder = async () => {
+
+        // Touchscreens fire touchstart+click in quick succession, which can
+        // invoke this before React commits the disabled state on the button -
+        // guard re-entrancy here rather than relying solely on that prop.
+        if (placingOrder) {
+            return;
+        }
 
         if (deliveryType === "Delivery" && !addressId) {
             toast.error("Please select a delivery address.");
@@ -709,6 +724,16 @@ function Checkout() {
 
                             ) : null}
 
+                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                <Typography variant="body2" color="text.secondary">CGST (2.5%)</Typography>
+                                <Typography variant="body2">{formatCurrency(estimatedCgst)}</Typography>
+                            </Box>
+
+                            <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                <Typography variant="body2" color="text.secondary">SGST (2.5%)</Typography>
+                                <Typography variant="body2">{formatCurrency(estimatedSgst)}</Typography>
+                            </Box>
+
                         </Stack>
 
                         <Divider sx={{ my: 1.5 }} />
@@ -718,12 +743,12 @@ function Checkout() {
                                 Estimated Total
                             </Typography>
                             <Typography variant="h6" fontWeight={800}>
-                                {formatCurrency(estimatedTotalAfterDiscount)}
+                                {formatCurrency(estimatedGrandTotal)}
                             </Typography>
                         </Box>
 
                         <Typography variant="caption" color="text.secondary">
-                            + GST calculated at checkout
+                            Final amount is confirmed when the order is placed
                         </Typography>
 
                         <Button

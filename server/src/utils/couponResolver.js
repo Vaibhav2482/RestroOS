@@ -9,8 +9,11 @@ export const resolveCoupon = async (queryable, tenantId, code, customerId, subto
         return { discountAmount: 0, couponId: null };
     }
 
+    // FOR UPDATE so two concurrent order-creation transactions redeeming the
+    // same coupon serialize on this row instead of both reading a usage
+    // count from before either commits its "CouponRedemptions" insert.
     const couponResult = await queryable.query(
-        `SELECT * FROM "Coupons" WHERE "TenantId" = $1 AND "Code" = $2 AND "IsActive" = TRUE`,
+        `SELECT * FROM "Coupons" WHERE "TenantId" = $1 AND "Code" = $2 AND "IsActive" = TRUE FOR UPDATE`,
         [tenantId, code.trim().toUpperCase()]
     );
 

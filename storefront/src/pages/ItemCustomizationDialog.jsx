@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     Box,
     Button,
@@ -89,13 +89,27 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
     const [recsLoading, setRecsLoading] = useState(false);
     const [addingRecId, setAddingRecId] = useState(null);
 
+    // Tracks whichever load is the most recent one, regardless of whether it
+    // was started by the effect below (dialog opened for `item`) or by
+    // handleQuickAddRecommendation (dialog reloaded in place for a
+    // recommended item). Starting a new load always supersedes whatever
+    // came before it - previously each call site tracked its own cancellation
+    // token, so a quick-add's in-flight request had nothing to invalidate it
+    // if the dialog moved on to a third item before it resolved, letting its
+    // late response overwrite that third item's state.
+    const activeLoadTokenRef = useRef(null);
+
     // Loads option groups + cross-sell recommendations for whichever item
     // should currently be shown in the dialog. Called both when the dialog
     // is first opened for `item` (via the effect below) and when the
     // customer quick-adds a recommendation that itself needs customization -
     // in that case we simply reload this same dialog in place for the new
     // item instead of stacking/nesting a second dialog.
-    const loadItemForCustomization = async (targetItem, cancelledRef) => {
+    const loadItemForCustomization = async (targetItem) => {
+
+        const token = {};
+        activeLoadTokenRef.current = token;
+        const isStale = () => activeLoadTokenRef.current !== token;
 
         setActiveItem(targetItem);
         setQuantity(1);
@@ -107,7 +121,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
             const response = await menuOptionService.getGroupsForMenuItem(targetItem.MenuItemId);
 
-            if (cancelledRef.current) {
+            if (isStale()) {
                 return;
             }
 
@@ -134,7 +148,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
             });
 
-            if (!cancelledRef.current) {
+            if (!isStale()) {
                 setSelections(initialSelections);
             }
 
@@ -146,7 +160,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
         } finally {
 
-            if (!cancelledRef.current) {
+            if (!isStale()) {
                 setLoading(false);
             }
 
@@ -158,7 +172,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
             const recResponse = await publicService.getRecommendations(targetItem.MenuItemId);
 
-            if (!cancelledRef.current && recResponse.success) {
+            if (!isStale() && recResponse.success) {
                 setRecommendations(recResponse.data || []);
             }
 
@@ -168,7 +182,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
         } finally {
 
-            if (!cancelledRef.current) {
+            if (!isStale()) {
                 setRecsLoading(false);
             }
 
@@ -182,11 +196,9 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
             return;
         }
 
-        const cancelledRef = { current: false };
+        loadItemForCustomization(item);
 
-        loadItemForCustomization(item, cancelledRef);
-
-        return () => { cancelledRef.current = true; };
+        return () => { activeLoadTokenRef.current = null; };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, item?.MenuItemId]);
@@ -306,8 +318,7 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
         if (rec.HasOptions) {
 
-            const cancelledRef = { current: false };
-            loadItemForCustomization(rec, cancelledRef);
+            loadItemForCustomization(rec);
             return;
 
         }

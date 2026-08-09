@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  server:
+    name: server (test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  storefront:
+    name: storefront (test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: storefront
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: storefront/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  tenant-admin:
+    name: tenant-admin (test + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tenant-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tenant-admin/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  platform-admin:
+    # No test suite exists yet for this app - a build failure is still the
+    # cheapest possible signal (a broken import, a JSX typo) until one does.
+    name: platform-admin (build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform-admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: platform-admin/package-lock.json
+      - run: npm ci
+      - run: npm run build

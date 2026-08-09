@@ -193,6 +193,10 @@ function OrderDetail() {
 
     const handleCancelOrder = async () => {
 
+        if (cancelling) {
+            return;
+        }
+
         setConfirmOpen(false);
 
         try {

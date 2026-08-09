@@ -38,6 +38,8 @@ function Addresses() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
+    const [settingDefaultId, setSettingDefaultId] = useState(null);
+
     // Only the first load shows the blocking spinner - reloading after a
     // save/delete keeps the existing list visible instead of blanking the
     // page out on every action.
@@ -153,6 +155,45 @@ function Addresses() {
 
     };
 
+    const handleSetDefault = async (address) => {
+
+        try {
+
+            setSettingDefaultId(address.AddressId);
+
+            // updateAddress replaces the whole row server-side, so every
+            // existing field has to be resent alongside isDefault - not just
+            // the flag - or the address would lose its title/city/etc.
+            const response = await addressService.updateAddress(address.AddressId, {
+                addressTitle: address.AddressTitle,
+                fullAddress: address.FullAddress,
+                city: address.City,
+                state: address.State,
+                pincode: address.Pincode,
+                landmark: address.Landmark,
+                isDefault: true
+            });
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            toast.success("Default address updated.");
+            await loadAddresses();
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to set default address.");
+
+        } finally {
+
+            setSettingDefaultId(null);
+
+        }
+
+    };
+
     if (loading) {
 
         return (
@@ -218,6 +259,17 @@ function Addresses() {
                                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                                             Landmark: {address.Landmark}
                                         </Typography>
+                                    )}
+
+                                    {!address.IsDefault && (
+                                        <Button
+                                            size="small"
+                                            onClick={() => handleSetDefault(address)}
+                                            disabled={settingDefaultId === address.AddressId}
+                                            sx={{ mt: 1, px: 0 }}
+                                        >
+                                            {settingDefaultId === address.AddressId ? "Setting as default..." : "Set as Default"}
+                                        </Button>
                                     )}
 
                                 </Box>

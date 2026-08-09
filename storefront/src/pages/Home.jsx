@@ -40,9 +40,13 @@ const FILTER_CHIPS = [
 function VegIndicator({ isVeg }) {
 
     const color = isVeg ? "#0B8A3D" : "#943126";
+    const label = isVeg ? "Vegetarian" : "Non-vegetarian";
 
     return (
         <Box
+            role="img"
+            aria-label={label}
+            title={label}
             sx={{
                 width: 15,
                 height: 15,
@@ -53,7 +57,22 @@ function VegIndicator({ isVeg }) {
                 flexShrink: 0
             }}
         >
-            <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
+            {/* FSSAI convention: veg is a dot, non-veg is a triangle - color
+                alone doesn't hold up for colorblind customers on a marker
+                this small, and it's a hard dietary requirement for many. */}
+            {isVeg ? (
+                <Box sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: color }} />
+            ) : (
+                <Box
+                    sx={{
+                        width: 0,
+                        height: 0,
+                        borderLeft: "4px solid transparent",
+                        borderRight: "4px solid transparent",
+                        borderBottom: `7px solid ${color}`
+                    }}
+                />
+            )}
         </Box>
     );
 
@@ -908,9 +927,18 @@ function Home() {
             ) : totalVisibleItems === 0 ? (
 
                 <Box sx={{ textAlign: "center", py: 8 }}>
-                    <Typography variant="h6" color="text.secondary">
+                    <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
                         No items match your search or filters.
                     </Typography>
+                    <Button
+                        variant="outlined"
+                        onClick={() => {
+                            setSearch("");
+                            setFilters([]);
+                        }}
+                    >
+                        Clear filters
+                    </Button>
                 </Box>
 
             ) : (

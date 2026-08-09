@@ -7,6 +7,11 @@ import {
     Button,
     CircularProgress,
     Container,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     Divider,
     IconButton,
     Menu,
@@ -44,6 +49,12 @@ function Layout({ children }) {
     } = useStorefront();
 
     const [menuAnchor, setMenuAnchor] = useState(null);
+    // Holds the branch the customer picked while a confirmation is pending -
+    // a cart can only ever hold items from one branch (server-enforced), so
+    // switching with items already in it needs a heads-up before committing,
+    // rather than the customer only discovering the conflict on their next
+    // "Add" tap as a generic error toast.
+    const [pendingBranchId, setPendingBranchId] = useState(null);
 
     if (loading) {
 
@@ -74,6 +85,24 @@ function Layout({ children }) {
         setMenuAnchor(null);
         logout();
         navigate(`/${tenantSlug}`);
+    };
+
+    const handleBranchChange = (event) => {
+
+        const nextBranchId = event.target.value;
+
+        if (cartCount > 0 && nextBranchId !== selectedBranchId) {
+            setPendingBranchId(nextBranchId);
+            return;
+        }
+
+        selectBranch(nextBranchId);
+
+    };
+
+    const confirmBranchSwitch = () => {
+        selectBranch(pendingBranchId);
+        setPendingBranchId(null);
     };
 
     const isMenuActive = location.pathname === `/${tenantSlug}`;
@@ -163,7 +192,7 @@ function Layout({ children }) {
                         <Select
                             size="small"
                             value={selectedBranchId ?? ""}
-                            onChange={(event) => selectBranch(event.target.value)}
+                            onChange={handleBranchChange}
                             startAdornment={<PlaceOutlinedIcon fontSize="small" sx={{ mr: 0.5, color: "primary.main" }} />}
                             sx={{
                                 ml: "auto",
@@ -264,6 +293,23 @@ function Layout({ children }) {
             </Container>
 
             <BottomNav />
+
+            <Dialog open={Boolean(pendingBranchId)} onClose={() => setPendingBranchId(null)}>
+
+                <DialogTitle fontWeight={800}>Switch Branch?</DialogTitle>
+
+                <DialogContent>
+                    <DialogContentText>
+                        Your cart has items from your current branch. Switching branches means this cart will no longer apply, and you'll start a new one there.
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 3 }}>
+                    <Button onClick={() => setPendingBranchId(null)} color="inherit">Cancel</Button>
+                    <Button onClick={confirmBranchSwitch} variant="contained">Switch Branch</Button>
+                </DialogActions>
+
+            </Dialog>
 
         </Box>
 
