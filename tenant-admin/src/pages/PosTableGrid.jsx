@@ -44,7 +44,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
 
                 return (
 
-                    <Grid key={table.TableId} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
+                    <Grid key={table.TableId} size={{ xs: 4, sm: 3, md: 2, lg: 1.5 }}>
 
                         {/* A fixed height (not just a floor) is deliberate - an
                             occupied table's extra content (status/price/button)
@@ -58,7 +58,12 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                             onClick={() => onTableClick(table, orders)}
                             sx={{
                                 position: "relative",
-                                height: 208,
+                                // Was 208px in a 6-column-on-phone grid, so seven
+                                // tables filled an entire tablet screen. A floor
+                                // plan is scanned, not read - the tile only has to
+                                // carry a number, a state and (when running) an
+                                // amount, which fits comfortably in half that.
+                                height: 138,
                                 cursor: "pointer",
                                 textAlign: "center",
                                 border: "2px solid",
