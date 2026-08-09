@@ -47,6 +47,44 @@ import { toDateInputValue } from "../utils/dateRange";
 // since it'll always have a zero count for them rather than being confusing.
 const STATUS_FILTERS = ["All", "Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered", "Cancelled"];
 
+// Soft tinted pills rather than MUI's solid filled chips. With ~92% of a
+// mature order list sitting on "Delivered", a wall of saturated green was
+// drawing the eye to the one thing nobody needs to look at; muting the
+// settled states lets Pending and Cancelled actually stand out.
+const STATUS_PILL_STYLES = {
+    Pending: { color: "#92400E", bgcolor: "#FEF3C7" },
+    Accepted: { color: "#1E40AF", bgcolor: "#DBEAFE" },
+    Preparing: { color: "#9A3412", bgcolor: "#FFEDD5" },
+    Ready: { color: "#5B21B6", bgcolor: "#EDE9FE" },
+    "Out For Delivery": { color: "#155E75", bgcolor: "#CFFAFE" },
+    Delivered: { color: "#3F6212", bgcolor: "#F0F5E4" },
+    Cancelled: { color: "#9B1C1C", bgcolor: "#FEE2E2" }
+};
+
+function StatusPill({ status }) {
+
+    const palette = STATUS_PILL_STYLES[status] || { color: "#374151", bgcolor: "#F3F4F6" };
+
+    return (
+        <Box
+            component="span"
+            sx={{
+                ...palette,
+                display: "inline-block",
+                px: 1,
+                py: 0.25,
+                borderRadius: 1,
+                fontSize: 12,
+                fontWeight: 600,
+                whiteSpace: "nowrap"
+            }}
+        >
+            {status}
+        </Box>
+    );
+
+}
+
 function Orders() {
 
     const { admin } = getStoredAuth() || {};
@@ -364,9 +402,6 @@ function Orders() {
     // Cancelled orders are counted but never billed, so they're excluded from
     // revenue and from the average - including them would understate what an
     // order is actually worth.
-    const revenueOrders = filteredOrders.filter((order) => order.OrderStatus !== "Cancelled");
-    const revenue = revenueOrders.reduce((sum, order) => sum + Number(order.TotalAmount || 0), 0);
-    const averageOrderValue = revenueOrders.length > 0 ? revenue / revenueOrders.length : 0;
 
     return (
 
@@ -477,33 +512,6 @@ function Orders() {
 
             </Stack>
 
-            {/* The page previously showed 248 orders without ever showing what
-                they were worth - the first question an owner opens this page
-                to ask. Reflects the current filters, so narrowing to a date
-                range answers "how did we do yesterday". */}
-            <Stack
-                direction="row"
-                spacing={{ xs: 2, sm: 4 }}
-                sx={{ mb: 2, px: 2, py: 1.5, border: "1px solid #E5E7EB", borderRadius: 2, flexWrap: "wrap", rowGap: 1 }}
-            >
-
-                <Box>
-                    <Typography variant="caption" color="text.secondary">Orders</Typography>
-                    <Typography variant="h6" fontWeight={700}>{filteredOrders.length}</Typography>
-                </Box>
-
-                <Box>
-                    <Typography variant="caption" color="text.secondary">Revenue</Typography>
-                    <Typography variant="h6" fontWeight={700}>{formatCurrency(revenue)}</Typography>
-                </Box>
-
-                <Box>
-                    <Typography variant="caption" color="text.secondary">Avg order</Typography>
-                    <Typography variant="h6" fontWeight={700}>{formatCurrency(averageOrderValue)}</Typography>
-                </Box>
-
-            </Stack>
-
             <Paper elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
 
                 {loading ? (
@@ -514,9 +522,27 @@ function Orders() {
 
                 ) : (
 
-                    <TableContainer>
+                    // Capped height with a stuck header: at 25 rows a page the
+                    // column labels used to scroll away, leaving you counting
+                    // columns to work out which figure was the total.
+                    <TableContainer sx={{ maxHeight: { xs: "none", md: "calc(100vh - 320px)" } }}>
 
-                        <Table>
+                        <Table
+                            size="small"
+                            stickyHeader
+                            sx={{
+                                "& tbody td": { py: 1.25, borderColor: "#F1F2F4" },
+                                "& thead th": {
+                                    bgcolor: "#FAFAFB",
+                                    color: "text.secondary",
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    letterSpacing: "0.04em",
+                                    textTransform: "uppercase",
+                                    borderColor: "#E5E7EB"
+                                }
+                            }}
+                        >
 
                             <TableHead>
 
@@ -570,30 +596,39 @@ function Orders() {
                                                 }}
                                             >
 
-                                                <TableCell>#{order.OrderId}</TableCell>
+                                                {/* Tabular figures so order numbers form a
+                                                    straight column instead of ragging with
+                                                    each digit's natural width. Kept as a
+                                                    single text node - splitting the "#" into
+                                                    its own span to mute it broke every test
+                                                    matching on "#62", and readers select and
+                                                    search this value as one string. */}
+                                                <TableCell sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                                                    #{order.OrderId}
+                                                </TableCell>
 
-                                                <TableCell>
+                                                <TableCell sx={{ fontWeight: 500 }}>
                                                     {order.CustomerName || "Guest"}
                                                 </TableCell>
 
-                                                {ownerMode && <TableCell>{order.BranchName}</TableCell>}
+                                                {ownerMode && (
+                                                    <TableCell sx={{ color: "text.secondary" }}>{order.BranchName}</TableCell>
+                                                )}
 
-                                                <TableCell>
+                                                <TableCell sx={{ color: "text.secondary" }}>
                                                     {order.DeliveryType}
-                                                    {order.DeliveryType === "Dine In" && order.TableNumber ? ` (T-${order.TableNumber})` : ""}
+                                                    {order.DeliveryType === "Dine In" && order.TableNumber ? ` · T-${order.TableNumber}` : ""}
                                                 </TableCell>
 
-                                                <TableCell align="right">{formatCurrency(order.TotalAmount)}</TableCell>
-
-                                                <TableCell>
-                                                    <Chip
-                                                        label={order.OrderStatus}
-                                                        color={getStatusChipColor(order.OrderStatus)}
-                                                        size="small"
-                                                    />
+                                                <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>
+                                                    {formatCurrency(order.TotalAmount)}
                                                 </TableCell>
 
                                                 <TableCell>
+                                                    <StatusPill status={order.OrderStatus} />
+                                                </TableCell>
+
+                                                <TableCell sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>
                                                     {formatDateTime(order.OrderDate)}
                                                 </TableCell>
 
