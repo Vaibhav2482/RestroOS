@@ -134,6 +134,57 @@ export const refundPaymentForOrder = async (orderId) => {
 
 };
 
+// Called from the Razorpay webhook (razorpayWebhook in PaymentController.js),
+// never directly from a client request. This exists because
+// verifyRazorpayPayment above is only ever reached if the customer's
+// browser stays online long enough to call it after paying - a dropped
+// connection, closed tab, or crashed app right after a successful payment
+// would otherwise leave a paid order with no Payments row at all. The
+// webhook is Razorpay's own server telling us payment succeeded, independent
+// of whether the client ever calls back.
+export const recordRazorpayWebhookPayment = async ({ orderId, transactionId, amount }) => {
+
+    const order = await OrderRepository.getOrderById(orderId);
+
+    if (!order || order.length === 0) {
+        console.error(`Razorpay webhook: order ${orderId} (from receipt) not found.`);
+        return;
+    }
+
+    const existingPayments = await PaymentRepository.getPaymentByOrderId(orderId);
+
+    // Idempotent - Razorpay retries a webhook delivery until it gets a 2xx,
+    // and this same payment may also already have been recorded by the
+    // client-side verifyRazorpayPayment path racing this one.
+    if (existingPayments.some((existing) => existing.TransactionId === transactionId)) {
+        return;
+    }
+
+    try {
+
+        await PaymentRepository.createPayment({
+            orderId,
+            paymentMethod: "Razorpay",
+            amount,
+            paymentStatus: "Paid",
+            transactionId
+        });
+
+    } catch (error) {
+
+        // 23505 = unique_violation on Payments.TransactionId (migration
+        // 0005_payment_idempotency) - the client-side verify path won this
+        // exact race between the existingPayments check above and this
+        // insert. Either way the payment is now recorded, which is all this
+        // function promises.
+        if (error.code !== "23505") {
+            throw error;
+        }
+
+    }
+
+};
+
 export const verifyRazorpayPayment = async (payment) => {
 
     const { orderId, paymentMethod, razorpayOrderId, razorpayPaymentId, razorpaySignature } = payment;

@@ -39,7 +39,8 @@ import EmptyState from "../components/EmptyState";
 import BillReceipt from "../components/BillReceipt";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
-import { formatCurrency, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
+import { formatCurrency, formatDateTime, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
+import { toDateInputValue } from "../utils/dateRange";
 
 // "All" first, then the sequence a Delivery order actually moves through -
 // Dine In/Takeaway orders just never hit "Out For Delivery", which is fine
@@ -62,6 +63,10 @@ function Orders() {
 
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
+    // Empty means "all time" - the page's existing behaviour, so opening
+    // Orders still shows everything rather than silently hiding history
+    // behind a default window.
+    const [dateRange, setDateRange] = useState({ from: "", to: "" });
     // A single scalar here used to re-enable an unrelated row's button the
     // instant a second order started advancing - a Set keyed by order id
     // keeps every in-flight row disabled independently, same pattern as
@@ -317,12 +322,30 @@ function Orders() {
     // shrinks the result set can leave the user stranded on an empty page.
     useEffect(() => {
         setPage(0);
-    }, [search, statusFilter, selectedBranchId]);
+    }, [search, statusFilter, selectedBranchId, dateRange.from, dateRange.to]);
 
     const filteredOrders = orders.filter((order) => {
 
         if (statusFilter !== "All" && order.OrderStatus !== statusFilter) {
             return false;
+        }
+
+        // Compared as YYYY-MM-DD strings (which sort lexically) against the
+        // order's *local* calendar day - the same local-components approach
+        // dateRange.toDateInputValue uses, so an early-morning IST order
+        // isn't pushed into the previous day the way a UTC comparison would.
+        if (dateRange.from || dateRange.to) {
+
+            const orderDay = toDateInputValue(new Date(order.OrderDate));
+
+            if (dateRange.from && orderDay < dateRange.from) {
+                return false;
+            }
+
+            if (dateRange.to && orderDay > dateRange.to) {
+                return false;
+            }
+
         }
 
         const query = search.trim().toLowerCase();
@@ -337,6 +360,13 @@ function Orders() {
         return matchesId || matchesCustomer;
 
     });
+
+    // Cancelled orders are counted but never billed, so they're excluded from
+    // revenue and from the average - including them would understate what an
+    // order is actually worth.
+    const revenueOrders = filteredOrders.filter((order) => order.OrderStatus !== "Cancelled");
+    const revenue = revenueOrders.reduce((sum, order) => sum + Number(order.TotalAmount || 0), 0);
+    const averageOrderValue = revenueOrders.length > 0 ? revenue / revenueOrders.length : 0;
 
     return (
 
@@ -394,27 +424,83 @@ function Orders() {
                     }}
                 />
 
-                <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: { xs: 0.5, sm: 0 } }}>
+                <TextField
+                    size="small"
+                    type="date"
+                    label="From"
+                    value={dateRange.from}
+                    onChange={(event) => setDateRange((prev) => ({ ...prev, from: event.target.value }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                />
 
-                    {STATUS_FILTERS.map((status) => {
+                <TextField
+                    size="small"
+                    type="date"
+                    label="To"
+                    value={dateRange.to}
+                    onChange={(event) => setDateRange((prev) => ({ ...prev, to: event.target.value }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                />
 
-                        const count = status === "All" ? orders.length : (statusCounts[status] || 0);
-                        const selected = statusFilter === status;
+                {(dateRange.from || dateRange.to) && (
+                    <Button size="small" onClick={() => setDateRange({ from: "", to: "" })}>
+                        Clear dates
+                    </Button>
+                )}
 
-                        return (
-                            <Chip
-                                key={status}
-                                label={`${status} (${count})`}
-                                onClick={() => setStatusFilter(status)}
-                                color={selected ? (status === "All" ? "primary" : getStatusChipColor(status)) : "default"}
-                                variant={selected ? "filled" : "outlined"}
-                                sx={{ flexShrink: 0 }}
-                            />
-                        );
+            </Stack>
 
-                    })}
+            <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: { xs: 0.5, sm: 0 }, mb: 2 }}>
 
-                </Stack>
+                {STATUS_FILTERS.map((status) => {
+
+                    const count = status === "All" ? orders.length : (statusCounts[status] || 0);
+                    const selected = statusFilter === status;
+                    // A status nothing is sitting in is a dead end - still
+                    // clickable (so the set of statuses stays discoverable),
+                    // but dimmed so the counts that carry information aren't
+                    // competing with five zeroes for attention.
+                    const isEmpty = count === 0 && !selected;
+
+                    return (
+                        <Chip
+                            key={status}
+                            label={`${status} (${count})`}
+                            onClick={() => setStatusFilter(status)}
+                            color={selected ? (status === "All" ? "primary" : getStatusChipColor(status)) : "default"}
+                            variant={selected ? "filled" : "outlined"}
+                            sx={{ flexShrink: 0, opacity: isEmpty ? 0.45 : 1 }}
+                        />
+                    );
+
+                })}
+
+            </Stack>
+
+            {/* The page previously showed 248 orders without ever showing what
+                they were worth - the first question an owner opens this page
+                to ask. Reflects the current filters, so narrowing to a date
+                range answers "how did we do yesterday". */}
+            <Stack
+                direction="row"
+                spacing={{ xs: 2, sm: 4 }}
+                sx={{ mb: 2, px: 2, py: 1.5, border: "1px solid #E5E7EB", borderRadius: 2, flexWrap: "wrap", rowGap: 1 }}
+            >
+
+                <Box>
+                    <Typography variant="caption" color="text.secondary">Orders</Typography>
+                    <Typography variant="h6" fontWeight={700}>{filteredOrders.length}</Typography>
+                </Box>
+
+                <Box>
+                    <Typography variant="caption" color="text.secondary">Revenue</Typography>
+                    <Typography variant="h6" fontWeight={700}>{formatCurrency(revenue)}</Typography>
+                </Box>
+
+                <Box>
+                    <Typography variant="caption" color="text.secondary">Avg order</Typography>
+                    <Typography variant="h6" fontWeight={700}>{formatCurrency(averageOrderValue)}</Typography>
+                </Box>
 
             </Stack>
 
@@ -508,7 +594,7 @@ function Orders() {
                                                 </TableCell>
 
                                                 <TableCell>
-                                                    {new Date(order.OrderDate).toLocaleString()}
+                                                    {formatDateTime(order.OrderDate)}
                                                 </TableCell>
 
                                                 <TableCell align="right" onClick={(event) => event.stopPropagation()}>

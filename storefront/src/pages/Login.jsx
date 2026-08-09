@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Box, Button, Paper, TextField, Typography } from "@mui/material";
-import { Link as RouterLink, useNavigate, useParams } from "react-router-dom";
+import { Link as RouterLink, Navigate, useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import * as customerAuthService from "../services/customerAuthService";
@@ -10,10 +10,17 @@ function Login() {
 
     const { tenantSlug } = useParams();
     const navigate = useNavigate();
-    const { login, tenant } = useStorefront();
+    const { login, tenant, isLoggedIn } = useStorefront();
 
     const [formData, setFormData] = useState({ email: "", password: "" });
     const [loading, setLoading] = useState(false);
+
+    // Reachable via the browser Back button after a customer has already
+    // logged in - without this, submitting the form here would silently log
+    // them out of their current session and into whatever was just typed.
+    if (isLoggedIn) {
+        return <Navigate to={`/${tenantSlug}`} replace />;
+    }
 
     const handleChange = (event) => {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));

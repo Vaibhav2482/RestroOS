@@ -1,8 +1,12 @@
 import express from "express";
 import cors from "cors";
 
+import { initSentry } from "./config/sentry.js";
 import notFound from "./middleware/NotFound.js";
 import errorHandler from "./middleware/ErrorHandler.js";
+import { generalRateLimiter } from "./middleware/RateLimit.js";
+
+initSentry();
 
 import PlatformAdminRoutes from "./routes/PlatformAdminRoutes.js";
 import TenantRoutes from "./routes/TenantRoutes.js";
@@ -30,6 +34,7 @@ import IngredientRoutes from "./routes/IngredientRoutes.js";
 import InventoryRoutes from "./routes/InventoryRoutes.js";
 import MenuItemRecipeRoutes from "./routes/MenuItemRecipeRoutes.js";
 import AuditRoutes from "./routes/AuditRoutes.js";
+import { razorpayWebhook } from "./controllers/PaymentController.js";
 import { runMigrations } from "./config/migrate.js";
 
 const app = express();
@@ -55,6 +60,11 @@ app.use(cors({
     maxAge: 7200,
     origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : true
 }));
+// Registered before express.json() below and outside PaymentRoutes.js's
+// authenticate gate - see razorpayWebhook's own comment for why (raw body
+// for signature verification, no Bearer token possible from Razorpay's side).
+app.post("/api/v1/payments/webhook", express.raw({ type: "application/json" }), razorpayWebhook);
+
 app.use(express.json());
 
 app.get("/api/v1/health", (req, res) => {
@@ -63,6 +73,10 @@ app.get("/api/v1/health", (req, res) => {
         message: "RestroOS API is running successfully."
     });
 });
+
+// Registered after /health above (so uptime monitors polling it never trip
+// this) but before every other route below.
+app.use("/api/v1", generalRateLimiter);
 
 // SQL lives in config/migrations.js as plain JS now, not read from disk at
 // runtime - see that file's own comment for why the previous version of

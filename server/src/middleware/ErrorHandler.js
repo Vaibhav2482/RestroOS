@@ -1,4 +1,5 @@
 import { errorResponse } from "../utils/ApiResponse.js";
+import { captureException } from "../config/sentry.js";
 
 const errorHandler = (err, req, res, next) => {
 
@@ -21,6 +22,14 @@ const errorHandler = (err, req, res, next) => {
     }
 
     const statusCode = err.statusCode || 500;
+
+    // Only genuine, unexpected 500s - the 23505/23503 cases above and any
+    // err.statusCode already in the 400s are expected, user-facing outcomes
+    // (a duplicate, a bad reference, a validation failure), not bugs worth
+    // paging anyone over.
+    if (statusCode >= 500) {
+        captureException(err);
+    }
 
     const message = statusCode === 500 && process.env.NODE_ENV === "production"
         ? "Internal Server Error"

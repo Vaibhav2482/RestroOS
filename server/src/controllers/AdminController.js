@@ -1,11 +1,11 @@
 import * as AdminService from "../services/AdminService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
-import { branchMismatch } from "../utils/branchScope.js";
+import { branchMismatch, resolveBranchId } from "../utils/branchScope.js";
 
 export const getAllAdmins = asyncHandler(async (req, res) => {
 
-    const result = await AdminService.getAllAdmins(req.user.tenantId);
+    const result = await AdminService.getAllAdmins(req.user.tenantId, resolveBranchId(req));
 
     return successResponse(res, result.data, result.message);
 

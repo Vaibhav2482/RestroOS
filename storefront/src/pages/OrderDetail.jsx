@@ -193,6 +193,10 @@ function OrderDetail() {
 
     const handleCancelOrder = async () => {
 
+        if (cancelling) {
+            return;
+        }
+
         setConfirmOpen(false);
 
         try {
@@ -298,7 +302,12 @@ function OrderDetail() {
 
     const steps = order.DeliveryType === "Delivery" ? DELIVERY_STEPS : DINE_IN_STEPS;
     const isCancelled = order.OrderStatus === "Cancelled";
-    const activeStep = steps.indexOf(order.OrderStatus);
+    // MUI ticks every step *before* activeStep and renders activeStep itself
+    // as a number, so an order sitting on the final step showed "6" against
+    // "Delivered" instead of a checkmark - reading as though the last stage
+    // hadn't happened yet. Pushing past the end marks the whole run complete.
+    const currentStepIndex = steps.indexOf(order.OrderStatus);
+    const activeStep = currentStepIndex === steps.length - 1 ? steps.length : currentStepIndex;
     const canCancel = CANCELLABLE_STATUSES.includes(order.OrderStatus);
 
     return (
@@ -330,13 +339,19 @@ function OrderDetail() {
                     {!isCancelled && (
 
                         <>
+                            {/* minHeight, not height: three buttons sharing a
+                                390px row left each about 110px, so these labels
+                                wrapped to three lines inside a box locked at
+                                42px and the text rendered outside its own
+                                button. They now sit two-up on a phone and grow
+                                to fit whatever the label needs. */}
                             <Button
                                 variant="outlined"
                                 startIcon={<PrintOutlinedIcon />}
                                 onClick={() => setBillOpen(true)}
-                                sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                                sx={{ minHeight: 42, flex: { xs: "1 1 calc(50% - 6px)", sm: "none" } }}
                             >
-                                View / Print Bill
+                                View Bill
                             </Button>
 
                             <Button
@@ -344,7 +359,7 @@ function OrderDetail() {
                                 startIcon={<EmailOutlinedIcon />}
                                 disabled={emailingBill}
                                 onClick={handleEmailBill}
-                                sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                                sx={{ minHeight: 42, flex: { xs: "1 1 calc(50% - 6px)", sm: "none" } }}
                             >
                                 {emailingBill ? "Sending..." : "Email Bill"}
                             </Button>
@@ -360,7 +375,7 @@ function OrderDetail() {
                         startIcon={<ReplayRoundedIcon />}
                         disabled={reordering}
                         onClick={handleReorder}
-                        sx={{ height: 42, flex: { xs: 1, sm: "none" } }}
+                        sx={{ minHeight: 42, flex: { xs: "1 1 100%", sm: "none" } }}
                     >
                         {reordering ? "Adding..." : "Reorder"}
                     </Button>

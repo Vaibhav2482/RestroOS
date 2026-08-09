@@ -56,7 +56,34 @@ export const STATUS_CHIP_COLORS = {
 
 export const getStatusChipColor = (status) => STATUS_CHIP_COLORS[status] || "default";
 
-export const formatCurrency = (amount) => `₹${Number(amount || 0).toFixed(2)}`;
+// en-IN grouping (1,00,000 rather than 100,000). Without separators a
+// column of totals is genuinely hard to rank at a glance - ₹10500.00 and
+// ₹1113.00 read as similar widths until you count digits.
+const CURRENCY_FORMATTER = new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+});
+
+export const formatCurrency = (amount) => CURRENCY_FORMATTER.format(Number(amount || 0));
+
+// Dates render as "9 Aug 2026, 2:27 pm". toLocaleString() alone gave
+// "8/9/2026, 2:27:48 PM": seconds are noise on an order list, and a
+// numeric month is ambiguous for an India-based team, where 8/9 reads as
+// 8 September rather than 9 August.
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true
+});
+
+export const formatDateTime = (dateValue) => (
+    dateValue ? DATE_TIME_FORMATTER.format(new Date(dateValue)) : "-"
+);
 
 export const isToday = (dateValue) => {
 
