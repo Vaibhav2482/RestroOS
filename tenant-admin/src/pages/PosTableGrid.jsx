@@ -63,7 +63,13 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                 // plan is scanned, not read - the tile only has to
                                 // carry a number, a state and (when running) an
                                 // amount, which fits comfortably in half that.
-                                height: 138,
+                                // minHeight, never a fixed height. Tables that
+                                // carry a "Seats N" line have one more row of
+                                // content than those that don't, and a fixed box
+                                // pushed the status pill outside the card edge on
+                                // exactly those. Letting the card grow costs a
+                                // little unevenness and cannot clip.
+                                minHeight: 138,
                                 cursor: "pointer",
                                 textAlign: "center",
                                 border: "2px solid",
