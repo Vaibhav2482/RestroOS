@@ -8,6 +8,20 @@ const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"
 
 const roundGst = (amount) => Math.round(amount * 0.025 * 100) / 100;
 
+// Status may legally jump several steps at once (Pending straight to Ready
+// is a valid forward move), so "has the kitchen started" can't be answered
+// by equality against "Preparing" alone - an order that skipped it has
+// still started. "Cancelled" isn't in either sequence, so it lands at -1
+// and correctly reports false.
+export const hasStartedPreparing = (status, deliveryType) => {
+
+    const sequence = deliveryType === "Delivery" ? DELIVERY_SEQUENCE : OTHER_SEQUENCE;
+    const index = sequence.indexOf(status);
+
+    return index !== -1 && index >= sequence.indexOf("Preparing");
+
+};
+
 export const createOrder = async (order) => {
 
     const client = await pool.connect();

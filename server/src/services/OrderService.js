@@ -223,12 +223,16 @@ export const updateOrderStatus = async (id, orderStatus) => {
 
     try {
 
-        // Consumption fires once, on the transition into "Preparing" - that's
-        // when the kitchen actually starts using ingredients, for both the
-        // Delivery and the Dine In/Takeaway status sequences.
+        // Fires once the order reaches "Preparing" *or anything past it* - not
+        // only on an exact match. Status is allowed to jump forward several
+        // steps at a time, so marking a Pending order straight to Ready used
+        // to skip this hook entirely and the order could reach Delivered
+        // having never deducted a gram of stock. consumeForOrder is
+        // idempotent (it checks for existing rows against the order under a
+        // row lock), so firing it on each later transition is safe.
         const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus, async (client, order) => {
 
-            if (order.OrderStatus === "Preparing") {
+            if (OrderRepository.hasStartedPreparing(order.OrderStatus, order.DeliveryType)) {
                 await InventoryService.consumeForOrder(client, order.OrderId, order.BranchId);
             }
 
