@@ -78,7 +78,10 @@ function VegIndicator({ isVeg }) {
 
 }
 
-function ItemImage({ item, size = 116 }) {
+// Fills whatever box it's given rather than taking a fixed pixel size - the
+// card is a responsive grid cell now (two per row on a phone), so the image
+// has to scale with the column instead of pinning itself to one width.
+function ItemImage({ item }) {
 
     if (item.ImageUrl) {
 
@@ -87,13 +90,14 @@ function ItemImage({ item, size = 116 }) {
                 component="img"
                 src={item.ImageUrl}
                 alt={item.ItemName}
+                loading="lazy"
                 sx={{
-                    width: size,
-                    height: size,
+                    width: "100%",
+                    aspectRatio: "1 / 1",
+                    display: "block",
                     borderRadius: 2,
                     objectFit: "cover",
-                    flexShrink: 0,
-                    border: "1px solid #E5E7EB"
+                    bgcolor: "#F4EFE9"
                 }}
             />
         );
@@ -103,18 +107,16 @@ function ItemImage({ item, size = 116 }) {
     return (
         <Box
             sx={{
-                width: size,
-                height: size,
+                width: "100%",
+                aspectRatio: "1 / 1",
                 borderRadius: 2,
-                flexShrink: 0,
-                border: "1px solid #E5E7EB",
                 bgcolor: "#F4EFE9",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center"
             }}
         >
-            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: size * 0.4 }} />
+            <RestaurantOutlinedIcon sx={{ color: "#C7CBD6", fontSize: 40 }} />
         </Box>
     );
 
@@ -124,74 +126,39 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
 
     const [expanded, setExpanded] = useState(false);
 
-    const isLong = item.Description && item.Description.length > 90;
+    // Shorter cutoff than the old full-width row could afford - at roughly
+    // half a phone's width, 90 characters ran to five or six lines.
+    const isLong = item.Description && item.Description.length > 42;
     const shownDescription = !isLong || expanded
         ? item.Description
-        : `${item.Description.slice(0, 90).trim()}...`;
+        : `${item.Description.slice(0, 42).trim()}...`;
 
     return (
 
-        <Card elevation={0} sx={{ p: 2, border: "1px solid #E5E7EB", display: "flex", gap: 2, height: "100%" }}>
+        // Image-led vertical tile rather than a wide horizontal row. The old
+        // layout gave one full-width card per row on a phone - about three
+        // items per screen, with a large dead area under the price - so this
+        // stacks image over text to fit two per row instead.
+        <Card
+            elevation={0}
+            sx={{
+                p: 1.25,
+                border: "1px solid #E5E7EB",
+                borderRadius: 3,
+                display: "flex",
+                flexDirection: "column",
+                height: "100%"
+            }}
+        >
 
-            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-
-                <Stack direction="row" alignItems="center" spacing={1}>
-                    <VegIndicator isVeg={Boolean(item.IsVeg)} />
-                    {item.IsPopular ? (
-                        <Chip label="Bestseller" size="small" sx={{ bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 600, height: 20 }} />
-                    ) : null}
-                </Stack>
-
-                <Typography variant="subtitle1" fontWeight={700} sx={{ mt: 0.5 }}>
-                    {item.ItemName}
-                </Typography>
-
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "primary.main", mt: 0.5 }}>
-                    ₹{Number(item.Price).toFixed(2)}
-                </Typography>
-
-                {item.Description ? (
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {shownDescription}{" "}
-                        {isLong && (
-                            <Box
-                                component="button"
-                                type="button"
-                                onClick={() => setExpanded((prev) => !prev)}
-                                sx={{
-                                    color: "primary.main",
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    font: "inherit",
-                                    border: 0,
-                                    p: 0,
-                                    background: "none",
-                                    "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 }
-                                }}
-                            >
-                                {expanded ? "less" : "more"}
-                            </Box>
-                        )}
-                    </Typography>
-
-                ) : null}
-
-                <Box sx={{ flexGrow: 1 }} />
-
-                {item.HasOptions ? (
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                        customisable
-                    </Typography>
-                ) : null}
-
-            </Box>
-
-            <Box sx={{ position: "relative", flexShrink: 0 }}>
+            {/* mb leaves room for the Add control, which overhangs the image's
+                bottom edge - without it the button would sit on top of the
+                item name. */}
+            <Box sx={{ position: "relative", mb: 1.75 }}>
 
                 <ItemImage item={item} />
 
-                <Box sx={{ position: "absolute", left: "50%", bottom: -14, transform: "translateX(-50%)", width: "84%", display: "flex", justifyContent: "center" }}>
+                <Box sx={{ position: "absolute", right: 8, bottom: -12, display: "flex" }}>
 
                     {/* A plain ternary here swaps Button for Stack in a single
                         instant DOM replacement - combined with the optimistic
@@ -212,9 +179,14 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     borderStyle: "solid",
                                     borderColor: "primary.main",
                                     borderRadius: 5,
-                                    px: 0.5,
+                                    px: 0.25,
                                     py: 0.25,
-                                    width: 104,
+                                    // Narrower than before: this now sits over a
+                                    // half-width tile, not a 116px image in a
+                                    // full-width row. Matches the Add button's
+                                    // width so the swap doesn't jump.
+                                    width: 72,
+                                    boxShadow: "0 2px 8px rgba(17,24,39,.12)",
                                     opacity: busy ? 0.6 : 1
                                 }}
                             >
@@ -256,13 +228,31 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                     ) : (
 
                         <Grow in key="add-button">
+                            {/* White-on-bordered rather than solid: sitting over
+                                the photo, a filled block hid the food behind it,
+                                and this reads as a control rather than a slab of
+                                colour. */}
                             <Button
-                                fullWidth
-                                variant="contained"
+                                variant="outlined"
                                 size="small"
                                 onClick={onAdd}
                                 disabled={busy}
-                                sx={{ borderRadius: 2, minWidth: 0, px: 1 }}
+                                sx={{
+                                    bgcolor: "#FFFFFF",
+                                    borderRadius: 5,
+                                    minWidth: 0,
+                                    width: 72,
+                                    py: 0.35,
+                                    fontSize: 13,
+                                    fontWeight: 800,
+                                    letterSpacing: "0.04em",
+                                    // Uppercased in CSS rather than in the markup so
+                                    // the accessible name stays "Add" - a screen
+                                    // reader shouldn't spell out "A-D-D".
+                                    textTransform: "uppercase",
+                                    boxShadow: "0 2px 8px rgba(17,24,39,.12)",
+                                    "&:hover": { bgcolor: "#FFFFFF" }
+                                }}
                             >
                                 Add
                             </Button>
@@ -273,6 +263,78 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                 </Box>
 
             </Box>
+
+            <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.25 }}>
+                <VegIndicator isVeg={Boolean(item.IsVeg)} />
+                {item.IsPopular ? (
+                    <Chip
+                        label="Bestseller"
+                        size="small"
+                        sx={{ bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 700, height: 18, fontSize: 10 }}
+                    />
+                ) : null}
+            </Stack>
+
+            {/* Clamped to two lines so a long name can't make one tile taller
+                than the one beside it and break the grid's alignment. */}
+            <Typography
+                variant="body2"
+                fontWeight={700}
+                sx={{
+                    lineHeight: 1.3,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden"
+                }}
+            >
+                {item.ItemName}
+            </Typography>
+
+            {item.Description ? (
+
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25, lineHeight: 1.35 }}>
+                    {shownDescription}{" "}
+                    {isLong && (
+                        <Box
+                            component="button"
+                            type="button"
+                            onClick={() => setExpanded((prev) => !prev)}
+                            sx={{
+                                color: "primary.main",
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                font: "inherit",
+                                border: 0,
+                                p: 0,
+                                background: "none",
+                                "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1 }
+                            }}
+                        >
+                            {expanded ? "less" : "more"}
+                        </Box>
+                    )}
+                </Typography>
+
+            ) : null}
+
+            {/* Pushes price to the bottom edge so prices line up across a row
+                regardless of how tall each tile's name/description ran. */}
+            <Box sx={{ flexGrow: 1, minHeight: 4 }} />
+
+            <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 0.5 }}>
+
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: "text.primary" }}>
+                    ₹{Number(item.Price).toFixed(0)}
+                </Typography>
+
+                {item.HasOptions ? (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                        customisable
+                    </Typography>
+                ) : null}
+
+            </Stack>
 
         </Card>
 
@@ -838,7 +900,11 @@ function Home() {
                 placeholder="Search menu items..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                sx={{ mb: 2 }}
+                size="small"
+                // Search + two chip rows previously pushed the first food item
+                // ~250px down the page on a phone; these tighter gaps get the
+                // menu above the fold without removing any of the controls.
+                sx={{ mb: 1.25 }}
                 slotProps={{
                     input: {
                         startAdornment: (
@@ -850,7 +916,7 @@ function Home() {
                 }}
             />
 
-            <Stack direction="row" spacing={1} sx={{ mb: 2, overflowX: "auto", pb: 0.5 }}>
+            <Stack direction="row" spacing={1} sx={{ mb: 1.25, overflowX: "auto", pb: 0.5 }}>
 
                 {FILTER_CHIPS.map((filter) => {
 
@@ -883,8 +949,8 @@ function Home() {
                     direction="row"
                     spacing={1}
                     sx={{
-                        mb: 3,
-                        py: 1,
+                        mb: 2,
+                        py: 0.75,
                         overflowX: "auto",
                         position: "sticky",
                         top: APPBAR_HEIGHT,
@@ -954,7 +1020,7 @@ function Home() {
                             sx={{ scrollMarginTop: { xs: "120px", sm: "136px" } }}
                         >
 
-                            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 2 }}>
+                            <Stack direction="row" alignItems="baseline" spacing={1} sx={{ mb: 1.25 }}>
                                 <Typography variant="h6" fontWeight={700}>
                                     {section.categoryName}
                                 </Typography>
@@ -963,21 +1029,20 @@ function Home() {
                                 </Typography>
                             </Stack>
 
-                            <Grid container spacing={2.5}>
+                            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
 
                                 {section.items.map((item) => {
 
                                     const plainLine = getPlainCartLine(item.MenuItemId);
 
-                                    // md alone meant 2 columns forever from 900px up - a
-                                    // laptop/desktop screen (this page's Container caps at
-                                    // 1200px) still only ever got 2 columns, so each card
-                                    // stretched to ~580px and everything inside it (image,
-                                    // gap, button) looked oversized and sparse. lg bumps to
-                                    // 3 within that same 1200px cap instead.
+                                    // Two per row on a phone (was one full-width card,
+                                    // which showed about three items per screen), scaling
+                                    // up to six on a wide desktop - the tile is now
+                                    // image-led and vertical, so it stays legible at a
+                                    // fraction of the old width.
                                     return (
 
-                                        <Grid key={item.MenuItemId} size={{ xs: 12, md: 6, lg: 4 }} sx={{ pb: 1 }}>
+                                        <Grid key={item.MenuItemId} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}

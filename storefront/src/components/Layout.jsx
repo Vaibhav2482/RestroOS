@@ -150,10 +150,20 @@ function Layout({ children }) {
                         sx={{ display: "flex", alignItems: "center", gap: 1.25, textDecoration: "none", flexShrink: 0 }}
                     >
 
+                        {/* noWrap + a cap on how much of the bar the name may
+                            claim: a long restaurant name ("Chai Chakana
+                            Company") was consuming the whole Toolbar and
+                            squeezing the Log In button into a two-line wrap. */}
                         <Typography
                             variant="h6"
                             fontWeight={800}
-                            sx={{ color: "primary.main", letterSpacing: "-0.01em" }}
+                            noWrap
+                            sx={{
+                                color: "primary.main",
+                                letterSpacing: "-0.01em",
+                                maxWidth: { xs: 190, sm: 320, md: "none" },
+                                fontSize: { xs: "1.05rem", sm: "1.25rem" }
+                            }}
                         >
                             {tenant?.TenantName || "RestroOS"}
                         </Typography>
@@ -276,7 +286,13 @@ function Layout({ children }) {
 
                         ) : (
 
-                            <Button component={RouterLink} to={`/${tenantSlug}/login`} variant="outlined" size="small">
+                            <Button
+                                component={RouterLink}
+                                to={`/${tenantSlug}/login`}
+                                variant="outlined"
+                                size="small"
+                                sx={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                            >
                                 Log In
                             </Button>
 
