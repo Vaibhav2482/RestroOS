@@ -668,7 +668,14 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         text and the Add button, and only ~5 of 12 items in a
                         category were visible without scrolling. This roughly
                         doubles visible items for the same screen height. */}
-                    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.25 }}>
+                    {/* auto-fill against a minimum rather than fixed breakpoint
+                        counts: an upright tablet is ~800px of content, which
+                        the old sm:"1fr 1fr" spent on two ~390px cards carrying
+                        a name and a button. This packs in as many columns as
+                        actually fit, so the same screen shows three. */}
+                    {/* minWidth:0 so this can shrink below its content as a flex
+                        child, which min-width:auto would otherwise prevent. */}
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 1, minWidth: 0 }}>
 
                     {filteredItems.map((item) => {
 
@@ -676,19 +683,24 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         return (
 
+                            // One row, not two. Stacking [thumb + name] above
+                            // [price + Add] doubled every card's height while
+                            // leaving a wide empty gutter beside the name -
+                            // costly on an upright tablet, where vertical
+                            // space is the scarce dimension.
                             <Card
                                 key={item.MenuItemId}
                                 variant="outlined"
-                                sx={{ p: 1.25, display: "flex", flexDirection: "column", gap: 0.75 }}
+                                sx={{ p: 1, display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}
                             >
 
-                                <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1 }}>
 
                                     <ItemThumbnail imageUrl={item.ImageUrl} itemName={item.ItemName} />
 
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
 
                                             <Box
                                                 sx={{
@@ -710,21 +722,22 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                         </Box>
 
-                                        {item.Description && (
-                                            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: "block" }}>
-                                                {item.Description}
-                                            </Typography>
-                                        )}
+                                        {/* Price sits under the name rather than on
+                                            its own row - it's the second thing
+                                            staff read, and it no longer costs a
+                                            whole line to show it. The description
+                                            is dropped here: at this density it
+                                            truncated to a few words and earned
+                                            none of the height it took. */}
+                                        <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
+                                            ₹{Number(item.Price).toFixed(2)}
+                                        </Typography>
 
                                     </Box>
 
                                 </Box>
 
-                                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-
-                                    <Typography variant="body2" color="text.secondary" fontWeight={600}>
-                                        ₹ {Number(item.Price).toFixed(2)}
-                                    </Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
 
                                     {item.HasOptions ? (
 
