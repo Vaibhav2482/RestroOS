@@ -675,7 +675,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         actually fit, so the same screen shows three. */}
                     {/* minWidth:0 so this can shrink below its content as a flex
                         child, which min-width:auto would otherwise prevent. */}
-                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 1, minWidth: 0 }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 1, minWidth: 0 }}>
 
                     {filteredItems.map((item) => {
 
@@ -691,7 +691,12 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             <Card
                                 key={item.MenuItemId}
                                 variant="outlined"
-                                sx={{ p: 1, display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}
+                                // gap:0.75 with the text block sized to content
+                                // rather than flex:1 - at ~450px wide the old
+                                // layout left a long dead gutter between the
+                                // price and the Add button, which is width that
+                                // could be carrying another column of items.
+                                sx={{ p: 0.75, display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}
                             >
 
                                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0, flex: 1 }}>
