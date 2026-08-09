@@ -43,7 +43,7 @@ function ItemThumbnail({ imageUrl, itemName }) {
                 component="img"
                 src={imageUrl}
                 alt={itemName}
-                sx={{ width: 56, height: 56, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
+                sx={{ width: 64, height: 64, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
             />
         );
 
@@ -52,8 +52,8 @@ function ItemThumbnail({ imageUrl, itemName }) {
     return (
         <Box
             sx={{
-                width: 56,
-                height: 56,
+                width: 64,
+                height: 64,
                 borderRadius: 1.5,
                 border: "1px solid #E5E7EB",
                 bgcolor: "#F5F6FA",
@@ -675,7 +675,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         actually fit, so the same screen shows three. */}
                     {/* minWidth:0 so this can shrink below its content as a flex
                         child, which min-width:auto would otherwise prevent. */}
-                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 1, minWidth: 0 }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(228px, 1fr))", gap: 1, minWidth: 0 }}>
 
                     {filteredItems.map((item) => {
 
