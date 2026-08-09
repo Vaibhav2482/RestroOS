@@ -24,9 +24,16 @@ export const getBranchInventory = async (branchId) => {
 export const getValuation = async (branchId) => {
 
     const result = await pool.query(
+        // StockValue floors the quantity at zero. A negative balance is
+        // legitimate (consumption is never blocked by a paperwork gap), but
+        // it means "we owe the ledger a stock count", not "this ingredient is
+        // worth minus six hundred rupees" - unfloored, one drifting
+        // ingredient silently subtracts from the branch total and drags COGS
+        // and margin with it. The real quantity is still returned as-is so
+        // the drift stays visible rather than being quietly rounded away.
         `SELECT I."IngredientId", I."Name", I."BaseUnit", I."CostPerBaseUnit",
                 COALESCE(BI."CurrentQuantityBase", 0) AS "CurrentQuantityBase",
-                COALESCE(BI."CurrentQuantityBase", 0) * I."CostPerBaseUnit" AS "StockValue"
+                GREATEST(COALESCE(BI."CurrentQuantityBase", 0), 0) * I."CostPerBaseUnit" AS "StockValue"
          FROM "Ingredients" I
          LEFT JOIN "BranchInventory" BI ON BI."IngredientId" = I."IngredientId" AND BI."BranchId" = $1
          WHERE I."TenantId" = (SELECT "TenantId" FROM "Branches" WHERE "BranchId" = $1) AND I."IsActive" = TRUE

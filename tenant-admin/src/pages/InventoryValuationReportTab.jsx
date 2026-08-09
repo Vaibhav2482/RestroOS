@@ -15,6 +15,7 @@ function InventoryValuationReportTab({ branchId }) {
     const [items, setItems] = useState([]);
     const [totalValue, setTotalValue] = useState(0);
     const [ingredientsMissingCost, setIngredientsMissingCost] = useState(0);
+    const [ingredientsBelowZero, setIngredientsBelowZero] = useState(0);
     const [loading, setLoading] = useState(true);
 
     const hasLoadedRef = useRef(false);
@@ -42,6 +43,7 @@ function InventoryValuationReportTab({ branchId }) {
                 setItems(response.data.items);
                 setTotalValue(response.data.totalValue);
                 setIngredientsMissingCost(response.data.ingredientsMissingCost);
+                setIngredientsBelowZero(response.data.ingredientsBelowZero || 0);
             } else {
                 toast.error(response.message || "Failed to load inventory valuation.");
             }
@@ -90,6 +92,16 @@ function InventoryValuationReportTab({ branchId }) {
                 </Button>
 
             </Box>
+
+            {ingredientsBelowZero > 0 && (
+
+                <Alert severity="warning" icon={<WarningAmberOutlinedIcon />} sx={{ mb: 2 }}>
+                    {ingredientsBelowZero} ingredient{ingredientsBelowZero === 1 ? "" : "s"} {ingredientsBelowZero === 1 ? "has" : "have"} a negative
+                    balance. {ingredientsBelowZero === 1 ? "It counts" : "They count"} as zero here rather than subtracting from the total -
+                    record a stock count to bring {ingredientsBelowZero === 1 ? "it" : "them"} back in line.
+                </Alert>
+
+            )}
 
             {ingredientsMissingCost > 0 && (
 

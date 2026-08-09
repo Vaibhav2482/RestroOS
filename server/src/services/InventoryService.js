@@ -212,10 +212,15 @@ export const getValuation = async (branchId, tenantId) => {
     const totalValue = items.reduce((sum, row) => sum + (row.StockValue ?? 0), 0);
     const ingredientsMissingCost = items.filter((row) => row.CostPerBaseUnit === null).length;
 
+    // Surfaced rather than swallowed: these are the ingredients whose recorded
+    // stock has gone below zero, so the total above understates nothing but is
+    // built on balances that need a physical count to be trustworthy.
+    const ingredientsBelowZero = items.filter((row) => Number(row.CurrentQuantityBase) < 0).length;
+
     return {
         success: true,
         message: "Inventory valuation fetched successfully.",
-        data: { items, totalValue, ingredientsMissingCost }
+        data: { items, totalValue, ingredientsMissingCost, ingredientsBelowZero }
     };
 
 };
