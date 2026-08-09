@@ -36,6 +36,12 @@ const APPBAR_HEIGHT = { xs: 56, sm: 64 };
 // flushes well within the time it takes to navigate.
 const QUANTITY_SYNC_DELAY_MS = 350;
 
+// The Add button and the +/- stepper swap in and out of the same slot, so
+// both are pinned to these exact dimensions. Any mismatch shows up as the
+// control jumping the moment an item is first added.
+const CART_CONTROL_WIDTH = 76;
+const CART_CONTROL_HEIGHT = 34;
+
 const FILTER_CHIPS = [
     { id: "veg", label: "Pure Veg", dotColor: "#0B8A3D" },
     { id: "nonveg", label: "Non-Veg", dotColor: "#943126" },
@@ -183,12 +189,16 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     borderColor: "primary.main",
                                     borderRadius: 5,
                                     px: 0.25,
-                                    py: 0.25,
-                                    // Narrower than before: this now sits over a
-                                    // half-width tile, not a 116px image in a
-                                    // full-width row. Matches the Add button's
-                                    // width so the swap doesn't jump.
-                                    width: 72,
+                                    // Width AND height are pinned to the exact
+                                    // values the Add button uses. Previously only
+                                    // the width matched, so the taller stepper
+                                    // (icon buttons set their own padding) grew
+                                    // upward from its bottom anchor and the
+                                    // control visibly jumped on every first tap.
+                                    width: CART_CONTROL_WIDTH,
+                                    height: CART_CONTROL_HEIGHT,
+                                    boxSizing: "border-box",
+                                    flexShrink: 0,
                                     boxShadow: "0 2px 8px rgba(17,24,39,.12)"
                                 }}
                             >
@@ -199,7 +209,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     No longer disabled while a sync is in flight: taps apply to
                                     the local quantity immediately and the server call is
                                     debounced, so there's nothing to guard against. */}
-                                <IconButton size="small" onClick={onDecrement} sx={{ p: 0.75 }}>
+                                <IconButton size="small" onClick={onDecrement} sx={{ p: 0.5 }}>
                                     <RemoveIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
@@ -210,7 +220,7 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     {quantity}
                                 </Typography>
 
-                                <IconButton size="small" onClick={onIncrement} sx={{ p: 0.75 }}>
+                                <IconButton size="small" onClick={onIncrement} sx={{ p: 0.5 }}>
                                     <AddIcon sx={{ fontSize: 18, color: "primary.main" }} />
                                 </IconButton>
 
@@ -231,8 +241,10 @@ function MenuItemRow({ item, quantity, busy, onAdd, onIncrement, onDecrement }) 
                                     bgcolor: "#FFFFFF",
                                     borderRadius: 5,
                                     minWidth: 0,
-                                    width: 72,
-                                    py: 0.35,
+                                    width: CART_CONTROL_WIDTH,
+                                    height: CART_CONTROL_HEIGHT,
+                                    boxSizing: "border-box",
+                                    p: 0,
                                     fontSize: 13,
                                     fontWeight: 800,
                                     letterSpacing: "0.04em",
