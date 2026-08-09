@@ -700,7 +700,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                     <Box sx={{ minWidth: 0, flex: 1 }}>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
+                                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 0.75, minWidth: 0 }}>
 
                                             <Box
                                                 sx={{
@@ -708,17 +708,32 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                                     height: 10,
                                                     borderRadius: "2px",
                                                     bgcolor: item.IsVeg ? "success.main" : "#8b3a3a",
-                                                    flexShrink: 0
+                                                    flexShrink: 0,
+                                                    mt: 0.5
                                                 }}
                                             />
 
-                                            <Typography fontWeight={600} noWrap sx={{ fontSize: "0.9rem" }}>
+                                            {/* Wraps to two lines instead of noWrap. Sharing one
+                                                line with the veg dot, a Bestseller chip and the
+                                                Add button left roughly 130px for the name, so
+                                                staff were reading "Ging..." and "Gara..." and
+                                                had to guess which tea they were tapping. Two
+                                                lines costs a little height and makes the tile
+                                                actually usable. */}
+                                            <Typography
+                                                fontWeight={600}
+                                                sx={{
+                                                    fontSize: "0.85rem",
+                                                    lineHeight: 1.25,
+                                                    display: "-webkit-box",
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: "vertical",
+                                                    overflow: "hidden",
+                                                    wordBreak: "break-word"
+                                                }}
+                                            >
                                                 {item.ItemName}
                                             </Typography>
-
-                                            {item.IsPopular && (
-                                                <Chip label="Bestseller" size="small" sx={{ height: 18, fontSize: 10.5, bgcolor: "#FEF3C7", color: "#92400E", fontWeight: 600 }} />
-                                            )}
 
                                         </Box>
 
@@ -729,9 +744,34 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                             is dropped here: at this density it
                                             truncated to a few words and earned
                                             none of the height it took. */}
-                                        <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
-                                            ₹{Number(item.Price).toFixed(2)}
-                                        </Typography>
+                                        {/* Bestseller sits with the price rather than the
+                                            name - this row has spare width, and the
+                                            name row does not. */}
+                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.25, minWidth: 0 }}>
+
+                                            <Typography variant="body2" fontWeight={700} sx={{ lineHeight: 1.3 }}>
+                                                ₹{Number(item.Price).toFixed(0)}
+                                            </Typography>
+
+                                            {item.IsPopular && (
+                                                <Box
+                                                    title="Bestseller"
+                                                    sx={{
+                                                        px: 0.5,
+                                                        borderRadius: 0.5,
+                                                        bgcolor: "#FEF3C7",
+                                                        color: "#92400E",
+                                                        fontSize: 9.5,
+                                                        fontWeight: 700,
+                                                        lineHeight: 1.6,
+                                                        flexShrink: 0
+                                                    }}
+                                                >
+                                                    ★
+                                                </Box>
+                                            )}
+
+                                        </Box>
 
                                     </Box>
 

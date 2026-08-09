@@ -434,6 +434,10 @@ function Layout({ children }) {
 
             <Divider />
 
+            {/* Identity and Log Out share a row when expanded, and stack in
+                rail mode where there isn't width for both side by side. */}
+            <Box sx={{ display: "flex", flexDirection: isCollapsed ? "column" : "row", alignItems: "center" }}>
+
             <Tooltip title={isCollapsed ? `${auth?.admin?.FullName || "Admin"} · ${owner ? "Owner" : "Branch Admin"}` : ""} placement="right">
                 <Box
                     component={NavLink}
@@ -443,6 +447,8 @@ function Layout({ children }) {
                         display: "flex",
                         alignItems: "center",
                         gap: 1.25,
+                        flex: 1,
+                        minWidth: 0,
                         px: isCollapsed ? 0 : 2,
                         py: 1.5,
                         justifyContent: isCollapsed ? "center" : "flex-start",
@@ -468,6 +474,23 @@ function Layout({ children }) {
                 </Box>
             </Tooltip>
 
+            {/* Explicit, always-visible Log Out. It used to live only in the
+                avatar menu on the top bar - which no longer exists from md up,
+                so without this there would be no way to sign out on desktop.
+                A visible control beats one hidden behind a menu for something
+                this consequential. */}
+            <Tooltip title="Log Out" placement="right">
+                <IconButton
+                    onClick={handleLogout}
+                    aria-label="Log Out"
+                    sx={{ flexShrink: 0, mr: isCollapsed ? 0 : 1, mb: isCollapsed ? 1 : 0 }}
+                >
+                    <LogoutOutlinedIcon fontSize="small" />
+                </IconButton>
+            </Tooltip>
+
+            </Box>
+
         </Box>
 
     );
@@ -476,11 +499,18 @@ function Layout({ children }) {
 
         <Box sx={{ display: "flex", minHeight: "100vh" }}>
 
+            {/* Gone entirely from md up: every item on it - tenant name, admin
+                name, role, avatar menu - already lives in the sidebar, so it
+                was a full-height strip restating what was on screen. Below md
+                the sidebar is a closed temporary Drawer, so this stays as the
+                only route to the menu, but dense and stripped to the
+                hamburger, tenant name and avatar. */}
             <AppBar
                 position="fixed"
                 color="inherit"
                 elevation={0}
                 sx={{
+                    display: { xs: "block", md: "none" },
                     width: { md: `calc(100% - ${drawerWidth}px)` },
                     ml: { md: `${drawerWidth}px` },
                     backgroundColor: "#FFFFFF",
@@ -489,7 +519,7 @@ function Layout({ children }) {
                 }}
             >
 
-                <Toolbar sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Toolbar variant="dense" sx={{ display: "flex", justifyContent: "space-between" }}>
 
                     <IconButton
                         color="inherit"
@@ -506,20 +536,6 @@ function Layout({ children }) {
 
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
 
-                        {/* Redundant with the sidebar's identity footer on
-                            desktop, but the sidebar is a closed temporary
-                            Drawer on mobile - this is the only place a
-                            Branch Admin sees who they're logged in as
-                            without opening the menu first. */}
-                        <Box sx={{ display: { xs: "none", sm: "block" }, textAlign: "right" }}>
-                            <Typography variant="body2" fontWeight={600} noWrap sx={{ maxWidth: 180 }}>
-                                {auth?.admin?.FullName || "Admin"}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.2 }}>
-                                {owner ? "Owner" : "Branch Admin"}
-                            </Typography>
-                        </Box>
-
                         <IconButton
                             onClick={(event) => setMenuAnchor(event.currentTarget)}
                             sx={{
@@ -535,6 +551,15 @@ function Layout({ children }) {
 
                     </Box>
 
+
+                </Toolbar>
+
+            </AppBar>
+
+            {/* Lives outside the AppBar, which is display:none from md up.
+                It is opened from the sidebar identity footer there, and Log Out
+                is only reachable through it - too important to leave nested
+                inside a hidden subtree. */}
                     <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
 
                         <MenuItem disabled sx={{ opacity: "1 !important" }}>
@@ -564,10 +589,6 @@ function Layout({ children }) {
                         </MenuItem>
 
                     </Menu>
-
-                </Toolbar>
-
-            </AppBar>
 
             <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter }) }}>
 
@@ -604,8 +625,12 @@ function Layout({ children }) {
                 sx={{
                     flexGrow: 1,
                     width: { md: `calc(100% - ${drawerWidth}px)` },
-                    p: { xs: 2, md: 4 },
-                    mt: 8,
+                    p: { xs: 2, md: 3 },
+                    // Clears the fixed AppBar only where one still exists. It
+                    // used to reserve 64px on every breakpoint; from md up
+                    // there's no bar to clear, and that was the empty strip
+                    // above the page heading.
+                    mt: { xs: 6, md: 0 },
                     transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter })
                 }}
             >
