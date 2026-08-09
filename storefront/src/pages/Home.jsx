@@ -1086,7 +1086,7 @@ function Home() {
                                     // fraction of the old width.
                                     return (
 
-                                        <Grid key={item.MenuItemId} size={{ xs: 6, sm: 4, md: 3, lg: 2 }}>
+                                        <Grid key={item.MenuItemId} size={{ xs: 6, sm: 3, md: 2.4, lg: 2 }}>
                                             <MenuItemRow
                                                 item={item}
                                                 quantity={plainLine?.Quantity ?? 0}
