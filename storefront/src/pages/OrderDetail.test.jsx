@@ -93,3 +93,28 @@ describe("OrderDetail - cancel double-submit guard", () => {
     });
 
 });
+
+describe("OrderDetail - progress stepper", () => {
+
+    it("marks the final step complete once the order reaches it, rather than leaving it as the active step", async () => {
+
+        // MUI ticks steps *before* activeStep and renders activeStep itself
+        // as its number, so a Delivered order used to show a bare "6"
+        // against "Delivered" - reading as though the last stage still
+        // hadn't happened on an order that was already complete.
+        orderService.getOrderById.mockResolvedValue({
+            success: true,
+            data: { ...ORDER, OrderStatus: "Delivered" }
+        });
+
+        renderOrderDetail();
+
+        const deliveredLabel = await screen.findByText("Delivered");
+        const step = deliveredLabel.closest(".MuiStep-root");
+
+        expect(step.querySelector(".MuiStepIcon-root.Mui-completed")).not.toBeNull();
+        expect(step.textContent).not.toContain("6");
+
+    });
+
+});
