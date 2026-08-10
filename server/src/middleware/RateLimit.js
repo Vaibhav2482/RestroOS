@@ -9,12 +9,23 @@ import rateLimit from "express-rate-limit";
 // this alone. A shared store (e.g. Upstash Redis via the `rate-limit-redis`
 // package) closes that gap if this ever needs to be airtight.
 
-// Applied only to login/register/bootstrap. This is now the ONLY brake on
-// repeated login attempts: the DB-backed per-account lockout that used to
-// back it up has been removed, so there is no longer anything that stops
-// sustained guessing against one known email beyond the per-source limit
-// below - and per the note above, that limit is per warm instance rather
-// than global.
+// WARNING - LOGIN IS NO LONGER RATE LIMITED.
+//
+// This limiter now guards only customer register and platform-admin
+// bootstrap. It was removed from all three /login routes at the owner's
+// explicit request, and the DB-backed per-account lockout that used to back
+// it up has been removed too.
+//
+// The consequence, stated plainly so nobody has to rediscover it: there is
+// currently NO limit on password guessing against any login endpoint -
+// tenant admin, customer storefront, or platform admin. An attacker can try
+// as many passwords as they like, as fast as they like, against a known
+// email address, against a production system holding real customer data.
+//
+// If that is ever to be closed without reintroducing user-facing lockout,
+// the cheapest fix is to put this limiter back on the login routes with
+// `skipSuccessfulRequests: true` and a generous cap, so that only FAILED
+// attempts count and a correct password always gets through.
 export const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
