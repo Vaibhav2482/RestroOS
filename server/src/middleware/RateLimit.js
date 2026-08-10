@@ -9,10 +9,12 @@ import rateLimit from "express-rate-limit";
 // this alone. A shared store (e.g. Upstash Redis via the `rate-limit-redis`
 // package) closes that gap if this ever needs to be airtight.
 
-// Applied only to login/register/bootstrap - the DB-backed per-account
-// lockout (config/lockoutPolicy.js) already stops repeated guesses against
-// one known email; this is the complementary layer that slows an attacker
-// sweeping many different emails/phones from a single source.
+// Applied only to login/register/bootstrap. This is now the ONLY brake on
+// repeated login attempts: the DB-backed per-account lockout that used to
+// back it up has been removed, so there is no longer anything that stops
+// sustained guessing against one known email beyond the per-source limit
+// below - and per the note above, that limit is per warm instance rather
+// than global.
 export const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,

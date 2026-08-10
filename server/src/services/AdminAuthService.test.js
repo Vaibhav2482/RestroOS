@@ -4,7 +4,6 @@ import bcrypt from "bcrypt";
 import * as AdminAuthService from "./AdminAuthService.js";
 import * as AdminRepository from "../repositories/AdminRepository.js";
 import * as TenantRepository from "../repositories/TenantRepository.js";
-import { MAX_FAILED_ATTEMPTS } from "../config/lockoutPolicy.js";
 
 vi.mock("../repositories/AdminRepository.js");
 vi.mock("../repositories/TenantRepository.js");
@@ -46,29 +45,34 @@ describe("AdminAuthService.login", () => {
 
     });
 
-    it("locks the account once failed attempts reach the threshold", async () => {
+    it("never locks the account, however many attempts have already failed", async () => {
 
-        AdminRepository.getByTenantAndEmail.mockResolvedValue(buildAdmin({ FailedLoginAttempts: MAX_FAILED_ATTEMPTS - 1 }));
+        AdminRepository.getByTenantAndEmail.mockResolvedValue(buildAdmin({ FailedLoginAttempts: 99 }));
         bcrypt.compare.mockResolvedValue(false);
 
         const result = await AdminAuthService.login("alpha-diner", "owner@alpha.test", "wrong");
 
         expect(result.success).toBe(false);
-        expect(result.message).toMatch(/too many failed attempts/i);
-        expect(AdminRepository.recordFailedLogin).toHaveBeenCalledWith(3, expect.any(Date));
+        // The generic message, never a lockout one - and null, never a Date,
+        // so no threshold can quietly reappear here.
+        expect(result.message).toBe("Invalid email or password.");
+        expect(AdminRepository.recordFailedLogin).toHaveBeenCalledWith(3, null);
 
     });
 
-    it("rejects a login while locked out, without even checking the password", async () => {
+    it("ignores a LockedUntil still sitting in the database from before lockout was removed", async () => {
 
+        // Rows locked while the old policy was live keep their LockedUntil -
+        // nothing clears it - so the only thing stopping those accounts from
+        // being permanently shut out is that login no longer reads it.
         AdminRepository.getByTenantAndEmail.mockResolvedValue(
             buildAdmin({ LockedUntil: new Date(Date.now() + 5 * 60 * 1000) })
         );
+        bcrypt.compare.mockResolvedValue(true);
 
         const result = await AdminAuthService.login("alpha-diner", "owner@alpha.test", "correct-password");
 
-        expect(result.success).toBe(false);
-        expect(bcrypt.compare).not.toHaveBeenCalled();
+        expect(result.success).toBe(true);
 
     });
 

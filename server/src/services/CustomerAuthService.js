@@ -1,7 +1,6 @@
 import bcrypt from "bcrypt";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
 import * as TenantRepository from "../repositories/TenantRepository.js";
-import { MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES } from "../config/lockoutPolicy.js";
 
 export const register = async (tenantSlug, customer) => {
 
@@ -71,29 +70,19 @@ export const login = async (tenantSlug, email, password) => {
         return { success: false, message: "Invalid Email or Password." };
     }
 
-    // Checked before the password compare, not after - a locked account
-    // shouldn't leak whether the attempted password was actually correct.
-    if (customer.LockedUntil && new Date(customer.LockedUntil) > new Date()) {
-        return { success: false, message: "Too many failed attempts. Try again in a few minutes." };
-    }
-
     const passwordMatches = await bcrypt.compare(password, customer.Password);
 
     if (!passwordMatches) {
 
-        const nextAttempts = customer.FailedLoginAttempts + 1;
-        const lockedUntil = nextAttempts >= MAX_FAILED_ATTEMPTS
-            ? new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000)
-            : null;
+        // Failed attempts are still counted, but nothing acts on the count -
+        // passing null leaves LockedUntil untouched, so the tally is now
+        // purely informational.
+        await CustomerRepository.recordFailedLogin(customer.CustomerId, null);
 
-        await CustomerRepository.recordFailedLogin(customer.CustomerId, lockedUntil);
-
-        return {
-            success: false,
-            message: lockedUntil
-                ? `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes.`
-                : "Invalid Email or Password."
-        };
+        // Deliberately word-for-word identical to the unknown-email branch
+        // above, so the response cannot be used to tell a registered address
+        // apart from an unregistered one.
+        return { success: false, message: "Invalid Email or Password." };
 
     }
 
