@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Box, Button, Paper, TextField, Typography } from "@mui/material";
+import { Box, Button, IconButton, InputAdornment, Paper, TextField, Typography } from "@mui/material";
+import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
+import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -12,6 +14,7 @@ function Login() {
 
     const [formData, setFormData] = useState({ tenantSlug: "", email: "", password: "" });
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (event) => {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
@@ -90,10 +93,26 @@ function Login() {
                     required
                     label="Password"
                     name="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={handleChange}
                     margin="normal"
+                    slotProps={{
+                        input: {
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowPassword((prev) => !prev)}
+                                        edge="end"
+                                        aria-label={showPassword ? "Hide password" : "Show password"}
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+                                    </IconButton>
+                                </InputAdornment>
+                            )
+                        }
+                    }}
                 />
 
                 <Button fullWidth type="submit" variant="contained" disabled={loading} sx={{ mt: 3, height: 48 }}>
