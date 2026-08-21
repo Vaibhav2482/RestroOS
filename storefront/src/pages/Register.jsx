@@ -129,7 +129,11 @@ function Register() {
                     helperText="At least 8 characters."
                 />
 
-                <Button fullWidth type="submit" variant="contained" disabled={loading} sx={{ mt: 3, height: 48 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center", mt: 2 }}>
+                    By creating an account, you agree to our <RouterLink to={`/${tenantSlug}/privacy`}>Privacy Policy</RouterLink>.
+                </Typography>
+
+                <Button fullWidth type="submit" variant="contained" disabled={loading} sx={{ mt: 2, height: 48 }}>
                     {loading ? "Creating account..." : "Create Account"}
                 </Button>
 

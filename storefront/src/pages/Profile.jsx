@@ -10,6 +10,7 @@ import {
     TextField,
     Typography
 } from "@mui/material";
+import { Link as RouterLink } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import * as customerService from "../services/customerService";
@@ -257,6 +258,10 @@ function Profile() {
                 </Box>
 
             </Card>
+
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mt: 3 }}>
+                <RouterLink to={`/${tenantSlug}/privacy`}>Privacy Policy</RouterLink>
+            </Typography>
 
         </Box>
         </Box>
