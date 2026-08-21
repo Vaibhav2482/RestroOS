@@ -135,6 +135,17 @@ export const updatePassword = async (adminId, hashedPassword) => {
 
 };
 
+// Invalidates every token already issued for this admin - see
+// 0018_admin_token_version and middleware/Auth.js.
+export const bumpTokenVersion = async (adminId) => {
+
+    await pool.query(
+        `UPDATE "Admins" SET "TokenVersion" = "TokenVersion" + 1 WHERE "AdminId" = $1`,
+        [adminId]
+    );
+
+};
+
 export const deactivate = async (adminId) => {
 
     await pool.query(`UPDATE "Admins" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "AdminId" = $1`, [adminId]);

@@ -1,9 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Avatar,
     Box,
     Button,
     Chip,
+    Dialog,
+    DialogActions,
+    DialogContent,
+    DialogContentText,
+    DialogTitle,
     Divider,
     Grid,
     Paper,
@@ -14,10 +20,11 @@ import toast from "react-hot-toast";
 
 import * as adminService from "../services/adminService";
 import ImageUploadField from "../components/ImageUploadField";
-import { getStoredAuth, setStoredAuth, isOwner } from "../utils/adminAuth";
+import { getStoredAuth, setStoredAuth, clearStoredAuth, isOwner } from "../utils/adminAuth";
 
 function MyProfile() {
 
+    const navigate = useNavigate();
     const auth = getStoredAuth();
     const admin = auth?.admin;
     const owner = isOwner(admin);
@@ -30,6 +37,9 @@ function MyProfile() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [changingPassword, setChangingPassword] = useState(false);
+
+    const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
+    const [signingOutEverywhere, setSigningOutEverywhere] = useState(false);
 
     const handleSaveProfile = async () => {
 
@@ -107,6 +117,40 @@ function MyProfile() {
         } finally {
 
             setChangingPassword(false);
+
+        }
+
+    };
+
+    // Revokes every token this account has ever been issued, including the
+    // one this page is using right now - there's no way to "sign out
+    // everywhere except here", so a successful call always ends by logging
+    // this session out too.
+    const handleSignOutEverywhere = async () => {
+
+        try {
+
+            setSigningOutEverywhere(true);
+
+            const response = await adminService.signOutEverywhere();
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            clearStoredAuth();
+            toast.success("Signed out of every session.");
+            navigate("/login");
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to sign out of other sessions.");
+
+        } finally {
+
+            setSigningOutEverywhere(false);
+            setSignOutDialogOpen(false);
 
         }
 
@@ -222,6 +266,40 @@ function MyProfile() {
                 </Box>
 
             </Paper>
+
+            <Paper elevation={0} sx={{ border: "1px solid #E5E7EB", p: 3, mt: 3 }}>
+
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 0.5 }}>Sessions</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Lost a device, or just want to be sure? This signs every device currently logged in as you - including this one - out at once.
+                </Typography>
+
+                <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button color="error" variant="outlined" onClick={() => setSignOutDialogOpen(true)}>
+                        Sign Out Everywhere
+                    </Button>
+                </Box>
+
+            </Paper>
+
+            <Dialog open={signOutDialogOpen} onClose={() => setSignOutDialogOpen(false)}>
+
+                <DialogTitle>Sign out of every session?</DialogTitle>
+
+                <DialogContent>
+                    <DialogContentText>
+                        This immediately signs you out on every device, including this one - you'll need to log back in here right after.
+                    </DialogContentText>
+                </DialogContent>
+
+                <DialogActions>
+                    <Button onClick={() => setSignOutDialogOpen(false)} disabled={signingOutEverywhere}>Cancel</Button>
+                    <Button color="error" variant="contained" onClick={handleSignOutEverywhere} disabled={signingOutEverywhere}>
+                        {signingOutEverywhere ? "Signing Out..." : "Sign Out Everywhere"}
+                    </Button>
+                </DialogActions>
+
+            </Dialog>
 
         </Box>
 

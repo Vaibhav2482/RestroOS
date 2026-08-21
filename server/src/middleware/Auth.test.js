@@ -130,6 +130,54 @@ describe("authenticate", () => {
 
     });
 
+    it("rejects an admin token whose version no longer matches the database - the exact effect a sign-out-everywhere is meant to have", async () => {
+
+        const token = sign({ id: 7, role: "admin", tenantId: 3, branchId: null, tokenVersion: 1 });
+        pool.query.mockResolvedValue({ rows: [{ AdminActive: true, TenantActive: true, TokenVersion: 2 }] });
+
+        const req = { headers: { authorization: `Bearer ${token}` } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        await authenticate(req, res, next);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(401);
+
+    });
+
+    it("allows an admin token whose version still matches the database", async () => {
+
+        const token = sign({ id: 7, role: "admin", tenantId: 3, branchId: null, tokenVersion: 2 });
+        pool.query.mockResolvedValue({ rows: [{ AdminActive: true, TenantActive: true, TokenVersion: 2 }] });
+
+        const req = { headers: { authorization: `Bearer ${token}` } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        await authenticate(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+
+    });
+
+    it("still allows a token minted before tokenVersion existed, even if the DB has since moved on", async () => {
+
+        // No tokenVersion claim at all - not 0, genuinely absent, the way
+        // every token issued before this check shipped looks.
+        const token = sign({ id: 7, role: "admin", tenantId: 3, branchId: null });
+        pool.query.mockResolvedValue({ rows: [{ AdminActive: true, TenantActive: true, TokenVersion: 4 }] });
+
+        const req = { headers: { authorization: `Bearer ${token}` } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        await authenticate(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+
+    });
+
     it("rejects an admin whose tenant has been suspended, even though the admin's own account is still active", async () => {
 
         const token = sign({ id: 7, role: "admin", tenantId: 3, branchId: null });

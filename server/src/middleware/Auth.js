@@ -44,7 +44,7 @@ const isStillActive = async (user) => {
 const loadAdminState = async (adminId) => {
 
     const result = await pool.query(
-        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions", T."DisabledFeatures"
+        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions", T."DisabledFeatures", A."TokenVersion"
          FROM "Admins" A INNER JOIN "Tenants" T ON A."TenantId" = T."TenantId"
          WHERE A."AdminId" = $1`,
         [adminId]
@@ -76,6 +76,16 @@ export const authenticate = async (req, res, next) => {
 
             if (!(state?.AdminActive === true && state?.TenantActive === true)) {
                 return errorResponse(res, "This account is no longer active.", 401);
+            }
+
+            // Only enforced when the token actually carries a version claim -
+            // tokens minted before this check existed have no tokenVersion at
+            // all and are let through unaffected until they next expire,
+            // rather than force-logging out every already-logged-in admin
+            // the moment this ships. Every token minted from here on always
+            // carries one, so the check is fully live for anything new.
+            if (typeof user.tokenVersion === "number" && user.tokenVersion !== state.TokenVersion) {
+                return errorResponse(res, "This session has been signed out. Please log in again.", 401);
             }
 
             user.permissions = state.Permissions || [];

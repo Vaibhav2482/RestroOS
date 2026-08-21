@@ -6,6 +6,7 @@ import {
     getOwnProfile,
     updateOwnProfile,
     changeOwnPassword,
+    signOutEverywhere,
     createAdmin,
     updateAdmin,
     deactivateAdmin
@@ -21,6 +22,7 @@ router.use(authenticate, authorize("admin"));
 router.get("/me", getOwnProfile);
 router.put("/me", updateOwnProfile);
 router.put("/me/password", changeOwnPassword);
+router.post("/me/sign-out-everywhere", signOutEverywhere);
 
 router.get("/", getAllAdmins);
 router.get("/:id", getAdminById);

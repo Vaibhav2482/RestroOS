@@ -210,6 +210,13 @@ export const changeOwnPassword = async (adminId, currentPassword, newPassword) =
 
     await AdminRepository.updatePassword(adminId, newHash);
 
+    // A stolen-but-still-valid token doesn't contain the password, so
+    // changing it alone wouldn't stop anyone already holding one from
+    // continuing to use it - bumping TokenVersion here closes that, at the
+    // cost of the session that just made this request needing to log in
+    // again too, same as any other "sign out everywhere" trigger.
+    await AdminRepository.bumpTokenVersion(adminId);
+
     // A password change is exactly the kind of security-relevant event an
     // audit trail exists for, even though it's self-initiated - if an
     // account is ever compromised, "when did the password last change"
@@ -225,6 +232,35 @@ export const changeOwnPassword = async (adminId, currentPassword, newPassword) =
     });
 
     return { success: true, message: "Password changed successfully." };
+
+};
+
+// Self-service session revocation for "I lost my phone" without needing to
+// deactivate the account (which would also block the admin's own next
+// login). Bumping TokenVersion invalidates every token already issued,
+// including the one this very request is using - the caller is expected to
+// treat a successful response as an instruction to log itself out too.
+export const signOutEverywhere = async (adminId) => {
+
+    const existingAdmin = await AdminRepository.getById(adminId);
+
+    if (!existingAdmin) {
+        return { success: false, message: "Admin not found." };
+    }
+
+    await AdminRepository.bumpTokenVersion(adminId);
+
+    AuditService.record({
+        tenantId: existingAdmin.TenantId,
+        actorAdminId: adminId,
+        actorType: "User",
+        action: "ADMIN_SIGNED_OUT_EVERYWHERE",
+        entityType: "Admin",
+        entityId: Number(adminId),
+        summary: `"${existingAdmin.FullName}" signed out of every session`
+    });
+
+    return { success: true, message: "Signed out of every session." };
 
 };
 

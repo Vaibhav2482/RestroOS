@@ -18,12 +18,17 @@ export const login = asyncHandler(async (req, res) => {
             id: result.data.AdminId,
             role: "admin",
             tenantId: result.data.TenantId,
-            branchId: result.data.BranchId
+            branchId: result.data.BranchId,
+            tokenVersion: result.data.TokenVersion
         },
         process.env.JWT_SECRET,
         { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
 
-    return successResponse(res, { ...result.data, token }, result.message);
+    // Internal bookkeeping the client has no use for, not something to hide
+    // for its own sake - stripped the same way Password/lockout fields are.
+    const { TokenVersion, ...responseData } = result.data;
+
+    return successResponse(res, { ...responseData, token }, result.message);
 
 });

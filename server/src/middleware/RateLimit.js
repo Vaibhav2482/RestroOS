@@ -9,28 +9,36 @@ import rateLimit from "express-rate-limit";
 // this alone. A shared store (e.g. Upstash Redis via the `rate-limit-redis`
 // package) closes that gap if this ever needs to be airtight.
 
-// WARNING - LOGIN IS NO LONGER RATE LIMITED.
-//
-// This limiter now guards only customer register and platform-admin
-// bootstrap. It was removed from all three /login routes at the owner's
-// explicit request, and the DB-backed per-account lockout that used to back
-// it up has been removed too.
-//
-// The consequence, stated plainly so nobody has to rediscover it: there is
-// currently NO limit on password guessing against any login endpoint -
-// tenant admin, customer storefront, or platform admin. An attacker can try
-// as many passwords as they like, as fast as they like, against a known
-// email address, against a production system holding real customer data.
-//
-// If that is ever to be closed without reintroducing user-facing lockout,
-// the cheapest fix is to put this limiter back on the login routes with
-// `skipSuccessfulRequests: true` and a generous cap, so that only FAILED
-// attempts count and a correct password always gets through.
+// Guards customer register and platform-admin bootstrap - routes where
+// counting every request (success or fail) is fine, since neither can lock
+// someone out of an account they own.
 export const authRateLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 20,
     standardHeaders: true,
     legacyHeaders: false,
+    message: { success: false, message: "Too many attempts. Please try again in a few minutes." }
+});
+
+// Guards all three /login routes. `skipSuccessfulRequests` means only FAILED
+// attempts count against the cap, so a correct password always gets through
+// no matter how many typos preceded it - this is what makes it safe to put
+// back on login without reintroducing the owner-lockout problem that got the
+// previous, unqualified limiter removed from these routes entirely.
+//
+// The DB-backed per-account lockout (MAX_FAILED_ATTEMPTS in
+// config/lockoutPolicy.js) stays removed - this limiter is IP-based, not
+// per-account, so it doesn't lock a legitimate user out of their own
+// account the way that policy did. It's also still the in-memory,
+// per-warm-instance store described above, so a distributed attempt spread
+// across cold starts isn't fully stopped by this alone; Upstash Redis
+// closes that gap if this ever needs to be airtight.
+export const loginRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
     message: { success: false, message: "Too many attempts. Please try again in a few minutes." }
 });
 

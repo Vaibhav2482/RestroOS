@@ -49,6 +49,18 @@ export const changeOwnPassword = asyncHandler(async (req, res) => {
 
 });
 
+export const signOutEverywhere = asyncHandler(async (req, res) => {
+
+    const result = await AdminService.signOutEverywhere(req.user.id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getAdminById = asyncHandler(async (req, res) => {
 
     const { id } = req.params;

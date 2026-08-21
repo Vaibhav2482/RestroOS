@@ -25,6 +25,11 @@ export const changeOwnPassword = async (currentPassword, newPassword) => {
     return response.data;
 };
 
+export const signOutEverywhere = async () => {
+    const response = await axiosClient.post("/admins/me/sign-out-everywhere");
+    return response.data;
+};
+
 export const createAdmin = async (admin) => {
     const response = await axiosClient.post("/admins", admin);
     return response.data;

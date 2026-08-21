@@ -107,6 +107,18 @@ describe("AdminService.changeOwnPassword", () => {
 
     });
 
+    it("also revokes every other session, so a stolen token can't outlive the password it was issued under", async () => {
+
+        AdminRepository.getPasswordHash.mockResolvedValue("hashed-old-password");
+        bcrypt.compare.mockResolvedValue(true);
+        bcrypt.hash.mockResolvedValue("hashed-new-password");
+
+        await AdminService.changeOwnPassword(ADMIN_ID, "correct-current", "brandnewpassword");
+
+        expect(AdminRepository.bumpTokenVersion).toHaveBeenCalledWith(ADMIN_ID);
+
+    });
+
     it("never includes the password itself in the audit summary", async () => {
 
         AdminRepository.getPasswordHash.mockResolvedValue("hashed-old-password");
@@ -118,6 +130,33 @@ describe("AdminService.changeOwnPassword", () => {
         const auditCall = AuditService.record.mock.calls[0][0];
         expect(auditCall.summary).not.toContain("brandnewpassword");
         expect(JSON.stringify(auditCall)).not.toContain("brandnewpassword");
+
+    });
+
+});
+
+describe("AdminService.signOutEverywhere", () => {
+
+    it("rejects when the admin no longer exists", async () => {
+
+        AdminRepository.getById.mockResolvedValue(undefined);
+
+        const result = await AdminService.signOutEverywhere(ADMIN_ID);
+
+        expect(result.success).toBe(false);
+        expect(AdminRepository.bumpTokenVersion).not.toHaveBeenCalled();
+
+    });
+
+    it("bumps the token version and audits it", async () => {
+
+        const result = await AdminService.signOutEverywhere(ADMIN_ID);
+
+        expect(result.success).toBe(true);
+        expect(AdminRepository.bumpTokenVersion).toHaveBeenCalledWith(ADMIN_ID);
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({ action: "ADMIN_SIGNED_OUT_EVERYWHERE", actorAdminId: ADMIN_ID, tenantId: 9 })
+        );
 
     });
 
