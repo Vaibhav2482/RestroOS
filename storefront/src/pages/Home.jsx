@@ -23,6 +23,7 @@ import toast from "react-hot-toast";
 import * as publicService from "../services/publicService";
 import * as cartService from "../services/cartService";
 import { useStorefront } from "../context/StorefrontContext";
+import { cloudinaryCardImage } from "../utils/cloudinaryImage";
 import ItemCustomizationDialog from "./ItemCustomizationDialog";
 
 // The AppBar in Layout.jsx is sticky at the very top - the category bar
@@ -99,7 +100,7 @@ function ItemImage({ item }) {
         return (
             <Box
                 component="img"
-                src={item.ImageUrl}
+                src={cloudinaryCardImage(item.ImageUrl)}
                 alt={item.ItemName}
                 loading="lazy"
                 sx={{

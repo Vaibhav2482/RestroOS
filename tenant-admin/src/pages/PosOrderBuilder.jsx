@@ -27,6 +27,7 @@ import * as categoryService from "../services/categoryService";
 import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
 import { getStoredAuth } from "../utils/adminAuth";
+import { cloudinaryThumbnail } from "../utils/cloudinaryImage";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
@@ -41,7 +42,7 @@ function ItemThumbnail({ imageUrl, itemName }) {
         return (
             <Box
                 component="img"
-                src={imageUrl}
+                src={cloudinaryThumbnail(imageUrl, 104)}
                 alt={itemName}
                 sx={{ width: 52, height: 52, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
             />

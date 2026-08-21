@@ -40,6 +40,7 @@ import * as categoryService from "../services/categoryService";
 import * as branchService from "../services/branchService";
 import { hasPermission, isOwner } from "../utils/adminAuth";
 import { useStoredAuth } from "../hooks/useStoredAuth";
+import { cloudinaryThumbnail } from "../utils/cloudinaryImage";
 import MenuItemDialog from "./MenuItemDialog";
 import MenuItemOptionsDialog from "./MenuItemOptionsDialog";
 import MenuItemRecipeDialog from "./MenuItemRecipeDialog";
@@ -51,7 +52,7 @@ function ItemThumbnail({ imageUrl, itemName }) {
         return (
             <Box
                 component="img"
-                src={imageUrl}
+                src={cloudinaryThumbnail(imageUrl, 96)}
                 alt={itemName}
                 sx={{ width: 48, height: 48, borderRadius: 1.5, objectFit: "cover", border: "1px solid #E5E7EB", flexShrink: 0 }}
             />
