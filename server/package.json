@@ -17,6 +17,7 @@
   "license": "ISC",
   "dependencies": {
     "@sentry/node": "^10.69.0",
+    "@upstash/redis": "^1.38.2",
     "@vercel/functions": "^3.7.6",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",
