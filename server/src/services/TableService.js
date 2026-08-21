@@ -94,7 +94,11 @@ export const updateTable = async (tableId, table, tenantId) => {
         return { success: false, message: `A table named "${duplicate.TableName}" already exists in this branch.` };
     }
 
-    const updatedTable = await TableRepository.updateTable({ ...table, tableId: Number(tableId) });
+    const updatedTable = await TableRepository.updateTable({ ...table, tableId: Number(tableId) }, tenantId);
+
+    if (!updatedTable) {
+        return { success: false, message: "Table not found." };
+    }
 
     return { success: true, message: "Table updated successfully.", data: updatedTable };
 
@@ -108,7 +112,7 @@ export const deactivateTable = async (tableId, tenantId) => {
         return { success: false, message: "Table not found." };
     }
 
-    await TableRepository.deactivateTable(tableId);
+    await TableRepository.deactivateTable(tableId, tenantId);
 
     return { success: true, message: "Table deactivated successfully." };
 

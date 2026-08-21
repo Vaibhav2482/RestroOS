@@ -91,13 +91,19 @@ export const createMenuItem = async (menuItem) => {
 
 };
 
-export const updateMenuItem = async (menuItem) => {
+// tenantId redundant with the controller-level check that already ran -
+// defense-in-depth so a repository write fails closed on its own WHERE
+// clause rather than relying solely on every call site checking first.
+// MenuItems has no TenantId column of its own (tenancy is implied through
+// BranchId), so this is a subquery rather than a direct column compare.
+export const updateMenuItem = async (menuItem, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "MenuItems"
          SET "CategoryId" = $1, "ItemName" = $2, "Description" = $3, "Price" = $4, "TaxRatePercent" = $5, "ImageUrl" = $6,
              "IsVeg" = $7, "IsAvailable" = $8, "IsPopular" = $9, "IsActive" = $10, "UpdatedAt" = NOW()
          WHERE "MenuItemId" = $11
+           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $12)
          RETURNING *`,
         [
             menuItem.categoryId,
@@ -110,7 +116,8 @@ export const updateMenuItem = async (menuItem) => {
             menuItem.isAvailable,
             menuItem.isPopular,
             menuItem.isActive,
-            menuItem.menuItemId
+            menuItem.menuItemId,
+            tenantId
         ]
     );
 
@@ -129,9 +136,14 @@ export const getMenuItemByName = async (itemName, branchId) => {
 
 };
 
-export const deleteMenuItem = async (menuItemId) => {
+export const deleteMenuItem = async (menuItemId, tenantId) => {
 
-    const result = await pool.query(`DELETE FROM "MenuItems" WHERE "MenuItemId" = $1`, [menuItemId]);
+    const result = await pool.query(
+        `DELETE FROM "MenuItems"
+         WHERE "MenuItemId" = $1
+           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $2)`,
+        [menuItemId, tenantId]
+    );
 
     return { RowsAffected: result.rowCount };
 

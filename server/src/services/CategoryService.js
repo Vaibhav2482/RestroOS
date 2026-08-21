@@ -90,7 +90,7 @@ export const updateCategory = async (categoryId, category, tenantId) => {
         category.isActive = true;
     }
 
-    const updated = await CategoryRepository.updateCategory(category);
+    const updated = await CategoryRepository.updateCategory(category, tenantId);
 
     return { success: true, message: "Category updated successfully.", data: updated };
 
@@ -118,7 +118,7 @@ export const deleteCategory = async (categoryId, tenantId) => {
         };
     }
 
-    await CategoryRepository.deleteCategory(categoryId);
+    await CategoryRepository.deleteCategory(categoryId, tenantId);
 
     return { success: true, message: "Category deleted successfully." };
 

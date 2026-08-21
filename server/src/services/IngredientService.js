@@ -93,7 +93,7 @@ export const updateIngredient = async (ingredientId, ingredient, tenantId) => {
         ingredient.isActive = true;
     }
 
-    const updated = await IngredientRepository.updateIngredient(ingredient);
+    const updated = await IngredientRepository.updateIngredient(ingredient, tenantId);
 
     return { success: true, message: "Ingredient updated successfully.", data: updated };
 

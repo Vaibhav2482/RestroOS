@@ -133,7 +133,7 @@ export const deactivateAdmin = asyncHandler(async (req, res) => {
         return errorResponse(res, "Admin not found.", 404);
     }
 
-    const result = await AdminService.deactivateAdmin(id, req.user.id);
+    const result = await AdminService.deactivateAdmin(id, req.user.id, req.user.tenantId);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);

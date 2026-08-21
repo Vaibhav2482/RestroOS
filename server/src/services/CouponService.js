@@ -74,7 +74,7 @@ export const updateCoupon = async (couponId, coupon, tenantId, actorAdminId) => 
         return { success: false, message: "A percentage discount can't exceed 100." };
     }
 
-    const updated = await CouponRepository.update({ ...coupon, couponId: Number(couponId) });
+    const updated = await CouponRepository.update({ ...coupon, couponId: Number(couponId) }, tenantId);
 
     const changeNotes = [];
 
@@ -105,7 +105,7 @@ export const deactivateCoupon = async (couponId, tenantId, actorAdminId) => {
         return { success: false, message: "Coupon not found." };
     }
 
-    await CouponRepository.deactivate(couponId);
+    await CouponRepository.deactivate(couponId, tenantId);
 
     AuditService.record({
         tenantId,

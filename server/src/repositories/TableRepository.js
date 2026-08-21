@@ -76,27 +76,34 @@ export const createTable = async (table) => {
 
 };
 
-export const updateTable = async (table) => {
+// tenantId redundant with the service-layer check that already ran -
+// defense-in-depth so a repository write fails closed on its own WHERE
+// clause rather than relying solely on every call site checking first.
+// Tables has no TenantId column of its own (tenancy is implied through
+// BranchId), so this is a subquery rather than a direct column compare.
+export const updateTable = async (table, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Tables"
          SET "TableName" = $1, "Capacity" = $2, "IsActive" = $3, "UpdatedAt" = NOW()
          WHERE "TableId" = $4
+           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $5)
          RETURNING *`,
-        [table.tableName, table.capacity ?? null, table.isActive, table.tableId]
+        [table.tableName, table.capacity ?? null, table.isActive, table.tableId, tenantId]
     );
 
     return result.rows[0];
 
 };
 
-export const deactivateTable = async (tableId) => {
+export const deactivateTable = async (tableId, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Tables"
          SET "IsActive" = FALSE, "UpdatedAt" = NOW()
-         WHERE "TableId" = $1`,
-        [tableId]
+         WHERE "TableId" = $1
+           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $2)`,
+        [tableId, tenantId]
     );
 
     return { RowsAffected: result.rowCount };

@@ -68,7 +68,7 @@ export const updateCustomerAddress = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to update this address.", 403);
     }
 
-    const result = await CustomerAddressService.updateCustomerAddress(id, req.body);
+    const result = await CustomerAddressService.updateCustomerAddress(id, req.body, req.user.tenantId);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -92,7 +92,7 @@ export const deleteCustomerAddress = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to delete this address.", 403);
     }
 
-    const result = await CustomerAddressService.deleteCustomerAddress(id);
+    const result = await CustomerAddressService.deleteCustomerAddress(id, req.user.tenantId);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

@@ -201,7 +201,15 @@ export const updateMenuItem = async (menuItemId, menuItem, tenantId, actorAdminI
 
     menuItem.menuItemId = Number(menuItemId);
 
-    const updatedMenuItem = await MenuRepository.updateMenuItem(menuItem);
+    const updatedMenuItem = await MenuRepository.updateMenuItem(menuItem, tenantId);
+
+    // Only reachable if a future caller skips the controller's own tenant
+    // check - the repository's WHERE clause is the real defense-in-depth,
+    // this just turns "0 rows updated" into the same not-found response
+    // every other failure path here uses, instead of a crash below.
+    if (!updatedMenuItem) {
+        return { success: false, message: "Menu item not found." };
+    }
 
     // Price and availability are the two changes on a menu item with real
     // financial/operational consequences - called out by name in the audit
@@ -243,7 +251,7 @@ export const deleteMenuItem = async (menuItemId, tenantId, actorAdminId) => {
         return { success: false, message: "Menu item not found." };
     }
 
-    await MenuRepository.deleteMenuItem(menuItemId);
+    await MenuRepository.deleteMenuItem(menuItemId, tenantId);
 
     // A hard delete, not a soft deactivate - the one MenuItems write path
     // that actually destroys a row, so this is the audit entry that

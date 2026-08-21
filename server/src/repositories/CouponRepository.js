@@ -56,14 +56,17 @@ export const create = async (coupon) => {
 
 };
 
-export const update = async (coupon) => {
+// tenantId redundant with the service-layer check that already ran -
+// defense-in-depth so a repository write fails closed on its own WHERE
+// clause rather than relying solely on every call site checking first.
+export const update = async (coupon, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Coupons"
          SET "DiscountType" = $1, "DiscountValue" = $2, "MinOrderValue" = $3, "MaxDiscountAmount" = $4,
              "UsageLimitTotal" = $5, "UsageLimitPerCustomer" = $6, "ValidFrom" = $7, "ValidUntil" = $8,
              "IsActive" = $9, "UpdatedAt" = NOW()
-         WHERE "CouponId" = $10
+         WHERE "CouponId" = $10 AND "TenantId" = $11
          RETURNING *`,
         [
             coupon.discountType,
@@ -75,7 +78,8 @@ export const update = async (coupon) => {
             coupon.validFrom ?? null,
             coupon.validUntil ?? null,
             coupon.isActive ?? true,
-            coupon.couponId
+            coupon.couponId,
+            tenantId
         ]
     );
 
@@ -83,8 +87,8 @@ export const update = async (coupon) => {
 
 };
 
-export const deactivate = async (couponId) => {
-    await pool.query(`UPDATE "Coupons" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "CouponId" = $1`, [couponId]);
+export const deactivate = async (couponId, tenantId) => {
+    await pool.query(`UPDATE "Coupons" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "CouponId" = $1 AND "TenantId" = $2`, [couponId, tenantId]);
 };
 
 export const recordRedemption = async (queryable, couponId, customerId, orderId, discountAmount) => {

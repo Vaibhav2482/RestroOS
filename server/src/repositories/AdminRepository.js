@@ -89,14 +89,17 @@ export const getPasswordHash = async (adminId) => {
 
 };
 
-export const update = async (admin) => {
+// tenantId redundant with the controller-level check that already ran -
+// defense-in-depth so a repository write fails closed on its own WHERE
+// clause rather than relying solely on every call site checking first.
+export const update = async (admin, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Admins"
          SET "FullName" = $1, "BranchId" = $2, "IsActive" = $3, "Permissions" = $4, "UpdatedAt" = NOW()
-         WHERE "AdminId" = $5
+         WHERE "AdminId" = $5 AND "TenantId" = $6
          RETURNING "AdminId", "TenantId", "FullName", "Email", "BranchId", "Permissions", "IsActive", "CreatedAt", "UpdatedAt"`,
-        [admin.fullName, admin.branchId ?? null, admin.isActive, admin.permissions ?? [], admin.adminId]
+        [admin.fullName, admin.branchId ?? null, admin.isActive, admin.permissions ?? [], admin.adminId, tenantId]
     );
 
     return result.rows[0];
@@ -146,9 +149,9 @@ export const bumpTokenVersion = async (adminId) => {
 
 };
 
-export const deactivate = async (adminId) => {
+export const deactivate = async (adminId, tenantId) => {
 
-    await pool.query(`UPDATE "Admins" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "AdminId" = $1`, [adminId]);
+    await pool.query(`UPDATE "Admins" SET "IsActive" = FALSE, "UpdatedAt" = NOW() WHERE "AdminId" = $1 AND "TenantId" = $2`, [adminId, tenantId]);
 
 };
 

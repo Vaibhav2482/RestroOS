@@ -4,9 +4,11 @@ import bcrypt from "bcrypt";
 import * as AdminService from "./AdminService.js";
 import * as AdminRepository from "../repositories/AdminRepository.js";
 import * as AuditService from "./AuditService.js";
+import * as BranchRepository from "../repositories/BranchRepository.js";
 
 vi.mock("../repositories/AdminRepository.js");
 vi.mock("./AuditService.js");
+vi.mock("../repositories/BranchRepository.js");
 vi.mock("bcrypt");
 
 const ADMIN_ID = 5;
@@ -27,6 +29,7 @@ beforeEach(() => {
 
     AdminRepository.getById.mockResolvedValue(existingAdmin);
     AuditService.record.mockResolvedValue();
+    BranchRepository.getBranchById.mockResolvedValue({ BranchId: 1, TenantId: 9 });
 
 });
 
@@ -157,6 +160,51 @@ describe("AdminService.signOutEverywhere", () => {
         expect(AuditService.record).toHaveBeenCalledWith(
             expect.objectContaining({ action: "ADMIN_SIGNED_OUT_EVERYWHERE", actorAdminId: ADMIN_ID, tenantId: 9 })
         );
+
+    });
+
+});
+
+describe("AdminService.updateAdmin - repository-level tenant defense-in-depth", () => {
+
+    it("passes the caller's tenantId down to the repository write", async () => {
+
+        AdminRepository.getById.mockResolvedValue(existingAdmin);
+        AdminRepository.update.mockResolvedValue({ ...existingAdmin, FullName: "Priya S." });
+
+        await AdminService.updateAdmin(ADMIN_ID, { fullName: "Priya S.", branchId: 1 }, 99, 9);
+
+        expect(AdminRepository.update).toHaveBeenCalledWith(expect.anything(), 9);
+
+    });
+
+    // The repository's own WHERE clause is the real defense - this proves
+    // the service degrades to a clean "not found" instead of crashing if
+    // that clause ever legitimately returns 0 rows (e.g. a caller upstream
+    // that skipped its own tenant check).
+    it("returns a not-found failure instead of throwing when the repository write matches no row", async () => {
+
+        AdminRepository.getById.mockResolvedValue(existingAdmin);
+        AdminRepository.update.mockResolvedValue(undefined);
+
+        const result = await AdminService.updateAdmin(ADMIN_ID, { fullName: "Priya S.", branchId: 1 }, 99, 9);
+
+        expect(result.success).toBe(false);
+        expect(result.message).toBe("Admin not found.");
+
+    });
+
+});
+
+describe("AdminService.deactivateAdmin - repository-level tenant defense-in-depth", () => {
+
+    it("passes the caller's tenantId down to the repository write", async () => {
+
+        AdminRepository.getById.mockResolvedValue(existingAdmin);
+
+        await AdminService.deactivateAdmin(ADMIN_ID, 99, 9);
+
+        expect(AdminRepository.deactivate).toHaveBeenCalledWith(ADMIN_ID, 9);
 
     });
 

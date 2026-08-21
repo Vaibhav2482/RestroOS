@@ -77,14 +77,18 @@ export const createCategory = async (category) => {
 
 };
 
-export const updateCategory = async (category) => {
+// tenantId is redundant with the service-layer check that already ran
+// before this is called (defense-in-depth per a production-readiness audit:
+// a repository write should fail closed on its own WHERE clause, not rely
+// solely on every call site remembering to check first).
+export const updateCategory = async (category, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Categories"
          SET "CategoryName" = $1, "Description" = $2, "ImageUrl" = $3, "DisplayOrder" = $4, "IsActive" = $5, "UpdatedAt" = NOW()
-         WHERE "CategoryId" = $6
+         WHERE "CategoryId" = $6 AND "TenantId" = $7
          RETURNING *`,
-        [category.categoryName, category.description, category.imageUrl, category.displayOrder, category.isActive, category.categoryId]
+        [category.categoryName, category.description, category.imageUrl, category.displayOrder, category.isActive, category.categoryId, tenantId]
     );
 
     return result.rows[0];
@@ -99,9 +103,9 @@ export const countMenuItemsByCategory = async (categoryId) => {
 
 };
 
-export const deleteCategory = async (categoryId) => {
+export const deleteCategory = async (categoryId, tenantId) => {
 
-    const result = await pool.query(`DELETE FROM "Categories" WHERE "CategoryId" = $1`, [categoryId]);
+    const result = await pool.query(`DELETE FROM "Categories" WHERE "CategoryId" = $1 AND "TenantId" = $2`, [categoryId, tenantId]);
 
     return { RowsAffected: result.rowCount };
 

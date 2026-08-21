@@ -83,7 +83,13 @@ export const getCustomerAddressById = async (addressId) => {
 
 };
 
-export const updateCustomerAddress = async (address) => {
+// tenantId redundant with the controller-level canActOnCustomer check that
+// already ran - defense-in-depth so a repository write fails closed on its
+// own WHERE clause rather than relying solely on every call site checking
+// first. CustomerAddresses has no TenantId column of its own (tenancy is
+// implied through CustomerId), so this is a subquery rather than a direct
+// column compare.
+export const updateCustomerAddress = async (address, tenantId) => {
 
     const client = await pool.connect();
 
@@ -92,13 +98,20 @@ export const updateCustomerAddress = async (address) => {
         await client.query("BEGIN");
 
         const existing = await client.query(
-            `SELECT "CustomerId" FROM "CustomerAddresses" WHERE "AddressId" = $1`,
-            [address.addressId]
+            `SELECT CA."CustomerId" FROM "CustomerAddresses" CA
+             INNER JOIN "Customers" C ON CA."CustomerId" = C."CustomerId"
+             WHERE CA."AddressId" = $1 AND C."TenantId" = $2`,
+            [address.addressId, tenantId]
         );
 
         const customerId = existing.rows[0]?.CustomerId;
 
-        if (address.isDefault && customerId) {
+        if (!customerId) {
+            await client.query("ROLLBACK");
+            return undefined;
+        }
+
+        if (address.isDefault) {
             await client.query(
                 `UPDATE "CustomerAddresses" SET "IsDefault" = FALSE WHERE "CustomerId" = $1 AND "AddressId" <> $2`,
                 [customerId, address.addressId]
@@ -139,8 +152,13 @@ export const updateCustomerAddress = async (address) => {
 
 };
 
-export const deleteCustomerAddress = async (addressId) => {
+export const deleteCustomerAddress = async (addressId, tenantId) => {
 
-    await pool.query(`DELETE FROM "CustomerAddresses" WHERE "AddressId" = $1`, [addressId]);
+    await pool.query(
+        `DELETE FROM "CustomerAddresses"
+         WHERE "AddressId" = $1
+           AND "CustomerId" IN (SELECT "CustomerId" FROM "Customers" WHERE "TenantId" = $2)`,
+        [addressId, tenantId]
+    );
 
 };

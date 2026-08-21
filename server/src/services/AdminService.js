@@ -111,7 +111,15 @@ export const updateAdmin = async (adminId, admin, requestingAdminId, tenantId) =
         adminId: Number(adminId),
         isActive: admin.isActive ?? existingAdmin.IsActive,
         permissions: sanitizePermissions(admin.permissions ?? existingAdmin.Permissions)
-    });
+    }, tenantId);
+
+    // Only reachable if a future caller skips the controller's own tenant
+    // check - the WHERE clause above is the real defense-in-depth, this is
+    // just turning "0 rows updated" into the same clean not-found response
+    // every other failure path here already uses, instead of a crash.
+    if (!updatedAdmin) {
+        return { success: false, message: "Admin not found." };
+    }
 
     const changeNotes = [];
 
@@ -264,7 +272,7 @@ export const signOutEverywhere = async (adminId) => {
 
 };
 
-export const deactivateAdmin = async (adminId, requestingAdminId) => {
+export const deactivateAdmin = async (adminId, requestingAdminId, tenantId) => {
 
     if (String(adminId) === String(requestingAdminId)) {
         return { success: false, message: "You cannot deactivate your own account." };
@@ -276,7 +284,7 @@ export const deactivateAdmin = async (adminId, requestingAdminId) => {
         return { success: false, message: "Admin not found." };
     }
 
-    await AdminRepository.deactivate(adminId);
+    await AdminRepository.deactivate(adminId, tenantId);
 
     AuditService.record({
         tenantId: existingAdmin.TenantId,

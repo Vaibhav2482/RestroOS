@@ -58,7 +58,7 @@ export const getCustomerAddressById = async (addressId) => {
 
 };
 
-export const updateCustomerAddress = async (addressId, address) => {
+export const updateCustomerAddress = async (addressId, address, tenantId) => {
 
     const validationError = validate(address);
 
@@ -66,13 +66,17 @@ export const updateCustomerAddress = async (addressId, address) => {
         return { success: false, message: validationError };
     }
 
-    const updated = await CustomerAddressRepository.updateCustomerAddress({ ...address, addressId: Number(addressId) });
+    const updated = await CustomerAddressRepository.updateCustomerAddress({ ...address, addressId: Number(addressId) }, tenantId);
+
+    if (!updated) {
+        return { success: false, message: "Address not found." };
+    }
 
     return { success: true, message: "Address updated successfully.", data: updated };
 
 };
 
-export const deleteCustomerAddress = async (addressId) => {
+export const deleteCustomerAddress = async (addressId, tenantId) => {
 
     const existing = await CustomerAddressRepository.getCustomerAddressById(addressId);
 
@@ -80,7 +84,7 @@ export const deleteCustomerAddress = async (addressId) => {
         return { success: false, message: "Address not found." };
     }
 
-    await CustomerAddressRepository.deleteCustomerAddress(addressId);
+    await CustomerAddressRepository.deleteCustomerAddress(addressId, tenantId);
 
     return { success: true, message: "Address deleted successfully." };
 

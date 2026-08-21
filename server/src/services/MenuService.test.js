@@ -106,7 +106,8 @@ describe("MenuService.updateMenuItem - tax rate", () => {
         await MenuService.updateMenuItem(100, { categoryId: 3, itemName: "Ginger Chai", price: 30 }, TENANT_ID, ADMIN_ID);
 
         expect(MenuRepository.updateMenuItem).toHaveBeenCalledWith(
-            expect.objectContaining({ taxRatePercent: 5 })
+            expect.objectContaining({ taxRatePercent: 5 }),
+            TENANT_ID
         );
 
     });

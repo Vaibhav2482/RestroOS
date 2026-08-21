@@ -70,12 +70,15 @@ export const createIngredient = async (ingredient) => {
 
 };
 
-export const updateIngredient = async (ingredient) => {
+// tenantId redundant with the service-layer check that already ran -
+// defense-in-depth so a repository write fails closed on its own WHERE
+// clause rather than relying solely on every call site checking first.
+export const updateIngredient = async (ingredient, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Ingredients"
          SET "Name" = $1, "SKU" = $2, "Category" = $3, "BaseUnit" = $4, "LowStockThreshold" = $5, "CostPerBaseUnit" = $6, "IsActive" = $7, "UpdatedAt" = NOW()
-         WHERE "IngredientId" = $8
+         WHERE "IngredientId" = $8 AND "TenantId" = $9
          RETURNING *`,
         [
             ingredient.name,
@@ -85,7 +88,8 @@ export const updateIngredient = async (ingredient) => {
             ingredient.lowStockThreshold ?? null,
             ingredient.costPerBaseUnit ?? null,
             ingredient.isActive,
-            ingredient.ingredientId
+            ingredient.ingredientId,
+            tenantId
         ]
     );
 
