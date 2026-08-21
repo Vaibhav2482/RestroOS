@@ -20,6 +20,14 @@ export const getKitchenOrders = async (branchId) => {
     return response.data;
 };
 
+// Cheap aggregate numbers for the Dashboard's stat cards + a short recent-
+// orders list, instead of Dashboard fetching and reducing the entire order
+// history client-side on every load and every 60s poll.
+export const getDashboardSummary = async (branchId) => {
+    const response = await axiosClient.get("/orders/dashboard-summary", { params: branchId ? { branchId } : {} });
+    return response.data;
+};
+
 export const getOrderById = async (id) => {
     const response = await axiosClient.get(`/orders/${id}`);
     return response.data;

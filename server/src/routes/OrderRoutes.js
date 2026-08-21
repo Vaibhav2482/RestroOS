@@ -5,6 +5,7 @@ import {
     getActiveTableOrders,
     getKitchenOrders,
     getAllOrders,
+    getDashboardSummary,
     getOrderById,
     getOrdersByCustomer,
     updateOrderStatus,
@@ -28,6 +29,7 @@ router.post("/", createOrder);
 router.get("/", authorize("admin"), requirePermission("manage_orders"), getAllOrders);
 router.get("/active-by-table", authorize("admin"), requirePermission("manage_orders"), getActiveTableOrders);
 router.get("/kitchen/active", authorize("admin"), requirePermission("manage_orders"), getKitchenOrders);
+router.get("/dashboard-summary", authorize("admin"), requirePermission("manage_orders"), getDashboardSummary);
 router.get("/:id", getOrderById);
 router.get("/customer/:customerId", getOrdersByCustomer);
 router.put("/:id/status", authorize("admin"), requirePermission("manage_orders"), updateOrderStatus);

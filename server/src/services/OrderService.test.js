@@ -349,3 +349,45 @@ describe("OrderService.reorderOrder", () => {
     });
 
 });
+
+describe("OrderService.getAllOrders", () => {
+
+    it("returns the plain array unchanged when no pagination is requested", async () => {
+
+        OrderRepository.getAllOrders.mockResolvedValue([order]);
+
+        const result = await OrderService.getAllOrders(3, null, null, null);
+
+        expect(result.data).toEqual([order]);
+        expect(OrderRepository.getAllOrders).toHaveBeenCalledWith(3, null, null, null);
+
+    });
+
+    it("shapes the response as { orders, total, page, limit } when pagination is requested", async () => {
+
+        OrderRepository.getAllOrders.mockResolvedValue({ orders: [order], total: 47 });
+
+        const result = await OrderService.getAllOrders(3, null, null, { page: 2, limit: 25 });
+
+        expect(result.data).toEqual({ orders: [order], total: 47, page: 2, limit: 25 });
+
+    });
+
+});
+
+describe("OrderService.getDashboardSummary", () => {
+
+    it("passes the repository's aggregate numbers straight through", async () => {
+
+        const summary = { totalOrders: 10, activeOrders: 2, todaysRevenue: 500, recentOrders: [order] };
+        OrderRepository.getDashboardSummary.mockResolvedValue(summary);
+
+        const result = await OrderService.getDashboardSummary(3, 7);
+
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual(summary);
+        expect(OrderRepository.getDashboardSummary).toHaveBeenCalledWith(3, 7);
+
+    });
+
+});

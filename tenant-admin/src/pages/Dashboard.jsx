@@ -23,7 +23,7 @@ import toast from "react-hot-toast";
 import * as orderService from "../services/orderService";
 import { hasPermission } from "../utils/adminAuth";
 import { useStoredAuth } from "../hooks/useStoredAuth";
-import { formatCurrency, getStatusChipColor, isToday, isTerminalStatus } from "./orderStatusUtils";
+import { formatCurrency, getStatusChipColor } from "./orderStatusUtils";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 import EmptyState from "../components/EmptyState";
 
@@ -72,7 +72,7 @@ function Dashboard() {
     // skips the order-stats section rather than the whole page.
     const canViewOrders = hasPermission(admin, "manage_orders");
 
-    const [orders, setOrders] = useState([]);
+    const [summary, setSummary] = useState({ totalOrders: 0, activeOrders: 0, todaysRevenue: 0, recentOrders: [] });
     const [loading, setLoading] = useState(true);
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -89,19 +89,17 @@ function Dashboard() {
             return;
         }
 
-        loadOrders();
+        loadSummary();
 
         // Live-ish view: silently re-check for new orders/status changes
-        // without requiring a manual refresh. This still pulls the entire
-        // order history just to derive 3 numbers (no lightweight "today"/
-        // "summary" endpoint exists - /analytics/overview computes revenue
-        // trend/top items/peak hours/COGS too, so it's not cheaper, and it
-        // has no "active orders" concept at all). 60s instead of 15s until
-        // a real summary endpoint exists is a stopgap, not the real fix.
+        // without requiring a manual refresh. Backed by a cheap aggregate
+        // endpoint (SQL COUNT/SUM, not fetch-everything-and-reduce-in-JS),
+        // so 60s polling doesn't mean downloading the whole order history
+        // on every tick.
         const interval = setInterval(() => {
 
             if (document.visibilityState === "visible") {
-                loadOrders(true);
+                loadSummary(true);
             }
 
         }, 60000);
@@ -110,7 +108,7 @@ function Dashboard() {
 
     }, [canViewOrders]);
 
-    const loadOrders = async (silent = false) => {
+    const loadSummary = async (silent = false) => {
 
         try {
 
@@ -118,18 +116,18 @@ function Dashboard() {
                 setLoading(true);
             }
 
-            const response = await orderService.getAllOrders();
+            const response = await orderService.getDashboardSummary();
 
             if (response.success) {
-                setOrders(response.data);
+                setSummary(response.data);
             } else if (!silent) {
-                toast.error(response.message || "Failed to load orders.");
+                toast.error(response.message || "Failed to load dashboard summary.");
             }
 
         } catch (error) {
 
             if (!silent) {
-                toast.error(error.response?.data?.message || "Failed to load orders.");
+                toast.error(error.response?.data?.message || "Failed to load dashboard summary.");
             }
 
         } finally {
@@ -151,17 +149,7 @@ function Dashboard() {
         setSelectedOrderId(null);
     };
 
-    const totalOrders = orders.length;
-
-    const activeOrders = orders.filter((order) => !isTerminalStatus(order.OrderStatus)).length;
-
-    const todaysRevenue = orders
-        .filter((order) => isToday(order.OrderDate))
-        .reduce((sum, order) => sum + Number(order.TotalAmount || 0), 0);
-
-    const recentOrders = [...orders]
-        .sort((a, b) => new Date(b.OrderDate) - new Date(a.OrderDate))
-        .slice(0, 5);
+    const { totalOrders, activeOrders, todaysRevenue, recentOrders } = summary;
 
     return (
 
@@ -310,7 +298,7 @@ function Dashboard() {
                 open={dialogOpen}
                 orderId={selectedOrderId}
                 onClose={handleDialogClose}
-                onChanged={() => loadOrders(true)}
+                onChanged={() => loadSummary(true)}
             />
 
         </Box>

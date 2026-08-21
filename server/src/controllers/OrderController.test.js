@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { createOrder } from "./OrderController.js";
+import { createOrder, getAllOrders, getDashboardSummary } from "./OrderController.js";
 import * as OrderService from "../services/OrderService.js";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
+import * as BranchRepository from "../repositories/BranchRepository.js";
 
 vi.mock("../services/OrderService.js");
 vi.mock("../repositories/CustomerRepository.js");
@@ -19,6 +20,8 @@ beforeEach(() => {
 
     vi.clearAllMocks();
     OrderService.createOrder.mockResolvedValue({ success: true, message: "Order placed successfully.", data: { OrderId: 1 } });
+    OrderService.getAllOrders.mockResolvedValue({ success: true, message: "Orders fetched successfully.", data: [] });
+    OrderService.getDashboardSummary.mockResolvedValue({ success: true, message: "Dashboard summary fetched successfully.", data: {} });
     // canActOnCustomer looks this up for any admin-placed order (self-placed
     // customer orders skip it entirely) - defaults to the happy path of a
     // customer belonging to the acting admin's own tenant.
@@ -83,6 +86,56 @@ describe("OrderController.createOrder - staff attribution", () => {
 
         await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(403));
         expect(OrderService.createOrder).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("OrderController.getAllOrders - pagination is opt-in from the query string", () => {
+
+    it("passes no pagination through when neither page nor limit is in the query", async () => {
+
+        const req = { query: {}, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
+
+        getAllOrders(req, buildRes(), vi.fn());
+
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, null));
+
+    });
+
+    it("parses page/limit from the query string and clamps limit to the maximum page size", async () => {
+
+        const req = { query: { page: "2", limit: "500" }, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
+
+        getAllOrders(req, buildRes(), vi.fn());
+
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, { page: 2, limit: 100 }));
+
+    });
+
+    it("falls back to page 1 for a garbage page value instead of erroring", async () => {
+
+        const req = { query: { page: "not-a-number", limit: "10" }, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
+
+        getAllOrders(req, buildRes(), vi.fn());
+
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, { page: 1, limit: 10 }));
+
+    });
+
+});
+
+describe("OrderController.getDashboardSummary", () => {
+
+    it("scopes the summary to the caller's tenant and branch", async () => {
+
+        BranchRepository.getBranchById.mockResolvedValue({ BranchId: 9, TenantId: 3 });
+
+        const req = { query: { branchId: "9" }, user: { id: 7, role: "admin", tenantId: 3, branchId: 9 } };
+
+        getDashboardSummary(req, buildRes(), vi.fn());
+
+        await vi.waitFor(() => expect(OrderService.getDashboardSummary).toHaveBeenCalledWith(3, 9));
 
     });
 

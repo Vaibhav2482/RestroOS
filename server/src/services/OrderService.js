@@ -111,11 +111,27 @@ export const getKitchenOrders = async (branchId) => {
 
 };
 
-export const getAllOrders = async (tenantId, branchId, customerId) => {
+export const getAllOrders = async (tenantId, branchId, customerId, pagination = null) => {
 
-    const orders = await OrderRepository.getAllOrders(tenantId, branchId, customerId);
+    const result = await OrderRepository.getAllOrders(tenantId, branchId, customerId, pagination);
 
-    return { success: true, message: "Orders fetched successfully.", data: orders };
+    if (!pagination) {
+        return { success: true, message: "Orders fetched successfully.", data: result };
+    }
+
+    return {
+        success: true,
+        message: "Orders fetched successfully.",
+        data: { orders: result.orders, total: result.total, page: pagination.page, limit: pagination.limit }
+    };
+
+};
+
+export const getDashboardSummary = async (tenantId, branchId) => {
+
+    const summary = await OrderRepository.getDashboardSummary(tenantId, branchId);
+
+    return { success: true, message: "Dashboard summary fetched successfully.", data: summary };
 
 };
 

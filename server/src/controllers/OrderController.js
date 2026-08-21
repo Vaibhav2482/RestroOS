@@ -110,6 +110,25 @@ export const getKitchenOrders = asyncHandler(async (req, res) => {
 
 });
 
+// A page/limit pair is opt-in: only present when the caller actually sent
+// both. Absent either one, getAllOrders keeps returning the full array it
+// always has - existing callers (storefront's own order history, POS)
+// don't have to change to keep working.
+const MAX_PAGE_SIZE = 100;
+
+const resolvePagination = (req) => {
+
+    if (req.query.page === undefined && req.query.limit === undefined) {
+        return null;
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.limit) || 25));
+
+    return { page, limit };
+
+};
+
 export const getAllOrders = asyncHandler(async (req, res) => {
 
     const branchId = resolveBranchId(req);
@@ -122,8 +141,23 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     // every row to req.user.tenantId, so a customerId from another tenant
     // just yields zero rows rather than leaking across tenants.
     const customerId = req.query.customerId ? Number(req.query.customerId) : null;
+    const pagination = resolvePagination(req);
 
-    const result = await OrderService.getAllOrders(req.user.tenantId, branchId, customerId);
+    const result = await OrderService.getAllOrders(req.user.tenantId, branchId, customerId, pagination);
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getDashboardSummary = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+
+    if (branchId && !(await assertBranchBelongsToTenant(branchId, req.user.tenantId))) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    const result = await OrderService.getDashboardSummary(req.user.tenantId, branchId);
 
     return successResponse(res, result.data, result.message);
 

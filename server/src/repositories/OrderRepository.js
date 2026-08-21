@@ -286,9 +286,91 @@ export const getKitchenOrders = async (branchId) => {
 // tenantId is always enforced here, independent of branchId - an owner
 // admin (no branchId restriction) querying "all branches" must still only
 // ever see their OWN tenant's branches, never the whole platform's orders.
-export const getAllOrders = async (tenantId, branchId, customerId) => {
+// `pagination` is optional and additive on purpose - every existing caller
+// (storefront's own order history, POS, getOrdersByCustomer) keeps getting
+// the full unpaginated array back exactly as before. Only a caller that
+// explicitly opts in by passing { page, limit } gets the paginated shape
+// (rows + total), so this doesn't silently change behavior for anyone who
+// hasn't been updated to expect it.
+export const getAllOrders = async (tenantId, branchId, customerId, pagination = null) => {
 
+    const baseParams = [tenantId, branchId ?? null, customerId ?? null];
+
+    if (!pagination) {
+
+        const result = await pool.query(
+            `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
+                    C."Phone" AS "CustomerPhone",
+                    O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
+                    O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName"
+             FROM "Orders" O
+             INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
+             INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+             LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
+             WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
+             ORDER BY O."OrderDate" DESC`,
+            baseParams
+        );
+
+        return result.rows;
+
+    }
+
+    const { page, limit } = pagination;
+    const offset = (page - 1) * limit;
+
+    // COUNT(*) OVER() rides along in the same query/index scan instead of a
+    // second round trip for the total - every row carries the same total
+    // count, so it's just read off row 0 (or defaulted to 0 if the page is
+    // empty).
     const result = await pool.query(
+        `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
+                C."Phone" AS "CustomerPhone",
+                O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
+                O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName",
+                COUNT(*) OVER() AS "TotalCount"
+         FROM "Orders" O
+         INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
+         ORDER BY O."OrderDate" DESC
+         LIMIT $4 OFFSET $5`,
+        [...baseParams, limit, offset]
+    );
+
+    const total = result.rows[0]?.TotalCount ?? 0;
+    const orders = result.rows.map(({ TotalCount, ...order }) => order);
+
+    return { orders, total };
+
+};
+
+// Cheap aggregate numbers for the dashboard's stat cards, plus the 5 most
+// recent orders - replaces fetching the entire order history just to derive
+// 3 numbers and a short list client-side (see Dashboard.jsx's prior
+// implementation). "Today" is computed in the database's own session
+// timezone via CURRENT_DATE, which won't exactly match a browser's local
+// "today" right at a day boundary - an accepted approximation for a
+// single-timezone-market product, not attempted to be perfectly precise.
+export const getDashboardSummary = async (tenantId, branchId) => {
+
+    const params = [tenantId, branchId ?? null];
+
+    const countsResult = await pool.query(
+        `SELECT
+                COUNT(*) AS "TotalOrders",
+                COUNT(*) FILTER (WHERE O."OrderStatus" NOT IN ('Delivered', 'Cancelled')) AS "ActiveOrders",
+                COALESCE(SUM(O."TotalAmount") FILTER (
+                    WHERE O."OrderDate" >= CURRENT_DATE AND O."OrderDate" < CURRENT_DATE + INTERVAL '1 day'
+                ), 0) AS "TodaysRevenue"
+         FROM "Orders" O
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2)`,
+        params
+    );
+
+    const recentResult = await pool.query(
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
                 C."Phone" AS "CustomerPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
@@ -297,12 +379,20 @@ export const getAllOrders = async (tenantId, branchId, customerId) => {
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
-         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
-         ORDER BY O."OrderDate" DESC`,
-        [tenantId, branchId ?? null, customerId ?? null]
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2)
+         ORDER BY O."OrderDate" DESC
+         LIMIT 5`,
+        params
     );
 
-    return result.rows;
+    const counts = countsResult.rows[0];
+
+    return {
+        totalOrders: Number(counts.TotalOrders),
+        activeOrders: Number(counts.ActiveOrders),
+        todaysRevenue: Number(counts.TodaysRevenue),
+        recentOrders: recentResult.rows
+    };
 
 };
 
