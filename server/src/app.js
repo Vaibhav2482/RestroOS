@@ -39,6 +39,16 @@ import { runMigrations } from "./config/migrate.js";
 
 const app = express();
 
+// Vercel's edge network is the one hop in front of this function and sets
+// X-Forwarded-For itself (a client can't inject an arbitrary value that
+// reaches the function unfiltered) - without this, Express's req.ip/req.ips
+// fall back to the connection's own address, which on Vercel is an internal
+// one, not the real client IP. That's what every IP-keyed rate limiter
+// below actually keys on; without trusting the proxy, every request in
+// production was bucketing together under the same address instead of
+// being scoped per real client.
+app.set("trust proxy", true);
+
 // Without maxAge, browsers don't cache the CORS preflight at all - every
 // mutating request (any JSON body + Authorization header counts as
 // non-simple) pays a full extra OPTIONS round trip before the real one.
