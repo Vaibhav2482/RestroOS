@@ -15,3 +15,11 @@ export const bootstrap = async (fullName, email, password) => {
     return response.data;
 
 };
+
+export const changeOwnPassword = async (currentPassword, newPassword) => {
+
+    const response = await axiosClient.put("/platform-admin/auth/me/password", { currentPassword, newPassword });
+
+    return response.data;
+
+};

@@ -36,6 +36,11 @@ export const login = async (email, password) => {
 
 };
 
+// Same floor AdminService.changeOwnPassword holds tenant admins to - this
+// account is more privileged than any of them (cross-tenant access to the
+// whole platform), so it gets at least the same minimum, not less.
+const MIN_PASSWORD_LENGTH = 8;
+
 // Deliberately not a public "register" endpoint - that would let anyone on
 // the internet create a platform-admin account. This only works while zero
 // platform admins exist yet, i.e. once for the very first account; every
@@ -45,6 +50,10 @@ export const bootstrapFirstAdmin = async ({ fullName, email, password }) => {
 
     if (!fullName || !email || !password) {
         return { success: false, message: "Full name, email, and password are required." };
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+        return { success: false, message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
     }
 
     const existingCount = await PlatformAdminRepository.count();
@@ -58,5 +67,33 @@ export const bootstrapFirstAdmin = async ({ fullName, email, password }) => {
     const created = await PlatformAdminRepository.create({ fullName, email, password: hashedPassword });
 
     return { success: true, message: "Platform admin account created.", data: created };
+
+};
+
+// The only way to rotate a platform-admin password once bootstrapFirstAdmin
+// has run its once-only creation - previously there was no path at all
+// short of a direct database edit.
+export const changeOwnPassword = async (platformAdminId, currentPassword, newPassword) => {
+
+    if (!currentPassword) {
+        return { success: false, message: "Current password is required." };
+    }
+
+    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
+        return { success: false, message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+    }
+
+    const currentHash = await PlatformAdminRepository.getPasswordHash(platformAdminId);
+    const isCorrect = currentHash && await bcrypt.compare(currentPassword, currentHash);
+
+    if (!isCorrect) {
+        return { success: false, message: "Current password is incorrect." };
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+
+    await PlatformAdminRepository.updatePassword(platformAdminId, newHash);
+
+    return { success: true, message: "Password changed." };
 
 };

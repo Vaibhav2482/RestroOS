@@ -40,3 +40,17 @@ export const bootstrap = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message, 201);
 
 });
+
+export const changePassword = asyncHandler(async (req, res) => {
+
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await PlatformAdminService.changeOwnPassword(req.user.id, currentPassword, newPassword);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

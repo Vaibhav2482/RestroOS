@@ -53,3 +53,25 @@ export const resetFailedLogins = async (platformAdminId) => {
     );
 
 };
+
+// Only ever used internally to verify a password on a self-service change -
+// the hash itself must never appear in an API response.
+export const getPasswordHash = async (platformAdminId) => {
+
+    const result = await pool.query(
+        `SELECT "Password" FROM "PlatformAdmins" WHERE "PlatformAdminId" = $1`,
+        [platformAdminId]
+    );
+
+    return result.rows[0]?.Password;
+
+};
+
+export const updatePassword = async (platformAdminId, hashedPassword) => {
+
+    await pool.query(
+        `UPDATE "PlatformAdmins" SET "Password" = $1 WHERE "PlatformAdminId" = $2`,
+        [hashedPassword, platformAdminId]
+    );
+
+};

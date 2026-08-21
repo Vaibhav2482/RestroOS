@@ -38,6 +38,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import SearchOffRoundedIcon from "@mui/icons-material/SearchOffRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
+import VpnKeyRoundedIcon from "@mui/icons-material/VpnKeyRounded";
 import LockResetRoundedIcon from "@mui/icons-material/LockResetRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import CheckCircleRoundedIcon from "@mui/icons-material/CheckCircleRounded";
@@ -54,6 +55,7 @@ import { clearStoredAuth, getStoredAuth } from "../utils/platformAuth";
 import TenantDialog from "./TenantDialog";
 import TemporaryPasswordDialog from "./TemporaryPasswordDialog";
 import TenantFeaturesDialog from "./TenantFeaturesDialog";
+import ChangePasswordDialog from "./ChangePasswordDialog";
 import EmptyState from "../components/EmptyState";
 
 // Same visual language as tenant-admin's Dashboard stat cards, so the two
@@ -123,6 +125,7 @@ function Tenants() {
     const [resettingTenantId, setResettingTenantId] = useState(null);
     const [credentialResult, setCredentialResult] = useState(null);
     const [menuAnchor, setMenuAnchor] = useState(null);
+    const [changePasswordOpen, setChangePasswordOpen] = useState(false);
     const [retrying, setRetrying] = useState(false);
     const [confirmStatusTenant, setConfirmStatusTenant] = useState(null);
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -402,6 +405,11 @@ function Tenants() {
                         </MenuItem>
 
                         <Divider />
+
+                        <MenuItem onClick={() => { setMenuAnchor(null); setChangePasswordOpen(true); }}>
+                            <ListItemIcon><VpnKeyRoundedIcon fontSize="small" /></ListItemIcon>
+                            Change Password
+                        </MenuItem>
 
                         <MenuItem onClick={handleLogout}>
                             <ListItemIcon><LogoutRoundedIcon fontSize="small" /></ListItemIcon>
@@ -795,6 +803,11 @@ function Tenants() {
                 tenant={featuresTenant}
                 onClose={() => setFeaturesTenant(null)}
                 onSaved={handleFeaturesSaved}
+            />
+
+            <ChangePasswordDialog
+                open={changePasswordOpen}
+                onClose={() => setChangePasswordOpen(false)}
             />
 
         </Box>
