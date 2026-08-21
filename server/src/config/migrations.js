@@ -262,5 +262,88 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Tenants" ADD COLUMN "DisabledFeatures" TEXT[] NOT NULL DEFAULT '{}';
         `
+    },
+    {
+        // Lets a session be revoked without deactivating the account. Baked
+        // into the JWT at login and re-checked against this column on every
+        // request (middleware/Auth.js) - bumping it makes every token minted
+        // before the bump stop working immediately, even though it's not
+        // due to expire for up to another JWT_EXPIRES_IN. Deactivating an
+        // admin already cuts off access (Auth.js checks IsActive fresh on
+        // every request), but that's the wrong tool for "my phone was lost,
+        // I'm still employed" - this is the same, more surgical action a
+        // password change or a "sign out everywhere" button should trigger.
+        id: "0018_admin_token_version",
+        sql: `
+            ALTER TABLE "Admins" ADD COLUMN "TokenVersion" INTEGER NOT NULL DEFAULT 0;
+        `
+    },
+    {
+        // Every counter order was attributed only to the customer (often
+        // "Walk-in Guest"), with no record of which staff member actually
+        // rang it up - so a discount, a suspicious cancellation, or a later
+        // dispute could never be traced back to a person. NULL for orders a
+        // customer places themselves through the storefront (POST /checkout,
+        // a different code path from admin-created orders entirely) - there
+        // is no admin to attribute those to, and none should be invented.
+        // ON DELETE SET NULL rather than a hard FK failure: a departed
+        // staff member's Admins row is deactivated, never deleted, but this
+        // is the safer default if that ever changes - the order record and
+        // its history must survive regardless of what happens to the admin.
+        id: "0019_order_created_by_admin",
+        sql: `
+            ALTER TABLE "Orders" ADD COLUMN "CreatedByAdminId" INT NULL;
+            ALTER TABLE "Orders" ADD CONSTRAINT "FK_Orders_CreatedByAdmin" FOREIGN KEY ("CreatedByAdminId") REFERENCES "Admins"("AdminId") ON DELETE SET NULL;
+        `
+    },
+    {
+        // GST was a single hardcoded 2.5%+2.5% applied to the whole order
+        // regardless of what was in it - real F&B has multiple slabs (a
+        // plain non-AC-restaurant item and a liquor/AC-premium item are not
+        // taxed the same), and packaging/service charges differ too. This is
+        // the schema gap that made that unconfigurable. Defaults every
+        // existing item to 5% (2.5 + 2.5), the exact combined rate already
+        // in effect everywhere today - this migration changes nothing about
+        // what any order is charged until an owner deliberately sets a
+        // different rate on a specific item.
+        id: "0020_menu_item_tax_rate",
+        sql: `
+            ALTER TABLE "MenuItems" ADD COLUMN "TaxRatePercent" NUMERIC(5, 2) NOT NULL DEFAULT 5.00;
+        `
+    },
+    {
+        // An order could already be cancelled, but with no reason, no record
+        // of who authorised it, and no way to give money back without
+        // cancelling the whole order. Same append-only shape as
+        // InventoryTransactions (0003_inventory_ledger): every void/refund is
+        // a new row here, nothing on the Orders/Payments row itself is ever
+        // rewritten to reflect it - the original order stays exactly as it
+        // was placed, and this is the separate trail of what was done to it
+        // afterwards, by whom, and why. Reason and ActorAdminId are NOT NULL
+        // - unlike a customer's own self-service cancellation (still bare,
+        // unreasoned, unauthorised-by-anyone-else - that's the point of it
+        // being self-service), a VOID or REFUND is always a staff action and
+        // always needs both.
+        id: "0021_order_adjustments",
+        sql: `
+            CREATE TABLE "OrderAdjustments" (
+                "AdjustmentId" BIGINT GENERATED ALWAYS AS IDENTITY NOT NULL,
+                "TenantId" INT NOT NULL,
+                "OrderId" INT NOT NULL,
+                "AdjustmentType" VARCHAR(10) NOT NULL,
+                "Amount" NUMERIC(10, 2) NULL,
+                "Reason" VARCHAR(300) NOT NULL,
+                "ActorAdminId" INT NOT NULL,
+                "CreatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY ("AdjustmentId"),
+                CONSTRAINT "CHK_OrderAdjustments_Type" CHECK ("AdjustmentType" IN ('VOID', 'REFUND'))
+            );
+
+            ALTER TABLE "OrderAdjustments" ADD CONSTRAINT "FK_OrderAdjustments_Tenants" FOREIGN KEY ("TenantId") REFERENCES "Tenants"("TenantId");
+            ALTER TABLE "OrderAdjustments" ADD CONSTRAINT "FK_OrderAdjustments_Orders" FOREIGN KEY ("OrderId") REFERENCES "Orders"("OrderId");
+            ALTER TABLE "OrderAdjustments" ADD CONSTRAINT "FK_OrderAdjustments_Admin" FOREIGN KEY ("ActorAdminId") REFERENCES "Admins"("AdminId");
+
+            CREATE INDEX "IX_OrderAdjustments_Order" ON "OrderAdjustments" ("OrderId", "CreatedAt" DESC);
+        `
     }
 ];
