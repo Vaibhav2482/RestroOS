@@ -12,7 +12,7 @@ export const getAllTenants = asyncHandler(async (req, res) => {
 
 export const createTenant = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.createTenant(req.body);
+    const result = await TenantService.createTenant(req.body, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -24,7 +24,7 @@ export const createTenant = asyncHandler(async (req, res) => {
 
 export const resetOwnerPassword = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.resetOwnerPassword(req.params.tenantId);
+    const result = await TenantService.resetOwnerPassword(req.params.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);
@@ -36,7 +36,7 @@ export const resetOwnerPassword = asyncHandler(async (req, res) => {
 
 export const suspendTenant = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.suspendTenant(req.params.tenantId);
+    const result = await TenantService.suspendTenant(req.params.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -48,7 +48,7 @@ export const suspendTenant = asyncHandler(async (req, res) => {
 
 export const reactivateTenant = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.reactivateTenant(req.params.tenantId);
+    const result = await TenantService.reactivateTenant(req.params.tenantId, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -63,7 +63,7 @@ export const reactivateTenant = asyncHandler(async (req, res) => {
 // same column, for any tenant by id rather than only the caller's own.
 export const updateTenantFeatures = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.updateDisabledFeatures(req.params.tenantId, req.body.disabledFeatures);
+    const result = await TenantService.updateDisabledFeatures(req.params.tenantId, req.body.disabledFeatures, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

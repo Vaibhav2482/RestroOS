@@ -7,12 +7,13 @@ export const record = async (entry) => {
 
     const result = await pool.query(
         `INSERT INTO "AuditLogs"
-            ("TenantId", "ActorAdminId", "ActorType", "Action", "EntityType", "EntityId", "Summary", "Metadata")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ("TenantId", "ActorAdminId", "ActorPlatformAdminId", "ActorType", "Action", "EntityType", "EntityId", "Summary", "Metadata")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
             entry.tenantId,
             entry.actorAdminId ?? null,
+            entry.actorPlatformAdminId ?? null,
             entry.actorType ?? "User",
             entry.action,
             entry.entityType,
@@ -52,9 +53,10 @@ export const getByTenant = async (tenantId, filters = {}) => {
     }
 
     const result = await pool.query(
-        `SELECT L.*, A."FullName" AS "ActorName"
+        `SELECT L.*, COALESCE(A."FullName", P."FullName") AS "ActorName"
          FROM "AuditLogs" L
          LEFT JOIN "Admins" A ON A."AdminId" = L."ActorAdminId"
+         LEFT JOIN "PlatformAdmins" P ON P."PlatformAdminId" = L."ActorPlatformAdminId"
          WHERE ${conditions.join(" AND ")}
          ORDER BY L."CreatedAt" DESC
          LIMIT 200`,

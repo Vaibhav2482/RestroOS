@@ -401,5 +401,27 @@ export const MIGRATIONS = [
             CREATE INDEX "IX_MenuItemRecipes_Ingredient" ON "MenuItemRecipes" ("IngredientId");
             CREATE INDEX "IX_BranchInventory_Ingredient" ON "BranchInventory" ("IngredientId");
         `
+    },
+    {
+        // Platform-admin actions (onboard/suspend/reactivate a tenant, reset
+        // an owner's password, toggle tenant features) were never recorded
+        // anywhere - the most privileged role in the system had no
+        // accountability trail. AuditLogs already supported a nullable actor
+        // for a "System" action; this reuses the same table (TenantId is
+        // always the tenant being acted on, which is exactly what a tenant's
+        // own audit log would want to show too) rather than standing up a
+        // parallel table, and adds a third actor lane alongside the existing
+        // Admin one. ActorPlatformAdminId has no ON DELETE behavior specified
+        // - deliberately the same default-RESTRICT posture as every other FK
+        // on this table, since a platform admin account is deactivated, not
+        // deleted, matching the Admins table's own lifecycle convention.
+        id: "0023_audit_log_platform_admin_actor",
+        sql: `
+            ALTER TABLE "AuditLogs" ADD COLUMN "ActorPlatformAdminId" INT NULL;
+            ALTER TABLE "AuditLogs" ADD CONSTRAINT "FK_AuditLogs_PlatformAdmins" FOREIGN KEY ("ActorPlatformAdminId") REFERENCES "PlatformAdmins"("PlatformAdminId");
+
+            ALTER TABLE "AuditLogs" DROP CONSTRAINT "CHK_AuditLogs_ActorType";
+            ALTER TABLE "AuditLogs" ADD CONSTRAINT "CHK_AuditLogs_ActorType" CHECK ("ActorType" IN ('User', 'System', 'PlatformAdmin'));
+        `
     }
 ];

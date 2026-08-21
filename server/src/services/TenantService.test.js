@@ -5,13 +5,16 @@ import * as TenantService from "./TenantService.js";
 import * as TenantRepository from "../repositories/TenantRepository.js";
 import * as AdminRepository from "../repositories/AdminRepository.js";
 import * as NotificationService from "./NotificationService.js";
+import * as AuditService from "./AuditService.js";
 
 vi.mock("../repositories/TenantRepository.js");
 vi.mock("../repositories/AdminRepository.js");
 vi.mock("./NotificationService.js");
+vi.mock("./AuditService.js");
 vi.mock("bcrypt");
 
 const TENANT_ID = 3;
+const PLATFORM_ADMIN_ID = 1;
 
 const activeTenant = {
     TenantId: TENANT_ID,
@@ -27,6 +30,7 @@ beforeEach(() => {
 
     bcrypt.hash.mockResolvedValue("hashed-password");
     NotificationService.notifyOwnerCredentials.mockResolvedValue();
+    AuditService.record.mockResolvedValue();
 
 });
 
@@ -43,11 +47,19 @@ describe("TenantService.createTenant", () => {
         const result = await TenantService.createTenant({
             tenantName: "Chai Point",
             ownerEmail: "owner@example.com"
-        });
+        }, PLATFORM_ADMIN_ID);
 
         expect(result.success).toBe(true);
         expect(NotificationService.notifyOwnerCredentials).toHaveBeenCalledWith(
             expect.objectContaining({ email: "owner@example.com", isReset: false })
+        );
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_CREATED"
+            })
         );
 
     });
@@ -76,12 +88,21 @@ describe("TenantService.resetOwnerPassword", () => {
         TenantRepository.getById.mockResolvedValue(activeTenant);
         AdminRepository.getByTenantAndEmailAny.mockResolvedValue({ AdminId: 12, Email: "owner@example.com" });
 
-        const result = await TenantService.resetOwnerPassword(TENANT_ID);
+        const result = await TenantService.resetOwnerPassword(TENANT_ID, PLATFORM_ADMIN_ID);
 
         expect(result.success).toBe(true);
         expect(AdminRepository.resetPassword).toHaveBeenCalled();
+        expect(AdminRepository.bumpTokenVersion).toHaveBeenCalledWith(12);
         expect(NotificationService.notifyOwnerCredentials).toHaveBeenCalledWith(
             expect.objectContaining({ email: "owner@example.com", isReset: true })
+        );
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_OWNER_PASSWORD_RESET"
+            })
         );
 
     });
@@ -107,10 +128,18 @@ describe("TenantService.suspendTenant / reactivateTenant", () => {
         TenantRepository.getById.mockResolvedValue(activeTenant);
         TenantRepository.setActive.mockResolvedValue({ ...activeTenant, IsActive: false });
 
-        const result = await TenantService.suspendTenant(TENANT_ID);
+        const result = await TenantService.suspendTenant(TENANT_ID, PLATFORM_ADMIN_ID);
 
         expect(result.success).toBe(true);
         expect(TenantRepository.setActive).toHaveBeenCalledWith(TENANT_ID, false);
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_SUSPENDED"
+            })
+        );
 
     });
 
@@ -130,10 +159,18 @@ describe("TenantService.suspendTenant / reactivateTenant", () => {
         TenantRepository.getById.mockResolvedValue({ ...activeTenant, IsActive: false });
         TenantRepository.setActive.mockResolvedValue(activeTenant);
 
-        const result = await TenantService.reactivateTenant(TENANT_ID);
+        const result = await TenantService.reactivateTenant(TENANT_ID, PLATFORM_ADMIN_ID);
 
         expect(result.success).toBe(true);
         expect(TenantRepository.setActive).toHaveBeenCalledWith(TENANT_ID, true);
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_REACTIVATED"
+            })
+        );
 
     });
 
@@ -171,6 +208,27 @@ describe("TenantService.updateDisabledFeatures", () => {
 
         expect(result.success).toBe(true);
         expect(TenantRepository.updateDisabledFeatures).toHaveBeenCalledWith(TENANT_ID, ["manage_branches"]);
+        // Called with no actorPlatformAdminId - the tenant's own Owner path
+        // (PUT /tenants/me/features) has no platform admin to attribute.
+        expect(AuditService.record).not.toHaveBeenCalled();
+
+    });
+
+    it("records an audit entry when a platform admin makes the same change", async () => {
+
+        TenantRepository.getById.mockResolvedValue(activeTenant);
+        TenantRepository.updateDisabledFeatures.mockResolvedValue({ ...activeTenant, DisabledFeatures: ["manage_branches"] });
+
+        await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_branches"], PLATFORM_ADMIN_ID);
+
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_FEATURES_UPDATED"
+            })
+        );
 
     });
 
