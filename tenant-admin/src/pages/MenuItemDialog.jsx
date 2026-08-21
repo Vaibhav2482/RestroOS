@@ -23,6 +23,7 @@ const emptyForm = {
     itemName: "",
     description: "",
     price: "",
+    taxRatePercent: "5",
     imageUrl: "",
     isAvailable: true,
     isPopular: false,
@@ -30,7 +31,7 @@ const emptyForm = {
     isVeg: true
 };
 
-const emptyErrors = { itemName: "", categoryId: "", price: "" };
+const emptyErrors = { itemName: "", categoryId: "", price: "", taxRatePercent: "" };
 
 function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving }) {
 
@@ -52,6 +53,7 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
                 itemName: editingItem.ItemName ?? "",
                 description: editingItem.Description ?? "",
                 price: editingItem.Price ?? "",
+                taxRatePercent: editingItem.TaxRatePercent ?? "5",
                 imageUrl: editingItem.ImageUrl ?? "",
                 isAvailable: Boolean(editingItem.IsAvailable),
                 isPopular: Boolean(editingItem.IsPopular),
@@ -105,6 +107,10 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
             nextErrors.price = "Price must be greater than 0.";
         }
 
+        if (formData.taxRatePercent !== "" && (Number(formData.taxRatePercent) < 0 || Number(formData.taxRatePercent) > 100)) {
+            nextErrors.taxRatePercent = "Tax rate must be between 0 and 100.";
+        }
+
         setErrors(nextErrors);
 
         return Object.values(nextErrors).every((error) => error === "");
@@ -122,6 +128,7 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
             itemName: formData.itemName.trim(),
             description: formData.description.trim(),
             price: Number(formData.price),
+            taxRatePercent: formData.taxRatePercent === "" ? undefined : Number(formData.taxRatePercent),
             imageUrl: formData.imageUrl.trim() || null,
             isAvailable: formData.isAvailable,
             isPopular: formData.isPopular,
@@ -216,6 +223,22 @@ function MenuItemDialog({ open, onClose, onSave, categories, editingItem, saving
                             error={Boolean(errors.price)}
                             helperText={errors.price}
                             slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                        />
+
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 6 }}>
+
+                        <TextField
+                            fullWidth
+                            type="number"
+                            label="GST Rate (%)"
+                            name="taxRatePercent"
+                            value={formData.taxRatePercent}
+                            onChange={handleChange}
+                            error={Boolean(errors.taxRatePercent)}
+                            helperText={errors.taxRatePercent || "Combined CGST+SGST, e.g. 5 for a standard restaurant item."}
+                            slotProps={{ htmlInput: { min: 0, max: 100, step: "0.01" } }}
                         />
 
                     </Grid>

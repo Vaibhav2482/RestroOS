@@ -42,8 +42,18 @@ export const updateOrderItems = async (id, items) => {
     return response.data;
 };
 
-export const cancelOrder = async (id) => {
-    const response = await axiosClient.put(`/orders/${id}/cancel`);
+export const cancelOrder = async (id, reason) => {
+    const response = await axiosClient.put(`/orders/${id}/cancel`, { reason });
+    return response.data;
+};
+
+export const refundOrder = async (id, amount, reason) => {
+    const response = await axiosClient.post(`/orders/${id}/refund`, { amount, reason });
+    return response.data;
+};
+
+export const getOrderAdjustments = async (id) => {
+    const response = await axiosClient.get(`/orders/${id}/adjustments`);
     return response.data;
 };
 

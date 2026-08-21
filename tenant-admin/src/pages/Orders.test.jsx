@@ -18,7 +18,7 @@ const BRANCH_ADMIN_AUTH = {
 // "Out For Delivery" step) - keeping #57 as Dine In here means its next
 // status is unambiguously "Delivered", matching the assertions below.
 const sampleOrders = [
-    { OrderId: 62, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 105, OrderStatus: "Delivered", OrderDate: "2026-07-25T21:00:24" },
+    { OrderId: 62, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 105, OrderStatus: "Delivered", OrderDate: "2026-07-25T21:00:24", CreatedByAdminName: "Priya Sharma" },
     { OrderId: 57, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 31.5, OrderStatus: "Ready", OrderDate: "2026-07-25T15:56:30" },
     { OrderId: 56, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 147, OrderStatus: "Cancelled", OrderDate: "2026-07-25T15:54:36" },
     { OrderId: 70, CustomerName: "New Guest", DeliveryType: "Dine In", TotalAmount: 50, OrderStatus: "Pending", OrderDate: "2026-07-25T22:00:00" }
@@ -81,6 +81,21 @@ describe("Orders - search and status filter", () => {
         await user.type(screen.getByPlaceholderText(/search by order/i), "no-such-order");
 
         expect(await screen.findByText(/no orders match your search\/filter/i)).toBeInTheDocument();
+
+    });
+
+    it("shows which staff member took an order, and says nothing for one placed by a customer", async () => {
+
+        render(<Orders />);
+
+        await screen.findByText("#62");
+
+        expect(screen.getByText("by Priya Sharma")).toBeInTheDocument();
+
+        // #57/#56/#70 all lack CreatedByAdminName (a customer's own online
+        // order) - exactly one attribution line should exist, not "by
+        // undefined" or an empty one silently rendered for the other three.
+        expect(screen.getAllByText(/^by /)).toHaveLength(1);
 
     });
 

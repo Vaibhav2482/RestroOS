@@ -6,7 +6,51 @@ import * as CouponRepository from "./CouponRepository.js";
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
 
-const roundGst = (amount) => Math.round(amount * 0.025 * 100) / 100;
+const round2 = (amount) => Math.round(amount * 100) / 100;
+
+// Tax computed per line at that line's own item's rate, not one flat rate
+// over the whole order - real F&B has multiple GST slabs, which a single
+// order-level rate can't represent. A coupon discount is apportioned
+// pro-rata across lines by each line's share of the pre-discount subtotal,
+// since taxing a line at its full pre-discount amount after a discount was
+// actually applied would overcharge it relative to what was promised.
+//
+// CGST/SGST are split from ONE rounded total per line, not rounded
+// independently - two independently-rounded halves can land a paisa short
+// or over a line's true combined rate (e.g. 5% split as 2.5%+2.5%, each
+// rounded on its own, doesn't always sum back to the line's real 5%).
+// Splitting one rounded total in half - and giving SGST whatever's left over
+// - guarantees the two always sum to exactly that line's tax.
+export const computeOrderTax = (pricedItems, subTotal, discountAmount) => {
+
+    let cgstAmount = 0;
+    let sgstAmount = 0;
+
+    for (const item of pricedItems) {
+
+        const lineAmount = item.unitPrice * item.quantity;
+        const lineShare = subTotal > 0 ? lineAmount / subTotal : 0;
+        const lineDiscount = discountAmount * lineShare;
+        const taxableAmount = Math.max(0, lineAmount - lineDiscount);
+
+        const ratePercent = Number(item.menuItem.TaxRatePercent ?? 0);
+        const lineTax = round2(taxableAmount * (ratePercent / 100));
+        const lineCgst = round2(lineTax / 2);
+
+        cgstAmount += lineCgst;
+        sgstAmount += round2(lineTax - lineCgst);
+
+    }
+
+    cgstAmount = round2(cgstAmount);
+    sgstAmount = round2(sgstAmount);
+
+    const discountedSubTotal = Math.max(0, subTotal - discountAmount);
+    const totalAmount = round2(discountedSubTotal + cgstAmount + sgstAmount);
+
+    return { cgstAmount, sgstAmount, totalAmount };
+
+};
 
 // Status may legally jump several steps at once (Pending straight to Ready
 // is a valid forward move), so "has the kitchen started" can't be answered
@@ -67,7 +111,7 @@ export const createOrder = async (order) => {
         // customer at Tenant A who somehow knew a Tenant B menuItemId could
         // place an order against Tenant B's branch/kitchen.
         const menuItemsResult = await client.query(
-            `SELECT M."MenuItemId", M."BranchId", M."ItemName", M."Price", B."TenantId"
+            `SELECT M."MenuItemId", M."BranchId", M."ItemName", M."Price", M."TaxRatePercent", B."TenantId"
              FROM "MenuItems" M
              INNER JOIN "Branches" B ON M."BranchId" = B."BranchId"
              WHERE M."MenuItemId" = ANY($1::int[])`,
@@ -118,15 +162,12 @@ export const createOrder = async (order) => {
             client, customerTenantId, order.couponCode, order.customerId, subTotal
         );
 
-        const discountedSubTotal = subTotal - discountAmount;
-        const cgstAmount = roundGst(discountedSubTotal);
-        const sgstAmount = roundGst(discountedSubTotal);
-        const totalAmount = discountedSubTotal + cgstAmount + sgstAmount;
+        const { cgstAmount, sgstAmount, totalAmount } = computeOrderTax(pricedItems, subTotal, discountAmount);
 
         const orderInsert = await client.query(
             `INSERT INTO "Orders"
-                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13)
+                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount", "CreatedByAdminId")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13, $14)
              RETURNING "OrderId"`,
             [
                 branchId,
@@ -141,7 +182,8 @@ export const createOrder = async (order) => {
                 order.notes ?? null,
                 order.tableNumber ?? null,
                 couponId,
-                discountAmount
+                discountAmount,
+                order.createdByAdminId ?? null
             ]
         );
 
@@ -250,10 +292,11 @@ export const getAllOrders = async (tenantId, branchId, customerId) => {
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
                 C."Phone" AS "CustomerPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
-                O."OrderNotes", O."OrderDate", O."TableNumber"
+                O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
          WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
          ORDER BY O."OrderDate" DESC`,
         [tenantId, branchId ?? null, customerId ?? null]
@@ -272,11 +315,13 @@ export const getOrderById = async (orderId) => {
                 B."Phone" AS "BranchPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."SubTotal", O."CgstAmount", O."SgstAmount",
                 O."TotalAmount", O."DiscountAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
+                O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName",
                 OI."OrderItemId", OI."MenuItemId", OI."ItemName", OI."Price", OI."Quantity", OI."TotalPrice", OI."SelectedOptions"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          INNER JOIN "OrderItems" OI ON O."OrderId" = OI."OrderId"
+         LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
          WHERE O."OrderId" = $1`,
         [orderId]
     );
@@ -408,7 +453,7 @@ export const updateOrderItems = async (orderId, items) => {
         const menuItemIds = items.map((item) => item.menuItemId);
 
         const menuItemsResult = await client.query(
-            `SELECT "MenuItemId", "BranchId", "ItemName", "Price" FROM "MenuItems" WHERE "MenuItemId" = ANY($1::int[])`,
+            `SELECT "MenuItemId", "BranchId", "ItemName", "Price", "TaxRatePercent" FROM "MenuItems" WHERE "MenuItemId" = ANY($1::int[])`,
             [menuItemIds]
         );
 
@@ -466,12 +511,9 @@ export const updateOrderItems = async (orderId, items) => {
         // here before - tax/total were recomputed off the raw new subtotal
         // while the DiscountAmount column still claimed a discount applied,
         // overcharging the customer relative to what they were promised at
-        // checkout. Clamped at 0 in case the edit shrinks the order below
-        // the discount amount.
-        const discountedSubTotal = Math.max(0, subTotal - discountAmount);
-        const cgstAmount = roundGst(discountedSubTotal);
-        const sgstAmount = roundGst(discountedSubTotal);
-        const totalAmount = discountedSubTotal + cgstAmount + sgstAmount;
+        // checkout. computeOrderTax clamps at 0 in case the edit shrinks the
+        // order below the discount amount.
+        const { cgstAmount, sgstAmount, totalAmount } = computeOrderTax(pricedItems, subTotal, discountAmount);
 
         await client.query(
             `UPDATE "Orders" SET "SubTotal" = $1, "CgstAmount" = $2, "SgstAmount" = $3, "TotalAmount" = $4 WHERE "OrderId" = $5`,

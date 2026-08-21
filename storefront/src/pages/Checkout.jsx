@@ -34,6 +34,7 @@ import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
 import * as couponService from "../services/couponService";
 import { useStorefront } from "../context/StorefrontContext";
+import { computeCheckoutEstimate } from "../utils/checkoutTax";
 
 const PAYMENT_METHODS = [
     { value: "Cash", label: "Cash", icon: <PaymentsOutlinedIcon fontSize="small" /> },
@@ -176,17 +177,14 @@ function Checkout() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [customer.CustomerId]);
 
-    const subtotal = cartItems.reduce((sum, item) => sum + Number(item.TotalPrice), 0);
     const discountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
-    const estimatedTotalAfterDiscount = Math.max(0, subtotal - discountAmount);
 
-    // Mirrors OrderRepository.js's roundGst - CGST and SGST are each rounded
-    // independently rather than rounding their sum, so this has to replicate
-    // that same per-tax rounding to land on the figure the server will charge.
-    const roundGst = (amount) => Math.round(amount * 0.025 * 100) / 100;
-    const estimatedCgst = roundGst(estimatedTotalAfterDiscount);
-    const estimatedSgst = roundGst(estimatedTotalAfterDiscount);
-    const estimatedGrandTotal = estimatedTotalAfterDiscount + estimatedCgst + estimatedSgst;
+    const {
+        subtotal,
+        cgstAmount: estimatedCgst,
+        sgstAmount: estimatedSgst,
+        grandTotal: estimatedGrandTotal
+    } = computeCheckoutEstimate(cartItems, discountAmount);
 
     const handleApplyCoupon = async () => {
 
@@ -724,13 +722,16 @@ function Checkout() {
 
                             ) : null}
 
+                            {/* No fixed "(2.5%)" suffix - different items can carry
+                                different GST rates, so there's no single percentage
+                                that's always true of the whole cart. */}
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                <Typography variant="body2" color="text.secondary">CGST (2.5%)</Typography>
+                                <Typography variant="body2" color="text.secondary">CGST</Typography>
                                 <Typography variant="body2">{formatCurrency(estimatedCgst)}</Typography>
                             </Box>
 
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
-                                <Typography variant="body2" color="text.secondary">SGST (2.5%)</Typography>
+                                <Typography variant="body2" color="text.secondary">SGST</Typography>
                                 <Typography variant="body2">{formatCurrency(estimatedSgst)}</Typography>
                             </Box>
 

@@ -91,44 +91,54 @@ export const createRazorpayOrder = async (orderId) => {
 
 };
 
-// Called when an order is cancelled. Best-effort: a failed or unavailable
-// refund attempt must never block the cancellation itself (kitchen needs to
-// stop preparing regardless) - callers surface `refunded: false` to the
-// customer/admin instead of losing the order state change over it.
-export const refundPaymentForOrder = async (orderId) => {
+// Called when an order is cancelled (full refund, the two defaults below),
+// and also by OrderService.refundOrder for a manual partial/full refund that
+// doesn't cancel the order - amount and resultingStatus let that second
+// caller refund less than the full payment and land on "Partially Refunded"
+// rather than "Refunded". Best-effort: a failed or unavailable refund
+// attempt must never block the cancellation itself (kitchen needs to stop
+// preparing regardless) - callers surface `refunded: false` instead of
+// losing the order state change over it.
+export const refundPaymentForOrder = async (orderId, amount, resultingStatus = "Refunded") => {
 
     const payments = await PaymentRepository.getPaymentByOrderId(orderId);
-    const payment = payments.find((row) => row.PaymentStatus === "Paid");
+
+    // Includes an already-partially-refunded payment, not just a fresh
+    // "Paid" one - a second partial refund on the same order needs to find
+    // it too, not just the first.
+    const payment = payments.find((row) => row.PaymentStatus === "Paid" || row.PaymentStatus === "Partially Refunded");
 
     if (!payment) {
         return { refunded: false, reason: "no-payment-to-refund" };
     }
 
+    const refundAmount = amount ?? Number(payment.Amount);
+
     if (payment.PaymentMethod === "Cash") {
-        return { refunded: false, reason: "cash-payment" };
+        return { refunded: false, reason: "cash-payment", payment, amount: refundAmount };
     }
 
     const razorpay = getRazorpayClient();
 
     if (!razorpay || !payment.TransactionId) {
-        return { refunded: false, reason: "not-configured" };
+        return { refunded: false, reason: "not-configured", payment, amount: refundAmount };
     }
 
     try {
 
         await razorpay.payments.refund(payment.TransactionId, {
-            amount: Math.round(Number(payment.Amount) * 100)
+            amount: Math.round(refundAmount * 100)
         });
 
-        await PaymentRepository.updatePaymentStatus(payment.PaymentId, "Refunded");
+        await PaymentRepository.updatePaymentStatus(payment.PaymentId, resultingStatus);
 
-        return { refunded: true };
+        return { refunded: true, payment, amount: refundAmount };
 
     } catch (error) {
 
         console.error(`Refund failed for order ${orderId}: ${error.message}`);
 
-        return { refunded: false, reason: "refund-api-failed" };
+        return { refunded: false, reason: "refund-api-failed", payment, amount: refundAmount };
 
     }
 

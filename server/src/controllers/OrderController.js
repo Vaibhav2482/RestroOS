@@ -57,7 +57,14 @@ export const createOrder = asyncHandler(async (req, res) => {
         return errorResponse(res, "You are not authorized to place this order.", 403);
     }
 
-    const result = await OrderService.createOrder(req.body);
+    // Attributed to the staff member who actually rang it up - never trusted
+    // from the request body, only from the authenticated token, so it can't
+    // be spoofed or left blank by the client. Stays null for the (currently
+    // unused by any client) case of a customer hitting this route directly -
+    // there's no admin to credit, and none should be invented.
+    const createdByAdminId = req.user.role === "admin" ? req.user.id : null;
+
+    const result = await OrderService.createOrder({ ...req.body, createdByAdminId });
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
@@ -274,11 +281,59 @@ export const cancelOrder = asyncHandler(async (req, res) => {
         return errorResponse(res, "Order not found.", 404);
     }
 
-    const result = await OrderService.cancelOrder(id, req.user.role, req.user.id, req.user.tenantId);
+    const result = await OrderService.cancelOrder(id, req.user.role, req.user.id, req.user.tenantId, req.body.reason);
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
     }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+// Staff-only - refunds without cancelling the order (e.g. a partial goodwill
+// refund). requirePermission("manage_orders") in OrderRoutes already keeps
+// customers out of this route entirely.
+export const refundOrder = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+    const { amount, reason } = req.body;
+
+    const existing = await OrderService.getOrderById(id);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessOrder(req, existing.data)) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    const result = await OrderService.refundOrder(id, req.user.id, req.user.tenantId, amount, reason);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getOrderAdjustments = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const existing = await OrderService.getOrderById(id);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessOrder(req, existing.data)) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    const result = await OrderService.getAdjustmentsForOrder(id);
 
     return successResponse(res, result.data, result.message);
 

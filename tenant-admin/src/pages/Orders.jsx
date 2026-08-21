@@ -609,6 +609,11 @@ function Orders() {
 
                                                 <TableCell sx={{ fontWeight: 500 }}>
                                                     {order.CustomerName || "Guest"}
+                                                    {order.CreatedByAdminName && (
+                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", fontWeight: 400 }}>
+                                                            by {order.CreatedByAdminName}
+                                                        </Typography>
+                                                    )}
                                                 </TableCell>
 
                                                 {ownerMode && (

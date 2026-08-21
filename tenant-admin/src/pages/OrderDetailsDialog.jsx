@@ -8,6 +8,7 @@ import {
     Dialog,
     DialogActions,
     DialogContent,
+    DialogContentText,
     DialogTitle,
     Divider,
     Grid,
@@ -29,10 +30,12 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import CurrencyRupeeRoundedIcon from "@mui/icons-material/CurrencyRupeeRounded";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
 import * as menuService from "../services/menuService";
+import * as paymentService from "../services/paymentService";
 import { getStoredAuth } from "../utils/adminAuth";
 import BillReceipt from "../components/BillReceipt";
 import KotReceipt from "../components/KotReceipt";
@@ -80,6 +83,19 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
     const [billOpen, setBillOpen] = useState(false);
     const [kotOpen, setKotOpen] = useState(false);
 
+    // Refundable payment (if any) and the void/refund history - both
+    // best-effort side-loads alongside the order itself, since neither
+    // failing to load should block viewing the order.
+    const [payment, setPayment] = useState(null);
+    const [adjustments, setAdjustments] = useState([]);
+
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
+
+    const [refundDialogOpen, setRefundDialogOpen] = useState(false);
+    const [refundAmount, setRefundAmount] = useState("");
+    const [refundReason, setRefundReason] = useState("");
+
     // Items can only be edited while an order is still Pending (enforced
     // server-side too - see OrderRepository.updateOrderItems). editLines is
     // a local draft; nothing is sent to the API until "Save Changes".
@@ -94,12 +110,16 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
         if (open && orderId) {
             loadOrder();
+            loadPayment();
+            loadAdjustments();
         }
 
         if (!open) {
             setOrder(null);
             setEditingItems(false);
             setEditLines([]);
+            setPayment(null);
+            setAdjustments([]);
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -126,6 +146,40 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
         } finally {
 
             setLoading(false);
+
+        }
+
+    };
+
+    // Best-effort: "no payment yet" is the ordinary case for most orders,
+    // not an error worth surfacing to the person just trying to view it.
+    const loadPayment = async () => {
+
+        try {
+
+            const response = await paymentService.getPaymentByOrderId(orderId);
+            const refundable = (response.data || []).find((row) => row.PaymentStatus === "Paid" || row.PaymentStatus === "Partially Refunded");
+
+            setPayment(refundable || null);
+
+        } catch {
+
+            setPayment(null);
+
+        }
+
+    };
+
+    const loadAdjustments = async () => {
+
+        try {
+
+            const response = await orderService.getOrderAdjustments(orderId);
+            setAdjustments(response.data || []);
+
+        } catch {
+
+            setAdjustments([]);
 
         }
 
@@ -160,9 +214,12 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
     };
 
-    const handleCancel = async () => {
+    // A staff void always needs a reason (server-enforced too - see
+    // OrderService.cancelOrder) - window.confirm had no way to collect one.
+    const handleConfirmCancel = async () => {
 
-        if (!window.confirm("Cancel this order? This cannot be undone.")) {
+        if (!cancelReason.trim()) {
+            toast.error("A reason is required to cancel an order.");
             return;
         }
 
@@ -170,7 +227,7 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
             setActionLoading(true);
 
-            const response = await orderService.cancelOrder(orderId);
+            const response = await orderService.cancelOrder(orderId, cancelReason.trim());
 
             if (!response.success) {
                 toast.error(response.message || "Failed to cancel order.");
@@ -178,12 +235,65 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
             }
 
             toast.success(response.message || "Order cancelled.");
+            setCancelDialogOpen(false);
+            setCancelReason("");
             onChanged?.();
             loadOrder();
+            loadAdjustments();
 
         } catch (error) {
 
             toast.error(error.response?.data?.message || "Failed to cancel order.");
+
+        } finally {
+
+            setActionLoading(false);
+
+        }
+
+    };
+
+    const refundableBalance = payment
+        ? Math.max(0, Number(payment.Amount) - adjustments
+            .filter((row) => row.AdjustmentType === "REFUND")
+            .reduce((sum, row) => sum + Number(row.Amount), 0))
+        : 0;
+
+    const handleConfirmRefund = async () => {
+
+        if (!refundReason.trim()) {
+            toast.error("A reason is required to refund an order.");
+            return;
+        }
+
+        const amount = Number(refundAmount);
+
+        if (!amount || amount <= 0) {
+            toast.error("Refund amount must be greater than 0.");
+            return;
+        }
+
+        try {
+
+            setActionLoading(true);
+
+            const response = await orderService.refundOrder(orderId, amount, refundReason.trim());
+
+            if (!response.success) {
+                toast.error(response.message || "Failed to refund order.");
+                return;
+            }
+
+            toast.success(response.message || "Order refunded.");
+            setRefundDialogOpen(false);
+            setRefundAmount("");
+            setRefundReason("");
+            loadPayment();
+            loadAdjustments();
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to refund order.");
 
         } finally {
 
@@ -448,6 +558,13 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                                 <Typography fontWeight={600}>{new Date(order.OrderDate).toLocaleString()}</Typography>
                             </Grid>
 
+                            {order.CreatedByAdminName && (
+                                <Grid size={{ xs: 12, sm: 6 }}>
+                                    <Typography variant="caption" color="text.secondary">Taken By</Typography>
+                                    <Typography fontWeight={600}>{order.CreatedByAdminName}</Typography>
+                                </Grid>
+                            )}
+
                             <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="caption" color="text.secondary">Status</Typography>
                                 <Box sx={{ mt: 0.5 }}>
@@ -677,11 +794,64 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                                     color="error"
                                     variant="text"
                                     disabled={actionLoading}
-                                    onClick={handleCancel}
+                                    onClick={() => setCancelDialogOpen(true)}
                                     sx={{ ml: "auto" }}
                                 >
                                     Cancel Order
                                 </Button>
+
+                            </Box>
+
+                        )}
+
+                        {/* Independent of order status - a refund makes sense on a
+                            Delivered order too (a complaint after the fact), not
+                            just while it's still active. */}
+                        {!editingItems && refundableBalance > 0 && (
+
+                            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
+                                <Button
+                                    size="small"
+                                    color="error"
+                                    variant="outlined"
+                                    startIcon={<CurrencyRupeeRoundedIcon fontSize="small" />}
+                                    disabled={actionLoading}
+                                    onClick={() => { setRefundAmount(refundableBalance.toFixed(2)); setRefundDialogOpen(true); }}
+                                >
+                                    Refund
+                                </Button>
+                            </Box>
+
+                        )}
+
+                        {adjustments.length > 0 && (
+
+                            <Box sx={{ mt: 2 }}>
+
+                                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                                    History
+                                </Typography>
+
+                                <Box sx={{ display: "flex", flexDirection: "column", gap: 0.75 }}>
+
+                                    {adjustments.map((adjustment) => (
+
+                                        <Box key={adjustment.AdjustmentId} sx={{ fontSize: 13, color: "text.secondary" }}>
+                                            <Chip
+                                                label={adjustment.AdjustmentType === "VOID" ? "Void" : "Refund"}
+                                                size="small"
+                                                color={adjustment.AdjustmentType === "VOID" ? "error" : "warning"}
+                                                sx={{ mr: 1, height: 20, fontSize: 11 }}
+                                            />
+                                            {adjustment.AdjustmentType === "REFUND" && (
+                                                <strong>{formatCurrency(adjustment.Amount)} — </strong>
+                                            )}
+                                            {adjustment.Reason} <em>({adjustment.ActorAdminName}, {new Date(adjustment.CreatedAt).toLocaleString()})</em>
+                                        </Box>
+
+                                    ))}
+
+                                </Box>
 
                             </Box>
 
@@ -719,6 +889,80 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                 onClose={() => setOptionsDialogItem(null)}
                 onConfirm={handleConfirmAddOptions}
             />
+
+            <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="xs" fullWidth>
+
+                <DialogTitle>Cancel Order</DialogTitle>
+
+                <DialogContent>
+
+                    <DialogContentText sx={{ mb: 2 }}>
+                        This cannot be undone. A reason is required and is recorded against your name.
+                    </DialogContentText>
+
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        required
+                        multiline
+                        rows={2}
+                        label="Reason"
+                        value={cancelReason}
+                        onChange={(event) => setCancelReason(event.target.value)}
+                    />
+
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                    <Button onClick={() => setCancelDialogOpen(false)} disabled={actionLoading}>Back</Button>
+                    <Button color="error" variant="contained" onClick={handleConfirmCancel} disabled={actionLoading || !cancelReason.trim()}>
+                        {actionLoading ? "Cancelling..." : "Cancel Order"}
+                    </Button>
+                </DialogActions>
+
+            </Dialog>
+
+            <Dialog open={refundDialogOpen} onClose={() => setRefundDialogOpen(false)} maxWidth="xs" fullWidth>
+
+                <DialogTitle>Refund</DialogTitle>
+
+                <DialogContent>
+
+                    <DialogContentText sx={{ mb: 2 }}>
+                        Up to {formatCurrency(refundableBalance)} remains refundable on this order. This does not cancel the order.
+                    </DialogContentText>
+
+                    <TextField
+                        fullWidth
+                        required
+                        type="number"
+                        label="Amount"
+                        value={refundAmount}
+                        onChange={(event) => setRefundAmount(event.target.value)}
+                        slotProps={{ htmlInput: { min: 0, max: refundableBalance, step: "0.01" } }}
+                        sx={{ mb: 2 }}
+                    />
+
+                    <TextField
+                        fullWidth
+                        required
+                        multiline
+                        rows={2}
+                        label="Reason"
+                        value={refundReason}
+                        onChange={(event) => setRefundReason(event.target.value)}
+                    />
+
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                    <Button onClick={() => setRefundDialogOpen(false)} disabled={actionLoading}>Back</Button>
+                    <Button color="error" variant="contained" onClick={handleConfirmRefund} disabled={actionLoading || !refundReason.trim() || !refundAmount}>
+                        {actionLoading ? "Refunding..." : "Refund"}
+                    </Button>
+                </DialogActions>
+
+            </Dialog>
 
         </Dialog>
 

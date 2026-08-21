@@ -1,6 +1,7 @@
 import { waitUntil } from "@vercel/functions";
 
 import * as OrderRepository from "../repositories/OrderRepository.js";
+import * as OrderAdjustmentRepository from "../repositories/OrderAdjustmentRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
@@ -276,7 +277,14 @@ export const updateOrderItems = async (orderId, items) => {
 const CUSTOMER_CANCELLABLE_STATUSES = ["Pending", "Accepted"];
 const STAFF_CANCELLABLE_STATUSES = ["Pending", "Accepted", "Preparing"];
 
-export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId) => {
+// A customer cancelling their own order stays bare/unreasoned/self-service -
+// only a staff void needs (and requires) a reason and an authorising admin,
+// recorded as a VOID row in OrderAdjustments (0021_order_adjustments).
+export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId, reason) => {
+
+    if (role === "admin" && (!reason || !reason.trim())) {
+        return { success: false, message: "A reason is required to cancel an order." };
+    }
 
     try {
 
@@ -286,10 +294,10 @@ export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId) =>
             await InventoryService.reverseConsumptionForOrder(client, order.OrderId, order.BranchId);
         });
 
-        // Only a staff-initiated cancellation is audited - a customer
-        // cancelling their own order is expected self-service, not the
-        // "who did this and why" accountability question an audit trail
-        // exists for.
+        // Only a staff-initiated cancellation is audited/logged to the void
+        // ledger - a customer cancelling their own order is expected self-
+        // service, not the "who did this and why" accountability question
+        // an audit trail (or a reason) exists for.
         if (role === "admin") {
 
             AuditService.record({
@@ -298,7 +306,16 @@ export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId) =>
                 action: "ORDER_CANCELLED",
                 entityType: "Order",
                 entityId: cancelledOrder.OrderId,
-                summary: `Cancelled order #${cancelledOrder.OrderId} (₹${Number(cancelledOrder.TotalAmount).toFixed(2)})`
+                summary: `Cancelled order #${cancelledOrder.OrderId} (₹${Number(cancelledOrder.TotalAmount).toFixed(2)}) - ${reason.trim()}`
+            });
+
+            await OrderAdjustmentRepository.recordAdjustment({
+                tenantId: actorTenantId,
+                orderId: cancelledOrder.OrderId,
+                adjustmentType: "VOID",
+                amount: null,
+                reason: reason.trim(),
+                actorAdminId
             });
 
         }
@@ -322,5 +339,93 @@ export const cancelOrder = async (orderId, role, actorAdminId, actorTenantId) =>
         return { success: false, message: error.message };
 
     }
+
+};
+
+const round2 = (amount) => Math.round(amount * 100) / 100;
+
+const REFUND_FAILURE_MESSAGES = {
+    "no-payment-to-refund": "This order has no payment to refund.",
+    "not-configured": "Razorpay is not configured on this server - refund the customer directly and record it outside RestroOS for now.",
+    "refund-api-failed": "The refund could not be processed automatically - please try again, or refund manually via the Razorpay dashboard."
+};
+
+// A refund that does NOT cancel the order - "the kitchen got it wrong, here
+// is ₹50 back" without voiding the whole thing. Always a staff action:
+// reason and the acting admin are required and recorded as a REFUND row in
+// OrderAdjustments, the same append-only ledger VOID uses. Can be called
+// more than once on the same order (partial, then partial again) - each
+// call is checked against what's already been refunded so the total can
+// never exceed what was actually paid.
+export const refundOrder = async (orderId, actorAdminId, actorTenantId, amount, reason) => {
+
+    if (!reason || !reason.trim()) {
+        return { success: false, message: "A reason is required to refund an order." };
+    }
+
+    const refundAmount = Number(amount);
+
+    if (!refundAmount || refundAmount <= 0) {
+        return { success: false, message: "Refund amount must be greater than 0." };
+    }
+
+    const paymentsResult = await PaymentService.getPaymentByOrderId(orderId);
+    const payment = paymentsResult.data.find((row) => row.PaymentStatus === "Paid" || row.PaymentStatus === "Partially Refunded");
+
+    if (!payment) {
+        return { success: false, message: "This order has no payment to refund." };
+    }
+
+    const alreadyRefunded = await OrderAdjustmentRepository.getTotalRefundedForOrder(orderId);
+    const remaining = round2(Number(payment.Amount) - alreadyRefunded);
+
+    if (refundAmount > remaining) {
+        return { success: false, message: `Refund amount exceeds the remaining refundable balance of ₹${remaining.toFixed(2)}.` };
+    }
+
+    const resultingStatus = round2(alreadyRefunded + refundAmount) >= Number(payment.Amount) ? "Refunded" : "Partially Refunded";
+
+    const refundResult = await PaymentService.refundPaymentForOrder(orderId, refundAmount, resultingStatus);
+
+    // A cash payment is treated as handled outside the system - staff hand
+    // the cash back themselves, and this call is what records that it
+    // happened. Every other failure reason means the money was NOT actually
+    // returned yet, so the action fails rather than logging a refund that
+    // didn't happen.
+    if (!refundResult.refunded && refundResult.reason !== "cash-payment") {
+        return { success: false, message: REFUND_FAILURE_MESSAGES[refundResult.reason] || "Failed to process the refund." };
+    }
+
+    await OrderAdjustmentRepository.recordAdjustment({
+        tenantId: actorTenantId,
+        orderId: Number(orderId),
+        adjustmentType: "REFUND",
+        amount: refundAmount,
+        reason: reason.trim(),
+        actorAdminId
+    });
+
+    AuditService.record({
+        tenantId: actorTenantId,
+        actorAdminId,
+        action: "ORDER_REFUNDED",
+        entityType: "Order",
+        entityId: Number(orderId),
+        summary: `Refunded ₹${refundAmount.toFixed(2)} on order #${orderId} - ${reason.trim()}`
+    });
+
+    const message = payment.PaymentMethod === "Cash"
+        ? `₹${refundAmount.toFixed(2)} recorded - hand the cash back to the customer.`
+        : `₹${refundAmount.toFixed(2)} refunded successfully.`;
+
+    return { success: true, message, data: { orderId: Number(orderId), amount: refundAmount, resultingStatus } };
+
+};
+
+export const getAdjustmentsForOrder = async (orderId) => {
+
+    const adjustments = await OrderAdjustmentRepository.getAdjustmentsForOrder(orderId);
+
+    return { success: true, message: "Order history fetched successfully.", data: adjustments };
 
 };

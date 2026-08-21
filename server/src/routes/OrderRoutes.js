@@ -10,6 +10,8 @@ import {
     updateOrderStatus,
     updateOrderItems,
     cancelOrder,
+    refundOrder,
+    getOrderAdjustments,
     emailBill,
     reorderOrder
 } from "../controllers/OrderController.js";
@@ -31,6 +33,8 @@ router.get("/customer/:customerId", getOrdersByCustomer);
 router.put("/:id/status", authorize("admin"), requirePermission("manage_orders"), updateOrderStatus);
 router.put("/:id/items", authorize("admin"), requirePermission("manage_orders"), updateOrderItems);
 router.put("/:id/cancel", cancelOrder);
+router.post("/:id/refund", authorize("admin"), requirePermission("manage_orders"), refundOrder);
+router.get("/:id/adjustments", authorize("admin"), requirePermission("manage_orders"), getOrderAdjustments);
 router.post("/:id/reorder", reorderOrder);
 router.post("/:id/email-bill", emailBill);
 

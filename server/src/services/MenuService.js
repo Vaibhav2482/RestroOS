@@ -99,6 +99,16 @@ export const createMenuItem = async (menuItem, tenantId, actorAdminId) => {
         return { success: false, message: "Price must be greater than 0." };
     }
 
+    if (menuItem.taxRatePercent === undefined || menuItem.taxRatePercent === null || menuItem.taxRatePercent === "") {
+        // 5% (2.5 CGST + 2.5 SGST) is the rate every item was taxed at
+        // before this field existed - new items default to the same
+        // baseline rather than silently landing at 0% until someone thinks
+        // to set it.
+        menuItem.taxRatePercent = 5;
+    } else if (menuItem.taxRatePercent < 0 || menuItem.taxRatePercent > 100) {
+        return { success: false, message: "Tax rate must be between 0 and 100." };
+    }
+
     const duplicate = await MenuRepository.checkMenuItemExists(menuItem.itemName, menuItem.branchId);
 
     if (duplicate.length > 0) {
@@ -162,6 +172,12 @@ export const updateMenuItem = async (menuItemId, menuItem, tenantId, actorAdminI
         return { success: false, message: "Price must be greater than 0." };
     }
 
+    if (menuItem.taxRatePercent === undefined || menuItem.taxRatePercent === null || menuItem.taxRatePercent === "") {
+        menuItem.taxRatePercent = existingMenuItem[0].TaxRatePercent;
+    } else if (menuItem.taxRatePercent < 0 || menuItem.taxRatePercent > 100) {
+        return { success: false, message: "Tax rate must be between 0 and 100." };
+    }
+
     // A menu item's branch is fixed at creation time; duplicate-name checks stay scoped to it.
     const branchId = existingMenuItem[0].BranchId;
 
@@ -200,6 +216,10 @@ export const updateMenuItem = async (menuItemId, menuItem, tenantId, actorAdminI
 
     if (Boolean(existingMenuItem[0].IsAvailable) !== Boolean(updatedMenuItem.IsAvailable)) {
         changeNotes.push(updatedMenuItem.IsAvailable ? "marked available" : "marked out of stock");
+    }
+
+    if (Number(existingMenuItem[0].TaxRatePercent) !== Number(updatedMenuItem.TaxRatePercent)) {
+        changeNotes.push(`tax rate changed from ${Number(existingMenuItem[0].TaxRatePercent)}% to ${Number(updatedMenuItem.TaxRatePercent)}%`);
     }
 
     AuditService.record({

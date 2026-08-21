@@ -112,7 +112,7 @@ export const addToCart = async (cart) => {
 export const getCart = async (customerId) => {
 
     const result = await pool.query(
-        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."BranchId", M."ItemName", M."ImageUrl",
+        `SELECT C."CartId", C."CustomerId", C."MenuItemId", M."BranchId", M."ItemName", M."ImageUrl", M."TaxRatePercent",
                 C."UnitPrice", C."SelectedOptions",
                 C."Quantity", (C."UnitPrice" * C."Quantity") AS "TotalPrice", C."CreatedAt"
          FROM "Cart" C

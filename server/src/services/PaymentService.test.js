@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as PaymentService from "./PaymentService.js";
 import * as PaymentRepository from "../repositories/PaymentRepository.js";
 import * as OrderRepository from "../repositories/OrderRepository.js";
+import { getRazorpayClient } from "../config/razorpay.js";
 
 vi.mock("../repositories/PaymentRepository.js");
 vi.mock("../repositories/OrderRepository.js");
@@ -101,6 +102,97 @@ describe("PaymentService.recordRazorpayWebhookPayment", () => {
 
         expect(PaymentRepository.getPaymentByOrderId).not.toHaveBeenCalled();
         expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("PaymentService.refundPaymentForOrder", () => {
+
+    const razorpayRefund = vi.fn();
+
+    beforeEach(() => {
+        razorpayRefund.mockReset().mockResolvedValue({});
+        getRazorpayClient.mockReturnValue({ payments: { refund: razorpayRefund } });
+    });
+
+    it("reports nothing to refund when there's no Paid or Partially Refunded payment", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([{ PaymentStatus: "Pending" }]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(result).toEqual({ refunded: false, reason: "no-payment-to-refund" });
+        expect(razorpayRefund).not.toHaveBeenCalled();
+
+    });
+
+    it("refuses a cash payment - there's no gateway to call", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Cash", Amount: 200 }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(result.refunded).toBe(false);
+        expect(result.reason).toBe("cash-payment");
+        expect(razorpayRefund).not.toHaveBeenCalled();
+
+    });
+
+    it("refunds the full payment amount and marks it Refunded when no amount is given (the cancel-order default)", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Razorpay", Amount: 200, TransactionId: "pay_ABC" }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(razorpayRefund).toHaveBeenCalledWith("pay_ABC", { amount: 20000 });
+        expect(PaymentRepository.updatePaymentStatus).toHaveBeenCalledWith(1, "Refunded");
+        expect(result).toEqual({ refunded: true, payment: expect.objectContaining({ PaymentId: 1 }), amount: 200 });
+
+    });
+
+    it("refunds only the given partial amount and lands on whatever status the caller asked for", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Razorpay", Amount: 200, TransactionId: "pay_ABC" }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID, 50, "Partially Refunded");
+
+        expect(razorpayRefund).toHaveBeenCalledWith("pay_ABC", { amount: 5000 });
+        expect(PaymentRepository.updatePaymentStatus).toHaveBeenCalledWith(1, "Partially Refunded");
+        expect(result.amount).toBe(50);
+
+    });
+
+    it("finds a payment already Partially Refunded, not just a fresh Paid one - so a second partial refund is possible", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Partially Refunded", PaymentMethod: "Razorpay", Amount: 200, TransactionId: "pay_ABC" }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID, 50, "Partially Refunded");
+
+        expect(result.refunded).toBe(true);
+
+    });
+
+    it("surfaces a gateway failure without throwing, so it never blocks the caller's own state change", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Razorpay", Amount: 200, TransactionId: "pay_ABC" }
+        ]);
+        razorpayRefund.mockRejectedValue(new Error("gateway down"));
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(result.refunded).toBe(false);
+        expect(result.reason).toBe("refund-api-failed");
+        expect(PaymentRepository.updatePaymentStatus).not.toHaveBeenCalled();
 
     });
 
