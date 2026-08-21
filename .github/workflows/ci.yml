@@ -21,6 +21,7 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm test
 
   storefront:
@@ -37,6 +38,7 @@ jobs:
           cache: npm
           cache-dependency-path: storefront/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm test
       - run: npm run build
 
@@ -54,6 +56,7 @@ jobs:
           cache: npm
           cache-dependency-path: tenant-admin/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm test
       - run: npm run build
 
@@ -73,4 +76,5 @@ jobs:
           cache: npm
           cache-dependency-path: platform-admin/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run build
