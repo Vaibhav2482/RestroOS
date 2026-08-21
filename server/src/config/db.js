@@ -11,9 +11,17 @@ const { Pool, types } = pg;
 types.setTypeParser(1700, (value) => (value === null ? null : parseFloat(value)));
 types.setTypeParser(20, (value) => (value === null ? null : parseInt(value, 10)));
 
+// `max` matters more here than in a long-running server: on Vercel every
+// concurrent serverless invocation can be its own process, each opening its
+// own pool, and `pg`'s default (10) per pool multiplies out fast against
+// Neon's connection cap. A small per-instance cap plus Neon's pooled
+// (PgBouncer) endpoint - already what DATABASE_URL points at in production -
+// is the standard fix for serverless-Postgres connection exhaustion.
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false }
+    ssl: process.env.DB_SSL === "false" ? false : { rejectUnauthorized: false },
+    max: 5,
+    idleTimeoutMillis: 10_000
 });
 
 export const connectDB = async () => {

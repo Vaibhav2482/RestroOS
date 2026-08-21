@@ -345,5 +345,61 @@ export const MIGRATIONS = [
 
             CREATE INDEX "IX_OrderAdjustments_Order" ON "OrderAdjustments" ("OrderId", "CreatedAt" DESC);
         `
+    },
+    {
+        // Postgres never auto-indexes a foreign key (only PK/UNIQUE get one) -
+        // every FK added across the 5 baseline schema.sql files was left
+        // unindexed since day one. Harmless at seed-data volume, but
+        // OrderItems/Payments are joined on every single order fetch and
+        // Orders is filtered+sorted by BranchId/CustomerId on every order
+        // list and POS table-grid load, so this is the query pattern that
+        // degrades first as real order history accumulates - a production
+        // readiness audit flagged it as the top database-scalability risk.
+        // Plain CREATE INDEX (not CONCURRENTLY, which can't run inside the
+        // per-migration transaction this runner wraps every statement in) is
+        // fine at current table sizes; it would need to move to a manual
+        // CONCURRENTLY run outside this migration system if it's ever applied
+        // against tables large enough for the lock to matter.
+        id: "0022_foreign_key_indexes",
+        sql: `
+            CREATE INDEX "IX_Orders_Branch_Date" ON "Orders" ("BranchId", "OrderDate" DESC);
+            CREATE INDEX "IX_Orders_Customer_Date" ON "Orders" ("CustomerId", "OrderDate" DESC);
+            CREATE INDEX "IX_Orders_Address" ON "Orders" ("AddressId");
+            CREATE INDEX "IX_Orders_Coupon" ON "Orders" ("CouponId");
+            CREATE INDEX "IX_Orders_CreatedByAdmin" ON "Orders" ("CreatedByAdminId");
+
+            CREATE INDEX "IX_OrderItems_Order" ON "OrderItems" ("OrderId");
+            CREATE INDEX "IX_OrderItems_MenuItem" ON "OrderItems" ("MenuItemId");
+
+            CREATE INDEX "IX_Payments_Order" ON "Payments" ("OrderId");
+
+            CREATE INDEX "IX_Cart_Customer" ON "Cart" ("CustomerId");
+            CREATE INDEX "IX_Cart_MenuItem" ON "Cart" ("MenuItemId");
+
+            CREATE INDEX "IX_MenuItems_Branch" ON "MenuItems" ("BranchId");
+            CREATE INDEX "IX_MenuItems_Category" ON "MenuItems" ("CategoryId");
+
+            CREATE INDEX "IX_Admins_Tenant" ON "Admins" ("TenantId");
+            CREATE INDEX "IX_Admins_Branch" ON "Admins" ("BranchId");
+
+            CREATE INDEX "IX_Branches_Tenant" ON "Branches" ("TenantId");
+            CREATE INDEX "IX_Categories_Tenant" ON "Categories" ("TenantId");
+            CREATE INDEX "IX_Customers_Tenant" ON "Customers" ("TenantId");
+            CREATE INDEX "IX_CustomerAddresses_Customer" ON "CustomerAddresses" ("CustomerId");
+            CREATE INDEX "IX_Tables_Branch" ON "Tables" ("BranchId");
+
+            CREATE INDEX "IX_Coupons_Tenant" ON "Coupons" ("TenantId");
+            CREATE INDEX "IX_CouponRedemptions_Coupon" ON "CouponRedemptions" ("CouponId");
+            CREATE INDEX "IX_CouponRedemptions_Customer" ON "CouponRedemptions" ("CustomerId");
+            CREATE INDEX "IX_CouponRedemptions_Order" ON "CouponRedemptions" ("OrderId");
+
+            CREATE INDEX "IX_Ingredients_Tenant" ON "Ingredients" ("TenantId");
+
+            -- These two tables already have a UNIQUE(leadingCol, otherCol)
+            -- index from their creating migration, which serves lookups by
+            -- the leading column alone but not the second column alone.
+            CREATE INDEX "IX_MenuItemRecipes_Ingredient" ON "MenuItemRecipes" ("IngredientId");
+            CREATE INDEX "IX_BranchInventory_Ingredient" ON "BranchInventory" ("IngredientId");
+        `
     }
 ];
