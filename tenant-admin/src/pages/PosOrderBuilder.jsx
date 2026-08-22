@@ -843,10 +843,24 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         counts: an upright tablet is ~800px of content, which
                         the old sm:"1fr 1fr" spent on two ~390px cards carrying
                         a name and a button. This packs in as many columns as
-                        actually fit, so the same screen shows three. */}
+                        actually fit, so the same screen shows three. 260px
+                        (not the original 300px) is sized to what a card
+                        actually needs at minimum - 52px thumbnail + the
+                        112px quantity stepper (the widest state a card's
+                        control ever takes, wider than a bare "+ Add") + its
+                        gaps/padding, leaving a still-legible ~90px for a
+                        2-line-wrapped name. 300px was condemning the product
+                        panel to a single column at a lot of real desktop
+                        widths - after the category rail and cart column
+                        (neither of which this touches) take their fixed
+                        share, what's left often landed just under 2×300+gap
+                        even though the cards themselves didn't need that
+                        much room; auto-fill still refuses to stretch a lone
+                        card to fill unused width (see the comment on that
+                        below), so this doesn't risk the opposite problem. */}
                     {/* minWidth:0 so this can shrink below its content as a flex
                         child, which min-width:auto would otherwise prevent. */}
-                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 1, minWidth: 0 }}>
+                    <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 1, minWidth: 0 }}>
 
                     {filteredItems.map((item) => {
 
