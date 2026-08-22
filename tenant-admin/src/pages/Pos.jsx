@@ -16,6 +16,7 @@ import PosTableGrid from "./PosTableGrid";
 import PosOrderBuilder from "./PosOrderBuilder";
 import PosOrderDetails from "./PosOrderDetails";
 import PosTableOrdersDialog from "./PosTableOrdersDialog";
+import { SIDEBAR_FORCE_COLLAPSE_EVENT } from "../components/Layout";
 
 function Pos() {
 
@@ -314,6 +315,23 @@ function Pos() {
     const isBuildingOrder = mode === "dine-in" || mode === "takeaway";
     const orderDeliveryType = mode === "dine-in" ? "Dine In" : "Takeaway";
     const backToFloor = () => { setMode("grid"); setPendingTable(null); };
+
+    // Reclaims the sidebar's horizontal space for the order workspace while
+    // a captain is actively taking an order - releases it (not "expands
+    // it", the distinction matters: Layout.jsx keeps this separate from the
+    // admin's own persisted collapse preference, so leaving the order
+    // builder restores whatever they'd actually chosen, not just "open").
+    // The cleanup also fires on unmount, so navigating away from /pos
+    // entirely never leaves the sidebar stuck collapsed.
+    useEffect(() => {
+
+        window.dispatchEvent(new CustomEvent(SIDEBAR_FORCE_COLLAPSE_EVENT, { detail: isBuildingOrder }));
+
+        return () => {
+            window.dispatchEvent(new CustomEvent(SIDEBAR_FORCE_COLLAPSE_EVENT, { detail: false }));
+        };
+
+    }, [isBuildingOrder]);
 
     return (
 

@@ -50,6 +50,13 @@ import * as tenantService from "../services/tenantService";
 const DRAWER_WIDTH = 260;
 const DRAWER_WIDTH_COLLAPSED = 80;
 
+// Dispatched with a boolean detail (true = collapse, false = release) by any
+// page that wants the icon-only rail while it's the active screen, without
+// touching the admin's own persisted sidebar preference - currently used by
+// the POS order-builder to reclaim horizontal space while a captain is
+// actively taking an order.
+export const SIDEBAR_FORCE_COLLAPSE_EVENT = "tenantAdminSidebarForceCollapse";
+
 // Grouped rather than one flat list - a 16-item unbroken list is what made
 // the sidebar read as a plain nav dump rather than a designed IA. Each
 // group only renders if it still has at least one item visible to the
@@ -119,15 +126,34 @@ function Layout({ children }) {
     // their POS screens to give the working area more room) - desktop only,
     // persisted so it survives a refresh instead of resetting every load.
     const [collapsed, setCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "1");
-    const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
+    // Separate from the persisted preference above - the POS order-builder
+    // requests this via SIDEBAR_FORCE_COLLAPSE_EVENT while a captain is
+    // actively taking an order, to reclaim horizontal space for the
+    // workspace, without overwriting whatever the admin actually chose via
+    // the toggle button. Cleared the moment that toggle is used, so a
+    // manual expand during an active order isn't a dead click that visually
+    // does nothing.
+    const [forceCollapsed, setForceCollapsed] = useState(false);
+    const effectiveCollapsed = forceCollapsed || collapsed;
+    const drawerWidth = effectiveCollapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
 
     const toggleCollapsed = () => {
+        setForceCollapsed(false);
         setCollapsed((prev) => {
             const next = !prev;
             localStorage.setItem("sidebarCollapsed", next ? "1" : "0");
             return next;
         });
     };
+
+    useEffect(() => {
+
+        const handleForceCollapse = (event) => setForceCollapsed(Boolean(event.detail));
+
+        window.addEventListener(SIDEBAR_FORCE_COLLAPSE_EVENT, handleForceCollapse);
+        return () => window.removeEventListener(SIDEBAR_FORCE_COLLAPSE_EVENT, handleForceCollapse);
+
+    }, []);
 
     useEffect(() => {
 
@@ -615,7 +641,7 @@ function Layout({ children }) {
                     }}
                     open
                 >
-                    {renderDrawerContent(collapsed, true)}
+                    {renderDrawerContent(effectiveCollapsed, true)}
                 </Drawer>
 
             </Box>
