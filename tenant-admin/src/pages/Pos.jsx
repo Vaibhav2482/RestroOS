@@ -382,16 +382,24 @@ function Pos() {
                 breakpoint (mobile app bar + content padding below md; just
                 content padding from md up) - not a guess, and the only two
                 numbers that ever need to change here are if that padding
-                does. Below sm this intentionally has no fixed height at all,
-                so a phone just gets a normal scrolling page instead of a
-                cramped fixed box. */}
+                does. Gated on min-height as well as min-width, not just
+                sm/md width alone - a phone in landscape can cross the sm
+                width threshold while still only having ~350-400px of actual
+                height to work with, which isn't enough room for the cart's
+                own fixed-header/scrollable/fixed-footer split below (found
+                by actually testing that orientation, not guessed). Below
+                that combined threshold this intentionally has no fixed
+                height at all, so it's a normal scrolling page instead of a
+                cramped, overlapping fixed box. */}
             {isBuildingOrder && selectedBranchId && (mode === "takeaway" || pendingTable) && (
 
                 <Box
                     sx={{
                         display: "flex",
                         flexDirection: "column",
-                        height: { sm: "calc(100vh - 80px)", md: "calc(100vh - 48px)" },
+                        height: "auto",
+                        "@media (min-width:600px) and (min-height:500px)": { height: "calc(100vh - 80px)" },
+                        "@media (min-width:900px) and (min-height:500px)": { height: "calc(100vh - 48px)" },
                         minHeight: 0
                     }}
                 >

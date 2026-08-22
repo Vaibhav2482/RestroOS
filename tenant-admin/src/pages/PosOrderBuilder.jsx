@@ -630,9 +630,21 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
         <Box
             sx={{
                 display: "flex",
-                flexDirection: { xs: "column", sm: "row" },
-                gap: { xs: 2, sm: 0 },
-                height: { xs: "auto", sm: "100%" },
+                // Mirrors Pos.jsx's own combined width+height gate on the
+                // fixed-height wrapper this sits inside - both need to agree
+                // on when "workstation" mode is active, or this would try
+                // height:100% of a parent that's actually height:auto (i.e.
+                // 0) below that threshold. See the comment there for why
+                // height matters as much as width (phone landscape). Custom
+                // media query conditions must be top-level sx keys with a
+                // nested style object - nesting them inside a per-property
+                // breakpoint object (the way xs/sm/md work) silently doesn't
+                // apply at all, which is exactly what happened here the
+                // first time before this was corrected.
+                flexDirection: "column",
+                gap: 2,
+                height: "auto",
+                "@media (min-width:600px) and (min-height:500px)": { flexDirection: "row", gap: 0, height: "100%" },
                 minHeight: 0
             }}
         >
@@ -1030,9 +1042,13 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 cart, per the layout rules this screen was asked to follow. */}
             <Box
                 sx={{
-                    width: { xs: "100%", sm: 320, lg: 340 },
+                    // Same combined width+height gate as the root layout
+                    // above - full width, no left margin, when stacked.
+                    width: "100%",
+                    ml: 0,
+                    "@media (min-width:600px) and (min-height:500px)": { width: 320, ml: 2 },
+                    "@media (min-width:1200px) and (min-height:500px)": { width: 340 },
                     flexShrink: 0,
-                    ml: { sm: 2 },
                     display: "flex",
                     flexDirection: "column",
                     minHeight: 0
