@@ -80,6 +80,60 @@ describe("Cross-tenant isolation - Orders", () => {
 
 });
 
+describe("Cross-tenant isolation - Table visits", () => {
+
+    let TableVisitController;
+    let TableVisitService;
+
+    beforeEach(async () => {
+
+        vi.resetModules();
+        vi.doMock("./services/TableVisitService.js");
+
+        TableVisitController = await import("./controllers/TableVisitController.js");
+        TableVisitService = await import("./services/TableVisitService.js");
+
+    });
+
+    it("returns 404 when the visit's branch belongs to another tenant", async () => {
+
+        TableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: { VisitId: 5, TenantId: VICTIM_TENANT_ID, BranchId: 99, TableNumber: "A3" }
+        });
+
+        const req = { params: { visitId: 5 }, user: { role: "admin", tenantId: ATTACKER_TENANT_ID, id: 7 } };
+        const res = buildRes();
+
+        TableVisitController.getVisitDetails(req, res, vi.fn());
+
+        await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(404));
+
+    });
+
+    it("blocks settling another tenant's table visit before the mutation is ever attempted", async () => {
+
+        TableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: { VisitId: 5, TenantId: VICTIM_TENANT_ID, BranchId: 99, TableNumber: "A3" }
+        });
+
+        const req = {
+            params: { visitId: 5 },
+            body: { paymentMethod: "Cash" },
+            user: { role: "admin", tenantId: ATTACKER_TENANT_ID, id: 7 }
+        };
+        const res = buildRes();
+
+        TableVisitController.settleVisit(req, res, vi.fn());
+
+        await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(404));
+        expect(TableVisitService.settleVisit).not.toHaveBeenCalled();
+
+    });
+
+});
+
 describe("Cross-tenant isolation - Menu items", () => {
 
     let MenuController;

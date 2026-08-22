@@ -34,6 +34,7 @@ import IngredientRoutes from "./routes/IngredientRoutes.js";
 import InventoryRoutes from "./routes/InventoryRoutes.js";
 import MenuItemRecipeRoutes from "./routes/MenuItemRecipeRoutes.js";
 import AuditRoutes from "./routes/AuditRoutes.js";
+import TableVisitRoutes from "./routes/TableVisitRoutes.js";
 import { razorpayWebhook } from "./controllers/PaymentController.js";
 import { runMigrations } from "./config/migrate.js";
 
@@ -118,6 +119,7 @@ app.use("/api/v1/customers", CustomerRoutes);
 app.use("/api/v1/customer-addresses", CustomerAddressRoutes);
 app.use("/api/v1/cart", CartRoutes);
 app.use("/api/v1/orders", OrderRoutes);
+app.use("/api/v1/table-visits", TableVisitRoutes);
 app.use("/api/v1/checkout", CheckoutRoutes);
 app.use("/api/v1/payments", PaymentRoutes);
 app.use("/api/v1/coupons", CouponRoutes);

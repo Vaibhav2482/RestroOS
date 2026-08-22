@@ -2,6 +2,7 @@ import pool from "../config/db.js";
 import { resolveMenuItemOptions } from "../utils/menuOptionResolver.js";
 import { resolveCoupon } from "../utils/couponResolver.js";
 import * as CouponRepository from "./CouponRepository.js";
+import { resolveOpenVisitId } from "./TableVisitRepository.js";
 
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -164,10 +165,20 @@ export const createOrder = async (order) => {
 
         const { cgstAmount, sgstAmount, totalAmount } = computeOrderTax(pricedItems, subTotal, discountAmount);
 
+        // Every Dine In order attaches to its table's current Open visit
+        // (starting one if this is the table's first round this sitting) -
+        // this is what lets several rounds share one consolidated bill
+        // later while each still gets its own KOT now. Takeaway/Delivery
+        // orders have no table to attach to and keep VisitId null, exactly
+        // as they always have (each is its own self-contained order).
+        const visitId = deliveryType === "Dine In" && order.tableNumber
+            ? await resolveOpenVisitId(client, branchId, order.tableNumber)
+            : null;
+
         const orderInsert = await client.query(
             `INSERT INTO "Orders"
-                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount", "CreatedByAdminId")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13, $14)
+                ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount", "CreatedByAdminId", "VisitId")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13, $14, $15)
              RETURNING "OrderId"`,
             [
                 branchId,
@@ -183,7 +194,8 @@ export const createOrder = async (order) => {
                 order.tableNumber ?? null,
                 couponId,
                 discountAmount,
-                order.createdByAdminId ?? null
+                order.createdByAdminId ?? null,
+                visitId
             ]
         );
 
@@ -236,16 +248,25 @@ export const createOrder = async (order) => {
 
 };
 
+// A table is "occupied" for as long as it has an Open TableVisit, not
+// merely for as long as it has an order that isn't Delivered yet - a guest
+// who's finished eating (every round Delivered) but hasn't asked for the
+// bill is still sitting at the table. Settling the visit, not any
+// individual order reaching a terminal status, is what actually frees a
+// table now - see migration 0024_table_visits. VisitId is included so the
+// frontend can route "Settle Bill" straight to a visit without a second
+// lookup.
 export const getActiveTableOrders = async (branchId) => {
 
     const result = await pool.query(
-        `SELECT O."TableNumber", O."OrderId", O."OrderStatus", O."TotalAmount", O."OrderDate", C."FullName" AS "CustomerName"
+        `SELECT O."TableNumber", O."OrderId", O."OrderStatus", O."TotalAmount", O."OrderDate", O."VisitId", C."FullName" AS "CustomerName"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
+         INNER JOIN "TableVisits" V ON O."VisitId" = V."VisitId" AND V."Status" = 'Open'
          WHERE O."BranchId" = $1
            AND O."DeliveryType" = 'Dine In'
            AND O."TableNumber" IS NOT NULL
-           AND O."OrderStatus" NOT IN ('Delivered', 'Cancelled')
+           AND O."OrderStatus" != 'Cancelled'
          ORDER BY O."OrderDate" DESC`,
         [branchId]
     );

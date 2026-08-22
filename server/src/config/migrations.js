@@ -423,5 +423,69 @@ export const MIGRATIONS = [
             ALTER TABLE "AuditLogs" DROP CONSTRAINT "CHK_AuditLogs_ActorType";
             ALTER TABLE "AuditLogs" ADD CONSTRAINT "CHK_AuditLogs_ActorType" CHECK ("ActorType" IN ('User', 'System', 'PlatformAdmin'));
         `
+    },
+    {
+        // A dine-in table needed a concept bigger than "an order" - a guest
+        // orders across several rounds (tea, then later a sweet, then
+        // another tea), each round is its own Order/KOT so the kitchen only
+        // ever sees what's actually new, but the guest expects ONE bill for
+        // everything at the end. TableVisits is that grouping: every Order
+        // placed for a table while it's occupied belongs to the table's
+        // current Open visit, and settling the visit (not any individual
+        // order's status) is what actually frees the table.
+        //
+        // No TenantId column here, same as Orders itself - scoped via
+        // BranchId -> Branches -> TenantId, not denormalized redundantly.
+        id: "0024_table_visits",
+        sql: `
+            CREATE TABLE "TableVisits" (
+                "VisitId" INT GENERATED ALWAYS AS IDENTITY NOT NULL,
+                "BranchId" INT NOT NULL,
+                "TableNumber" VARCHAR(20) NOT NULL,
+                "Status" VARCHAR(10) NOT NULL DEFAULT 'Open',
+                "OpenedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                "ClosedAt" TIMESTAMP NULL,
+                "PaymentMethod" VARCHAR(20) NULL,
+                "ClosedByAdminId" INT NULL,
+                PRIMARY KEY ("VisitId"),
+                CONSTRAINT "FK_TableVisits_Branches" FOREIGN KEY ("BranchId") REFERENCES "Branches"("BranchId"),
+                CONSTRAINT "FK_TableVisits_ClosedByAdmin" FOREIGN KEY ("ClosedByAdminId") REFERENCES "Admins"("AdminId"),
+                CONSTRAINT "CHK_TableVisits_Status" CHECK ("Status" IN ('Open', 'Closed'))
+            );
+
+            -- One open visit per table at a time, enforced by the database,
+            -- not just application code - a partial unique index (only over
+            -- rows where Status = 'Open') is what makes this conditional
+            -- instead of a plain UNIQUE constraint blocking a table from
+            -- ever being reused once its first visit closes.
+            CREATE UNIQUE INDEX "UQ_TableVisits_OneOpenPerTable" ON "TableVisits" ("BranchId", "TableNumber") WHERE "Status" = 'Open';
+            CREATE INDEX "IX_TableVisits_Branch_Status" ON "TableVisits" ("BranchId", "Status");
+
+            ALTER TABLE "Orders" ADD COLUMN "VisitId" INT NULL;
+            ALTER TABLE "Orders" ADD CONSTRAINT "FK_Orders_TableVisits" FOREIGN KEY ("VisitId") REFERENCES "TableVisits"("VisitId");
+            CREATE INDEX "IX_Orders_VisitId" ON "Orders" ("VisitId");
+
+            -- Backfill: group every currently in-flight Dine In order (not
+            -- yet Delivered/Cancelled) into one Open visit per table, so an
+            -- occupied table doesn't vanish from the floor grid the moment
+            -- this deploys, once the grid's occupancy check moves from "has
+            -- a non-terminal order" to "has an open visit" in this same
+            -- release. A table's already-Delivered round from before this
+            -- migration (if any) is intentionally left without a VisitId -
+            -- there is no in-flight visit left to attach it to, and this is
+            -- a one-time cutover backfill, not an attempt to reconstruct
+            -- pre-migration billing history.
+            INSERT INTO "TableVisits" ("BranchId", "TableNumber", "Status", "OpenedAt")
+            SELECT "BranchId", "TableNumber", 'Open', MIN("OrderDate")
+            FROM "Orders"
+            WHERE "DeliveryType" = 'Dine In' AND "TableNumber" IS NOT NULL AND "OrderStatus" NOT IN ('Delivered', 'Cancelled')
+            GROUP BY "BranchId", "TableNumber";
+
+            UPDATE "Orders" O
+            SET "VisitId" = V."VisitId"
+            FROM "TableVisits" V
+            WHERE O."BranchId" = V."BranchId" AND O."TableNumber" = V."TableNumber" AND V."Status" = 'Open'
+              AND O."DeliveryType" = 'Dine In' AND O."OrderStatus" NOT IN ('Delivered', 'Cancelled');
+        `
     }
 ];

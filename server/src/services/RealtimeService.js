@@ -49,3 +49,18 @@ export const publishOrderStatusChanged = (order) => {
     ]);
 
 };
+
+// Reuses the branch channel's existing "order:status-changed" event rather
+// than introducing a new one the POS floor grid would need its own
+// listener for - it already refreshes table state on that event, and a
+// settled visit freeing a table is exactly the kind of change that
+// refresh exists to pick up.
+export const publishTableVisitSettled = (visit) => {
+
+    return safeTrigger(`private-branch-${visit.BranchId}`, "order:status-changed", {
+        visitId: visit.VisitId,
+        branchId: visit.BranchId,
+        tableNumber: visit.TableNumber
+    });
+
+};
