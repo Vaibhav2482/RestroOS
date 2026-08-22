@@ -29,7 +29,14 @@ export const publishOrderCreated = (order) => {
         orderId: order.OrderId,
         branchId: order.BranchId,
         customerId: order.CustomerId,
-        orderStatus: order.OrderStatus
+        orderStatus: order.OrderStatus,
+        // Lets a receiving till tell "someone else just placed this" apart
+        // from "I am the one who just placed this" - the captain who rang
+        // an order up already sees its own placement confirmation and KOT
+        // ticket, so the branch-wide "new order" notification (sound +
+        // toast) is meant for every OTHER till/admin watching this branch,
+        // not an echo of what they just did themselves.
+        createdByAdminId: order.CreatedByAdminId ?? null
     });
 
 };

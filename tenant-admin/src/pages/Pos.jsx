@@ -123,9 +123,21 @@ function Pos() {
         const handleStatusChange = () => loadTableState(selectedBranchId, true);
 
         const handleCreated = (payload) => {
-            playNotificationSound();
-            toast.success(`New order #${payload.orderId} received.`);
+
+            // The captain who just rang this order up already saw its own
+            // "Order placed" toast and KOT ticket - re-announcing it here
+            // with a sound and a second toast was pure noise for exactly
+            // the one admin who least needed telling. This notification is
+            // for every OTHER till/admin watching the branch (a customer's
+            // online order, or a second till), so it's skipped only for
+            // the admin who actually created it.
+            if (String(payload.createdByAdminId) !== String(auth?.admin?.AdminId)) {
+                playNotificationSound();
+                toast.success(`New order #${payload.orderId} received.`);
+            }
+
             loadTableState(selectedBranchId, true);
+
         };
 
         channel.bind("order:created", handleCreated);
