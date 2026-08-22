@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Card, Chip, MenuItem, Select, Typography } from "@mui/material";
+import { Box, Button, Chip, IconButton, MenuItem, Select, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ShoppingBagRoundedIcon from "@mui/icons-material/ShoppingBagRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -311,178 +311,134 @@ function Pos() {
 
     };
 
+    const isBuildingOrder = mode === "dine-in" || mode === "takeaway";
+    const orderDeliveryType = mode === "dine-in" ? "Dine In" : "Takeaway";
+    const backToFloor = () => { setMode("grid"); setPendingTable(null); };
+
     return (
 
         <Box>
 
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5, flexWrap: "wrap", gap: 2 }}>
+            {/* Only the floor/grid view gets the page-level heading and branch
+                picker - once a captain is actively building an order, this
+                row would just repeat "New Order"/table info a second time
+                right above the workstation's own compact header, at the
+                cost of real vertical space a working POS screen can't spare. */}
+            {mode === "grid" && (
 
-                <Typography variant="h4" fontWeight={700}>
-                    Take Order
-                </Typography>
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2.5, flexWrap: "wrap", gap: 2 }}>
 
-                <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                    <Typography variant="h4" fontWeight={700}>
+                        Take Order
+                    </Typography>
 
-                    {ownerMode && branches.length > 0 && (
+                    <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
 
-                        <Select
-                            size="small"
-                            value={selectedBranchId ?? ""}
-                            onChange={(event) => {
-                                setSelectedBranchId(event.target.value);
-                                setMode("grid");
-                                setPendingTable(null);
-                            }}
-                        >
-                            {branches.map((branch) => (
-                                <MenuItem key={branch.BranchId} value={branch.BranchId}>
-                                    {branch.BranchName}
-                                </MenuItem>
-                            ))}
-                        </Select>
+                        {ownerMode && branches.length > 0 && (
 
-                    )}
+                            <Select
+                                size="small"
+                                value={selectedBranchId ?? ""}
+                                onChange={(event) => {
+                                    setSelectedBranchId(event.target.value);
+                                    setMode("grid");
+                                    setPendingTable(null);
+                                }}
+                            >
+                                {branches.map((branch) => (
+                                    <MenuItem key={branch.BranchId} value={branch.BranchId}>
+                                        {branch.BranchName}
+                                    </MenuItem>
+                                ))}
+                            </Select>
 
-                    {mode === "grid" && (
+                        )}
+
                         <Button variant="outlined" onClick={handleTakeaway}>
                             Takeaway / Counter Order
                         </Button>
-                    )}
+
+                    </Box>
 
                 </Box>
 
-            </Box>
+            )}
 
             {mode === "grid" && (
 
-                <>
-                    <PosTableGrid
-                        tables={tables}
-                        activeOrdersByTable={activeOrdersByTable}
-                        onTableClick={handleTableClick}
-                        onQuickAdvance={handleAdvanceStatus}
-                        onAddOrder={handleAddAnotherOrder}
-                        pendingAdvanceOrderIds={pendingAdvanceOrderIds}
-                    />
-                </>
+                <PosTableGrid
+                    tables={tables}
+                    activeOrdersByTable={activeOrdersByTable}
+                    onTableClick={handleTableClick}
+                    onQuickAdvance={handleAdvanceStatus}
+                    onAddOrder={handleAddAnotherOrder}
+                    pendingAdvanceOrderIds={pendingAdvanceOrderIds}
+                />
 
             )}
 
-            {mode === "dine-in" && pendingTable && selectedBranchId && (
+            {/* Full-height workstation, not a form-in-a-card: 80px/48px below
+                is exactly Layout.jsx's own chrome around <main> at this
+                breakpoint (mobile app bar + content padding below md; just
+                content padding from md up) - not a guess, and the only two
+                numbers that ever need to change here are if that padding
+                does. Below sm this intentionally has no fixed height at all,
+                so a phone just gets a normal scrolling page instead of a
+                cramped fixed box. */}
+            {isBuildingOrder && selectedBranchId && (mode === "takeaway" || pendingTable) && (
 
-                <Card sx={{ p: 2.5 }}>
+                <Box
+                    sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        height: { sm: "calc(100vh - 80px)", md: "calc(100vh - 48px)" },
+                        minHeight: 0
+                    }}
+                >
 
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1, mb: 1.5, flexShrink: 0 }}>
 
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
 
-                            <Box
-                                sx={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 2.5,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                    bgcolor: "rgba(79, 70, 229, 0.1)",
-                                    color: "primary.main"
-                                }}
-                            >
-                                <TableRestaurantRoundedIcon />
-                            </Box>
+                            <IconButton size="small" onClick={backToFloor} sx={{ display: { sm: "none" } }}>
+                                <ArrowBackRoundedIcon fontSize="small" />
+                            </IconButton>
 
-                            <Box>
-                                <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
-                                    New Order
-                                </Typography>
-                                <Chip
-                                    label={`Table ${pendingTable.TableName}`}
-                                    size="small"
-                                    color="primary"
-                                    sx={{ fontWeight: 700, mt: 0.25 }}
-                                />
-                            </Box>
+                            {mode === "dine-in" ? <TableRestaurantRoundedIcon color="primary" fontSize="small" /> : <ShoppingBagRoundedIcon color="primary" fontSize="small" />}
+
+                            <Typography variant="subtitle1" fontWeight={800} noWrap>
+                                {mode === "dine-in" ? `Table ${pendingTable.TableName}` : "Takeaway"}
+                            </Typography>
+
+                            <Chip label={orderDeliveryType} size="small" sx={{ fontWeight: 700 }} />
 
                         </Box>
 
                         <Button
                             size="small"
                             startIcon={<ArrowBackRoundedIcon />}
-                            onClick={() => { setMode("grid"); setPendingTable(null); }}
+                            onClick={backToFloor}
+                            sx={{ display: { xs: "none", sm: "inline-flex" } }}
                         >
                             Back to Floor
                         </Button>
 
                     </Box>
 
-                    <PosOrderBuilder
-                        key={`dine-in-${selectedBranchId}-${pendingTable.TableId}`}
-                        branchId={selectedBranchId}
-                        branchName={selectedBranchName}
-                        deliveryType="Dine In"
-                        tableNumber={pendingTable.TableName}
-                        onCreated={handleOrderCreated}
-                        onCancel={() => { setMode("grid"); setPendingTable(null); }}
-                    />
+                    <Box sx={{ flex: 1, minHeight: 0 }}>
 
-                </Card>
-
-            )}
-
-            {mode === "takeaway" && selectedBranchId && (
-
-                <Card sx={{ p: 2.5 }}>
-
-                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5, flexWrap: "wrap", gap: 1.5 }}>
-
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-
-                            <Box
-                                sx={{
-                                    width: 44,
-                                    height: 44,
-                                    borderRadius: 2.5,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                    bgcolor: "rgba(79, 70, 229, 0.1)",
-                                    color: "primary.main"
-                                }}
-                            >
-                                <ShoppingBagRoundedIcon />
-                            </Box>
-
-                            <Box>
-                                <Typography variant="h6" fontWeight={800} sx={{ lineHeight: 1.2 }}>
-                                    New Order
-                                </Typography>
-                                <Chip label="Takeaway" size="small" color="primary" sx={{ fontWeight: 700, mt: 0.25 }} />
-                            </Box>
-
-                        </Box>
-
-                        <Button
-                            size="small"
-                            startIcon={<ArrowBackRoundedIcon />}
-                            onClick={() => setMode("grid")}
-                        >
-                            Back to Floor
-                        </Button>
+                        <PosOrderBuilder
+                            key={mode === "dine-in" ? `dine-in-${selectedBranchId}-${pendingTable.TableId}` : `takeaway-${selectedBranchId}`}
+                            branchId={selectedBranchId}
+                            branchName={selectedBranchName}
+                            deliveryType={orderDeliveryType}
+                            tableNumber={mode === "dine-in" ? pendingTable.TableName : undefined}
+                            onCreated={handleOrderCreated}
+                        />
 
                     </Box>
 
-                    <PosOrderBuilder
-                        key={`takeaway-${selectedBranchId}`}
-                        branchId={selectedBranchId}
-                        branchName={selectedBranchName}
-                        deliveryType="Takeaway"
-                        onCreated={handleOrderCreated}
-                        onCancel={() => setMode("grid")}
-                    />
-
-                </Card>
+                </Box>
 
             )}
 

@@ -5,6 +5,7 @@ import {
     Button,
     Card,
     Chip,
+    CircularProgress,
     Divider,
     Grid,
     IconButton,
@@ -20,6 +21,7 @@ import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -109,11 +111,55 @@ function QuantityInput({ value, onCommit, sx }) {
 
 }
 
+// One row in the desktop vertical category rail (md+ only - see the layout
+// below). Mirrors the accent-border/tinted-background "active" language
+// Layout.jsx's own sidebar nav already uses, so this reads as the same app
+// rather than a one-off style.
+function CategoryNavItem({ label, icon, selected, onClick }) {
+
+    return (
+
+        <Box
+            component="button"
+            type="button"
+            onClick={onClick}
+            sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                width: "100%",
+                textAlign: "left",
+                border: "none",
+                borderLeft: "3px solid transparent",
+                borderRadius: 1.5,
+                bgcolor: selected ? "rgba(79, 70, 229, 0.1)" : "transparent",
+                borderLeftColor: selected ? "primary.main" : "transparent",
+                color: selected ? "primary.main" : "text.primary",
+                font: "inherit",
+                fontWeight: selected ? 700 : 500,
+                fontSize: "0.85rem",
+                px: 1.25,
+                py: 0.9,
+                mb: 0.25,
+                cursor: "pointer",
+                "&:hover": { bgcolor: selected ? "rgba(79, 70, 229, 0.1)" : "rgba(17,24,39,.04)" }
+            }}
+        >
+            {icon}
+            <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {label}
+            </Box>
+        </Box>
+
+    );
+
+}
+
 // The order-builder half of the POS flow: browse menu, build a cart, attach
 // a customer (or fall back to the shared guest placeholder), pick a payment
 // method and submit. GST is computed server-side, so only a pre-tax
 // subtotal is shown here.
-function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCancel }) {
+function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated }) {
 
     const { admin } = getStoredAuth() || {};
 
@@ -487,12 +533,21 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
         ),
     [categories, menuItems]);
 
+    const hasPopularItems = useMemo(() => menuItems.some((item) => item.IsPopular), [menuItems]);
+
+    // "popular" is a pure client-side filter over IsPopular (already fetched
+    // with every menu item, already shown as the bestseller star on each
+    // card) - not a new category or a backend concept, just a quick jump to
+    // items already flagged as such.
     const filteredItems = useMemo(() => {
 
         const search = itemSearch.trim().toLowerCase();
 
         return menuItems.filter((item) =>
-            (selectedCategoryId === "all" || item.CategoryId === selectedCategoryId) &&
+            (
+                selectedCategoryId === "all" ||
+                (selectedCategoryId === "popular" ? item.IsPopular : item.CategoryId === selectedCategoryId)
+            ) &&
             item.ItemName.toLowerCase().includes(search)
         );
 
@@ -572,9 +627,73 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
     return (
 
-        <Grid container spacing={3}>
+        <Box
+            sx={{
+                display: "flex",
+                flexDirection: { xs: "column", sm: "row" },
+                gap: { xs: 2, sm: 0 },
+                height: { xs: "auto", sm: "100%" },
+                minHeight: 0
+            }}
+        >
 
-            <Grid size={{ xs: 12, md: 7 }}>
+            {/* Vertical category rail - md+ only. Below md this same list
+                still exists as the horizontal chip row further down (it
+                never goes away, it's just the narrower-viewport form of the
+                identical selectedCategoryId state), so no category
+                functionality is duplicated or lost by width, only its
+                presentation changes. */}
+            {(categoriesWithItems.length > 0 || hasPopularItems) && (
+
+                <Box
+                    sx={{
+                        display: { xs: "none", md: "flex" },
+                        flexDirection: "column",
+                        width: 176,
+                        flexShrink: 0,
+                        pr: 1.5,
+                        mr: 2,
+                        borderRight: "1px solid #E5E7EB",
+                        overflowY: "auto"
+                    }}
+                >
+
+                    <Typography
+                        variant="caption"
+                        sx={{ px: 1.25, mb: 0.75, fontWeight: 700, color: "text.secondary", textTransform: "uppercase", letterSpacing: "0.06em", fontSize: "0.68rem" }}
+                    >
+                        Categories
+                    </Typography>
+
+                    {hasPopularItems && (
+                        <CategoryNavItem
+                            label="Popular"
+                            icon={<StarRoundedIcon sx={{ fontSize: 17 }} />}
+                            selected={selectedCategoryId === "popular"}
+                            onClick={() => setSelectedCategoryId("popular")}
+                        />
+                    )}
+
+                    <CategoryNavItem
+                        label="All Items"
+                        selected={selectedCategoryId === "all"}
+                        onClick={() => setSelectedCategoryId("all")}
+                    />
+
+                    {categoriesWithItems.map((category) => (
+                        <CategoryNavItem
+                            key={category.CategoryId}
+                            label={category.CategoryName}
+                            selected={selectedCategoryId === category.CategoryId}
+                            onClick={() => setSelectedCategoryId(category.CategoryId)}
+                        />
+                    ))}
+
+                </Box>
+
+            )}
+
+            <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", minHeight: 0 }}>
 
                 {/* This is the single most-used control on the whole screen
                     (staff search it constantly through a shift) - it earns a
@@ -610,6 +729,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                     }}
                     sx={{
                         mb: 1.5,
+                        flexShrink: 0,
                         "& .MuiOutlinedInput-root": {
                             height: 52,
                             fontSize: "1.05rem",
@@ -623,12 +743,37 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                     }}
                 />
 
-                {categoriesWithItems.length > 0 && (
+                {/* Horizontal fallback for the category rail above - hidden
+                    md+ (the vertical rail takes over there) so the same
+                    selection isn't offered twice at once. Scrollbar hidden
+                    rather than removed: still a real scroll area below sm,
+                    just without the native scrollbar dominating a touch UI
+                    that's already scrollable by swipe. */}
+                {(categoriesWithItems.length > 0 || hasPopularItems) && (
 
-                    // A single scrollable row instead of wrapping - wrapping
-                    // to 2-3 rows was pushing the actual menu items down by
-                    // as much as 72px before a single item was even visible.
-                    <Box sx={{ display: "flex", flexWrap: "nowrap", gap: 1, mb: 1.5, overflowX: "auto", pb: 0.5 }}>
+                    <Box
+                        sx={{
+                            display: { xs: "flex", md: "none" },
+                            flexWrap: "nowrap",
+                            gap: 1,
+                            mb: 1.5,
+                            flexShrink: 0,
+                            overflowX: "auto",
+                            pb: 0.5,
+                            scrollbarWidth: "none",
+                            "&::-webkit-scrollbar": { display: "none" }
+                        }}
+                    >
+
+                        {hasPopularItems && (
+                            <Chip
+                                icon={<StarRoundedIcon sx={{ fontSize: 16 }} />}
+                                label="Popular"
+                                color={selectedCategoryId === "popular" ? "primary" : "default"}
+                                onClick={() => setSelectedCategoryId("popular")}
+                                sx={{ flexShrink: 0 }}
+                            />
+                        )}
 
                         <Chip
                             label="All"
@@ -653,7 +798,20 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 )}
 
-                <Box sx={{ maxHeight: 560, overflowY: "auto", pr: 0.5 }}>
+                {/* flex:1 + minHeight:0 instead of a fixed maxHeight - this is
+                    the one region of the whole screen meant to scroll (see
+                    the outer layout comment above); a hardcoded cap either
+                    wasted space on a tall viewport or clipped early on a
+                    short one. */}
+                <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", pr: 0.5 }}>
+
+                    {menuLoading && (
+
+                        <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
+                            <CircularProgress size={26} />
+                        </Box>
+
+                    )}
 
                     {!menuLoading && filteredItems.length === 0 && (
 
@@ -861,15 +1019,31 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 </Box>
 
-            </Grid>
+            </Box>
 
-            <Grid size={{ xs: 12, md: 5 }}>
+            {/* Order panel: fixed width, full column height, and internally
+                split into a fixed header (Customer), the one scrollable
+                region that isn't the menu (the cart line items, which can
+                run long), and a fixed footer (subtotal/payment/notes/Place
+                Order) - this is what keeps the primary action reachable
+                without scrolling regardless of how many lines are in the
+                cart, per the layout rules this screen was asked to follow. */}
+            <Box
+                sx={{
+                    width: { xs: "100%", sm: 320, lg: 340 },
+                    flexShrink: 0,
+                    ml: { sm: 2 },
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 0
+                }}
+            >
 
-                <Box sx={{ position: { md: "sticky" }, top: { md: 16 } }}>
+                <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, p: 0, overflow: "hidden" }}>
 
-                    <Card variant="outlined" sx={{ p: 2.5 }}>
+                    <Box sx={{ p: 2, pb: 1.5, flexShrink: 0 }}>
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1.5 }}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
                             Customer
                         </Typography>
 
@@ -954,10 +1128,18 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         )}
 
-                        <Divider sx={{ my: 2 }} />
+                    </Box>
+
+                    <Divider />
+
+                    {/* The one scrollable region in this column besides the
+                        menu itself - a long order (a big table, several
+                        rounds) scrolls here without ever pushing the
+                        subtotal/payment/Place Order footer below off screen. */}
+                    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 2, py: 1.5 }}>
 
                         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                            Cart
+                            Current Order
                         </Typography>
 
                         {cartLines.length === 0 ? (
@@ -968,7 +1150,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         ) : (
 
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5, maxHeight: 220, overflowY: "auto" }}>
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
 
                                 {cartLines.map((line) => (
 
@@ -1048,9 +1230,17 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         )}
 
+                    </Box>
+
+                    {/* Fixed footer: subtotal through Place Order never
+                        scrolls out of view, regardless of how long the cart
+                        above gets - the primary action stays reachable at
+                        all times, per this screen's own requirements. */}
+                    <Box sx={{ p: 2, pt: 1.5, borderTop: "1px solid #E5E7EB", flexShrink: 0 }}>
+
                         {cartLines.length > 0 && (
 
-                            <Box sx={{ mt: 1.5, textAlign: "right" }}>
+                            <Box sx={{ mb: 1.5, textAlign: "right" }}>
 
                                 <Typography variant="h6" fontWeight={700}>
                                     Subtotal: ₹ {subtotal.toFixed(2)}
@@ -1064,8 +1254,6 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         )}
 
-                        <Divider sx={{ my: 2 }} />
-
                         <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
                             Payment Method
                         </Typography>
@@ -1077,7 +1265,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             size="small"
                             value={paymentMethod}
                             onChange={(event, value) => value && setPaymentMethod(value)}
-                            sx={{ mb: 2 }}
+                            sx={{ mb: 1.5 }}
                         >
 
                             {PAYMENT_METHODS.map((method) => (
@@ -1096,33 +1284,29 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             label="Order Notes (optional)"
                             value={notes}
                             onChange={(event) => setNotes(event.target.value)}
-                            sx={{ mb: 2 }}
+                            sx={{ mb: 1.5 }}
                         />
 
-                        <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+                        {/* Back is already the header's job (Pos.jsx renders
+                            "Back to Floor" there) - repeating it here just to
+                            balance the row was giving Place Order, the one
+                            action this whole screen exists to reach, half the
+                            width and equal visual weight to leaving. */}
+                        <Button
+                            variant="contained"
+                            fullWidth
+                            size="large"
+                            disabled={submitting || cartLines.length === 0}
+                            onClick={handlePlaceOrder}
+                        >
+                            {submitting ? "Placing Order..." : "Place Order"}
+                        </Button>
 
-                            {onCancel && (
-                                <Button onClick={onCancel}>
-                                    Back
-                                </Button>
-                            )}
+                    </Box>
 
-                            <Button
-                                variant="contained"
-                                fullWidth={!onCancel}
-                                disabled={submitting}
-                                onClick={handlePlaceOrder}
-                            >
-                                {submitting ? "Placing Order..." : "Place Order"}
-                            </Button>
+                </Card>
 
-                        </Box>
-
-                    </Card>
-
-                </Box>
-
-            </Grid>
+            </Box>
 
             <PosItemOptionsDialog
                 open={Boolean(optionsDialogItem)}
@@ -1146,7 +1330,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 )}
             </PrintDialog>
 
-        </Grid>
+        </Box>
 
     );
 

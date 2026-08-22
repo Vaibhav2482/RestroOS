@@ -624,6 +624,7 @@ function Layout({ children }) {
                 component="main"
                 sx={{
                     flexGrow: 1,
+                    minWidth: 0,
                     width: { md: `calc(100% - ${drawerWidth}px)` },
                     p: { xs: 2, md: 3 },
                     // Clears the fixed AppBar only where one still exists. It

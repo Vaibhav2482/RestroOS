@@ -178,12 +178,16 @@ describe("PosOrderBuilder - placing the order", () => {
 
     it("blocks placing an order with an empty cart", async () => {
 
-        const user = userEvent.setup();
         renderBuilder();
 
         await screen.findByText("Ginger Chai");
-        await user.click(screen.getByRole("button", { name: /place order/i }));
 
+        // Disabled outright now, not just rejected after a click - the
+        // button no longer offers an action it's going to refuse. A
+        // genuinely disabled button can't even be clicked (userEvent
+        // correctly refuses to simulate a click on one), so the disabled
+        // assertion itself is the proof here.
+        expect(screen.getByRole("button", { name: /place order/i })).toBeDisabled();
         expect(orderService.createOrder).not.toHaveBeenCalled();
 
     });
