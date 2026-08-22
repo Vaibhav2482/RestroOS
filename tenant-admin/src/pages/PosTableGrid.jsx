@@ -1,4 +1,4 @@
-import { Box, Button, Card, Chip, IconButton, Grid, Tooltip, Typography } from "@mui/material";
+import { Box, Button, Card, Chip, IconButton, Tooltip, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -6,6 +6,31 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
 import EmptyState from "../components/EmptyState";
+
+// Fixed card width, not a per-breakpoint column count - a floor plan needs
+// to scale to however many tables a tenant actually has (a small counter
+// with 5 tables and a large hall with 80 are both real cases), and a fixed-
+// count grid (the old "6 across on a phone, 8 across on desktop" shape)
+// forces every tile narrower as more columns are demanded, which is exactly
+// what was truncating the order amount on a busy table. auto-fill with a
+// literal pixel size (not minmax) keeps every tile identically sized and
+// just fits more of them on a wider floor instead.
+const CARD_WIDTH = 180;
+
+// Every card reserves the same four rows whether or not a given table has
+// something to put in them - an idle "Available" table still occupies the
+// status/detail/action rows, just with nothing rendered in them, which is
+// what keeps every tile on the floor exactly the same height regardless of
+// what's actually happening at that table. A previous version of this file
+// tried a fixed Card height without reserving that space and had to revert
+// to minHeight because content that only some tables have (the detail line,
+// the action button) clipped on the ones that had it - this fixes that at
+// the root instead of giving up on a fixed height.
+const TOP_ZONE_HEIGHT = 78;
+const STATUS_ZONE_HEIGHT = 28;
+const DETAIL_ZONE_HEIGHT = 18;
+const ACTION_ZONE_HEIGHT = 26;
+const CARD_HEIGHT = TOP_ZONE_HEIGHT + STATUS_ZONE_HEIGHT + DETAIL_ZONE_HEIGHT + ACTION_ZONE_HEIGHT + 24; // + vertical padding
 
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
@@ -26,7 +51,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
 
     return (
 
-        <Grid container spacing={2}>
+        <Box sx={{ display: "grid", gridTemplateColumns: `repeat(auto-fill, ${CARD_WIDTH}px)`, gap: 2, justifyContent: "start" }}>
 
             {tables.map((table) => {
 
@@ -44,168 +69,158 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
 
                 return (
 
-                    <Grid key={table.TableId} size={{ xs: 4, sm: 3, md: 2, lg: 1.5 }}>
+                    <Card
+                        key={table.TableId}
+                        onClick={() => onTableClick(table, orders)}
+                        sx={{
+                            position: "relative",
+                            width: CARD_WIDTH,
+                            height: CARD_HEIGHT,
+                            cursor: "pointer",
+                            textAlign: "center",
+                            border: "2px solid",
+                            borderColor: isOccupied ? "warning.main" : "success.main",
+                            bgcolor: isOccupied ? "#FFF8E1" : "#F0FDF4",
+                            transition: "transform .15s, box-shadow .15s",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0,0,0,.08)" }
+                        }}
+                    >
 
-                        {/* A fixed height (not just a floor) is deliberate - an
-                            occupied table's extra content (status/price/button)
-                            used to grow the card taller than an idle "Available"
-                            neighbor, so every table on the floor changed size as
-                            orders moved through the kitchen. Fixed top zone
-                            (icon/name/seats) plus a fixed-height, vertically
-                            centered status zone keeps every card identical
-                            regardless of what's happening at that table. */}
-                        <Card
-                            onClick={() => onTableClick(table, orders)}
-                            sx={{
-                                position: "relative",
-                                // Was 208px in a 6-column-on-phone grid, so seven
-                                // tables filled an entire tablet screen. A floor
-                                // plan is scanned, not read - the tile only has to
-                                // carry a number, a state and (when running) an
-                                // amount, which fits comfortably in half that.
-                                // minHeight, never a fixed height. Tables that
-                                // carry a "Seats N" line have one more row of
-                                // content than those that don't, and a fixed box
-                                // pushed the status pill outside the card edge on
-                                // exactly those. Letting the card grow costs a
-                                // little unevenness and cannot clip.
-                                minHeight: 138,
-                                cursor: "pointer",
-                                textAlign: "center",
-                                border: "2px solid",
-                                borderColor: isOccupied ? "warning.main" : "success.main",
-                                bgcolor: isOccupied ? "#FFF8E1" : "#F0FDF4",
-                                transition: "transform .15s, box-shadow .15s",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                "&:hover": { transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0,0,0,.08)" }
-                            }}
-                        >
+                        {/* A direct shortcut to start another round on this
+                            table - previously the only way there was through
+                            the details dialog, costing staff an extra tap on
+                            the single-order case that happens on almost every
+                            table. Distinct from tapping the card body (which
+                            opens the existing order/chooser) - the tooltip is
+                            what disambiguates the two, since both are valid,
+                            different actions on an occupied table. */}
+                        {isOccupied && (
 
-                            {/* A direct shortcut to start another round on this
-                                table - previously the only way there was through
-                                the details dialog, costing staff an extra tap on
-                                the single-order case that happens on almost every
-                                table. */}
-                            {isOccupied && (
+                            <Tooltip title="Start another order for this table">
+                                <IconButton
+                                    size="small"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onAddOrder(table);
+                                    }}
+                                    sx={{
+                                        position: "absolute",
+                                        top: 6,
+                                        right: 6,
+                                        bgcolor: "background.paper",
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        "&:hover": { bgcolor: "primary.main", color: "#fff" }
+                                    }}
+                                >
+                                    <AddRoundedIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
 
-                                <Tooltip title="Start another order for this table">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(event) => {
-                                            event.stopPropagation();
-                                            onAddOrder(table);
-                                        }}
-                                        sx={{
-                                            position: "absolute",
-                                            top: 6,
-                                            right: 6,
-                                            bgcolor: "background.paper",
-                                            border: "1px solid",
-                                            borderColor: "divider",
-                                            "&:hover": { bgcolor: "primary.main", color: "#fff" }
-                                        }}
-                                    >
-                                        <AddRoundedIcon fontSize="small" />
-                                    </IconButton>
-                                </Tooltip>
+                        )}
+
+                        <Box sx={{ height: TOP_ZONE_HEIGHT, pt: 2, px: 1.5, flexShrink: 0 }}>
+
+                            <TableRestaurantRoundedIcon
+                                sx={{ fontSize: 30, color: isOccupied ? "warning.main" : "success.main" }}
+                            />
+
+                            <Typography fontWeight={700} sx={{ mt: 0.25, lineHeight: 1.2 }} noWrap>
+                                {table.TableName}
+                            </Typography>
+
+                            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
+                                {table.Capacity ? `Seats ${table.Capacity}` : " "}
+                            </Typography>
+
+                        </Box>
+
+                        <Box sx={{ height: STATUS_ZONE_HEIGHT, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+
+                            {hasMultipleOrders ? (
+
+                                <Chip label={`${orders.length} Orders`} color="warning" size="small" />
+
+                            ) : isOccupied ? (
+
+                                <Chip
+                                    label={primaryOrder.OrderStatus}
+                                    color={POS_STATUS_COLOR[primaryOrder.OrderStatus] || "default"}
+                                    size="small"
+                                />
+
+                            ) : (
+
+                                <Chip label="Available" color="success" size="small" />
 
                             )}
 
-                            <Box sx={{ pt: 2.5, px: 2 }}>
+                        </Box>
 
-                                <TableRestaurantRoundedIcon
-                                    sx={{ fontSize: 32, color: isOccupied ? "warning.main" : "success.main" }}
-                                />
+                        {/* Detail row: order number + amount (or the combined
+                            total for a multi-order table), blank but still
+                            occupying its row height for an idle table - this
+                            is what keeps that row from ever needing to shrink
+                            or truncate the amount to fit, which a shared,
+                            content-sized row would otherwise be tempted to do
+                            under a taller neighbor. */}
+                        <Box sx={{ height: DETAIL_ZONE_HEIGHT, display: "flex", alignItems: "center", justifyContent: "center", px: 1, width: "100%", flexShrink: 0 }}>
 
-                                <Typography fontWeight={700} sx={{ mt: 0.5 }}>
-                                    {table.TableName}
+                            {hasMultipleOrders ? (
+
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                                    {formatCurrency(combinedTotal)} total
                                 </Typography>
 
-                                <Typography variant="caption" color="text.secondary">
-                                    {table.Capacity ? `Seats ${table.Capacity}` : " "}
+                            ) : isOccupied ? (
+
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
+                                    #{primaryOrder.OrderId} &middot; {formatCurrency(primaryOrder.TotalAmount)}
                                 </Typography>
 
-                            </Box>
+                            ) : null}
 
-                            <Box
-                                sx={{
-                                    flex: 1,
-                                    width: "100%",
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    gap: 0.5,
-                                    px: 1.5,
-                                    pb: 2
-                                }}
-                            >
+                        </Box>
 
-                                {hasMultipleOrders ? (
+                        {/* Action row: a real next-step control when there is
+                            one, deliberately styled as a button (bordered,
+                            rectangular) rather than a status chip (filled,
+                            pill-shaped) so the two rows above and below it
+                            read as "what's true" vs. "what you can do about
+                            it" at a glance, not two stacked labels. Blank,
+                            not omitted, when there's nothing to advance. */}
+                        <Box sx={{ height: ACTION_ZONE_HEIGHT, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
 
-                                    <>
-                                        <Chip
-                                            label={`${orders.length} Orders`}
-                                            color="warning"
-                                            size="small"
-                                        />
+                            {nextStatus && (
 
-                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
-                                            {formatCurrency(combinedTotal)} total
-                                        </Typography>
-                                    </>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    disabled={pendingAdvanceOrderIds?.has(primaryOrder.OrderId)}
+                                    endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onQuickAdvance(primaryOrder.OrderId, nextStatus);
+                                    }}
+                                    sx={{ py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
+                                >
+                                    {nextStatus}
+                                </Button>
 
-                                ) : isOccupied ? (
+                            )}
 
-                                    <>
-                                        <Chip
-                                            label={primaryOrder.OrderStatus}
-                                            color={POS_STATUS_COLOR[primaryOrder.OrderStatus] || "default"}
-                                            size="small"
-                                        />
+                        </Box>
 
-                                        <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: "100%" }}>
-                                            #{primaryOrder.OrderId} &middot; {formatCurrency(primaryOrder.TotalAmount)}
-                                        </Typography>
-
-                                        {nextStatus && (
-
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                disabled={pendingAdvanceOrderIds?.has(primaryOrder.OrderId)}
-                                                endIcon={<ArrowForwardRoundedIcon sx={{ fontSize: 14 }} />}
-                                                onClick={(event) => {
-                                                    event.stopPropagation();
-                                                    onQuickAdvance(primaryOrder.OrderId, nextStatus);
-                                                }}
-                                                sx={{ mt: 0.25, py: 0.25, fontSize: 11.5, lineHeight: 1.3 }}
-                                            >
-                                                {nextStatus}
-                                            </Button>
-
-                                        )}
-                                    </>
-
-                                ) : (
-
-                                    <Chip label="Available" color="success" size="small" />
-
-                                )}
-
-                            </Box>
-
-                        </Card>
-
-                    </Grid>
+                    </Card>
 
                 );
 
             })}
 
-        </Grid>
+        </Box>
 
     );
 
