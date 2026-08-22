@@ -26,6 +26,8 @@ import { getPusherClient } from "../lib/pusherClient";
 import { playNotificationSound } from "../utils/notificationSound";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
+import { useThermalPrint } from "../hooks/useThermalPrint";
+import { buildKotTicket } from "../utils/kotEscpos";
 
 // The kitchen's job ends at Ready - Delivered/Out For Delivery is
 // front-of-house's concern, handled from Orders/POS instead. Pending jumps
@@ -157,6 +159,7 @@ function Kitchen() {
     // pendingAdvanceOrderIds.
     const [advancingIds, setAdvancingIds] = useState(() => new Set());
     const [kotOrder, setKotOrder] = useState(null);
+    const { printing: kotPrinting, print: printKot } = useThermalPrint();
     // Unused beyond forcing a re-render - elapsedMinutes() itself always
     // reads Date.now() fresh, but nothing was ever prompting React to
     // recompute it between actual data changes (a Pusher event or the 60s
@@ -409,7 +412,16 @@ function Kitchen() {
 
             )}
 
-            <PrintDialog open={Boolean(kotOrder)} onClose={() => setKotOrder(null)} printLabel="Print KOT">
+            <PrintDialog
+                open={Boolean(kotOrder)}
+                onClose={() => setKotOrder(null)}
+                printLabel="Print KOT"
+                printing={kotPrinting}
+                onPrint={kotOrder ? () => printKot(() => buildKotTicket({
+                    order: { ...kotOrder, BranchName: branches.find((branch) => branch.BranchId === selectedBranchId)?.BranchName },
+                    restaurantName: admin?.tenantName
+                })) : undefined}
+            >
                 {kotOrder && (
                     <KotReceipt
                         order={{ ...kotOrder, BranchName: branches.find((branch) => branch.BranchId === selectedBranchId)?.BranchName }}

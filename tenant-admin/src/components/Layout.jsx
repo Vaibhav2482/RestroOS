@@ -26,6 +26,7 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import PersonOutlineOutlinedIcon from "@mui/icons-material/PersonOutlineOutlined";
 import PointOfSaleOutlinedIcon from "@mui/icons-material/PointOfSaleOutlined";
 import KitchenOutlinedIcon from "@mui/icons-material/KitchenOutlined";
+import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
@@ -77,7 +78,8 @@ const NAV_GROUPS = [
             { label: "Customers", to: "/customers", icon: <PersonOutlineOutlinedIcon />, permission: "view_customers" },
             { label: "Take Order", to: "/pos", icon: <PointOfSaleOutlinedIcon />, permission: "manage_orders" },
             { label: "Kitchen", to: "/kitchen", icon: <KitchenOutlinedIcon />, permission: "manage_orders" },
-            { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon />, permission: "manage_tables" }
+            { label: "Tables", to: "/tables", icon: <TableRestaurantOutlinedIcon />, permission: "manage_tables" },
+            { label: "Printers", to: "/printers", icon: <PrintOutlinedIcon />, permission: "manage_orders" }
         ]
     },
     {

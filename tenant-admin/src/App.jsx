@@ -17,6 +17,7 @@ import Coupons from "./pages/Coupons";
 import Branches from "./pages/Branches";
 import Admins from "./pages/Admins";
 import Integrations from "./pages/Integrations";
+import PrinterSettings from "./pages/PrinterSettings";
 import AuditLog from "./pages/AuditLog";
 import Settings from "./pages/Settings";
 import Features from "./pages/Features";
@@ -63,6 +64,7 @@ function App() {
                 <Route path="/customers" element={withLayout(<Customers />, { permission: "view_customers" })} />
                 <Route path="/pos" element={withLayout(<Pos />, { permission: "manage_orders" })} />
                 <Route path="/kitchen" element={withLayout(<Kitchen />, { permission: "manage_orders" })} />
+                <Route path="/printers" element={withLayout(<PrinterSettings />, { permission: "manage_orders" })} />
                 <Route path="/tables" element={withLayout(<Tables />, { permission: "manage_tables" })} />
                 <Route path="/menu" element={withLayout(<Menu />, { permission: "manage_menu" })} />
                 <Route path="/inventory" element={withLayout(<Inventory />, { permission: ["manage_inventory", "manage_ingredients"] })} />

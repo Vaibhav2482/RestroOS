@@ -33,6 +33,8 @@ import { cloudinaryThumbnail } from "../utils/cloudinaryImage";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
+import { useThermalPrint } from "../hooks/useThermalPrint";
+import { buildKotTicket } from "../utils/kotEscpos";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 const GUEST_PHONE = "0000000000";
@@ -162,6 +164,7 @@ function CategoryNavItem({ label, icon, selected, onClick }) {
 function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated }) {
 
     const { admin } = getStoredAuth() || {};
+    const { printing: kotPrinting, print: printKot } = useThermalPrint();
 
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
@@ -1396,6 +1399,8 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 open={Boolean(placedOrder)}
                 onClose={() => { onCreated(placedOrder.createdOrder); setPlacedOrder(null); }}
                 printLabel="Print KOT"
+                printing={kotPrinting}
+                onPrint={placedOrder ? () => printKot(() => buildKotTicket({ order: placedOrder.kotOrder, restaurantName: admin?.tenantName })) : undefined}
             >
                 {placedOrder && (
                     <>

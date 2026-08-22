@@ -41,6 +41,8 @@ import BillReceipt from "../components/BillReceipt";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
+import { useThermalPrint } from "../hooks/useThermalPrint";
+import { buildKotTicket } from "../utils/kotEscpos";
 import {
     formatCurrency,
     getNextStatuses,
@@ -75,6 +77,7 @@ const linesFromOrderItems = (items = []) =>
 function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
     const auth = getStoredAuth();
+    const { printing: kotPrinting, print: printKot } = useThermalPrint();
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -877,7 +880,13 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
             {order && (
 
-                <PrintDialog open={kotOpen} onClose={() => setKotOpen(false)} printLabel="Print KOT">
+                <PrintDialog
+                    open={kotOpen}
+                    onClose={() => setKotOpen(false)}
+                    printLabel="Print KOT"
+                    printing={kotPrinting}
+                    onPrint={() => printKot(() => buildKotTicket({ order, restaurantName: auth?.admin?.tenantName }))}
+                >
                     <KotReceipt order={order} restaurantName={auth?.admin?.tenantName} />
                 </PrintDialog>
 

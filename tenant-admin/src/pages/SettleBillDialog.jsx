@@ -22,6 +22,8 @@ import { POS_STATUS_COLOR } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
 import TableVisitBillReceipt from "../components/TableVisitBillReceipt";
 import PrintDialog from "../components/PrintDialog";
+import { useThermalPrint } from "../hooks/useThermalPrint";
+import { buildBillTicket } from "../utils/billEscpos";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 
@@ -34,6 +36,7 @@ const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
     const auth = getStoredAuth();
+    const { printing: billPrinting, print: printBill } = useThermalPrint();
 
     const [loading, setLoading] = useState(true);
     const [visit, setVisit] = useState(null);
@@ -263,7 +266,13 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
             {visit && (
 
-                <PrintDialog open={billOpen} onClose={() => setBillOpen(false)}>
+                <PrintDialog
+                    open={billOpen}
+                    onClose={() => setBillOpen(false)}
+                    printLabel="Print Bill"
+                    printing={billPrinting}
+                    onPrint={() => printBill(() => buildBillTicket({ visit, restaurantName: auth?.admin?.tenantName, branchName: visit.BranchName }))}
+                >
                     <TableVisitBillReceipt visit={visit} restaurantName={auth?.admin?.tenantName} branchName={visit.BranchName} />
                 </PrintDialog>
 
