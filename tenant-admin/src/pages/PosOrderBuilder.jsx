@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
     Alert,
     Box,
@@ -554,6 +554,9 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     }, [menuItems, itemSearch, selectedCategoryId]);
 
     const subtotal = cartLines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+    // Total food items to prepare, not distinct lines - "2x Chai" and
+    // "1x Samosa" is 3 items on its way to the kitchen, not 2.
+    const totalItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
 
     // The sticky cart sidebar already shows every line item, the subtotal,
     // payment method and notes in full - a separate "review" dialog would
@@ -994,7 +997,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                             size="small"
                                             startIcon={<AddRoundedIcon />}
                                             onClick={() => handleAddClick(item)}
-                                            sx={{ flexShrink: 0 }}
+                                            sx={{ flexShrink: 0, width: 112 }}
                                         >
                                             Add
                                         </Button>
@@ -1071,9 +1074,9 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, p: 0, overflow: "hidden" }}>
 
-                    <Box sx={{ p: 2, pb: 1.5, flexShrink: 0 }}>
+                    <Box sx={{ p: 1.5, pb: 1.25, flexShrink: 0 }}>
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
                             Customer
                         </Typography>
 
@@ -1087,12 +1090,12 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                 }
                                 color="success"
                                 onDelete={handleChangeCustomer}
-                                sx={{ mb: 1, maxWidth: "100%" }}
+                                sx={{ maxWidth: "100%" }}
                             />
 
                         ) : (
 
-                            <Grid container spacing={1.5}>
+                            <Grid container spacing={1}>
 
                                 <Grid size={{ xs: 12 }}>
 
@@ -1103,6 +1106,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                         value={customerPhone}
                                         onChange={(event) => setCustomerPhone(event.target.value)}
                                         onBlur={() => customerPhone.trim() && !needsName && handleFindCustomer()}
+                                        sx={{ "& .MuiOutlinedInput-root": { height: 40 } }}
                                     />
 
                                 </Grid>
@@ -1118,19 +1122,27 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                             label="Customer Name"
                                             value={customerName}
                                             onChange={(event) => setCustomerName(event.target.value)}
+                                            sx={{ "& .MuiOutlinedInput-root": { height: 40 } }}
                                         />
 
                                     </Grid>
 
                                 )}
 
-                                <Grid size={{ xs: needsName ? 12 : 8 }}>
+                                {/* Both buttons share the same bordered treatment and fixed
+                                    height as the phone field above (rather than one boxed
+                                    "outlined" button next to a bare "text" link) so the pair
+                                    reads as two comparably-weighted choices, not a primary
+                                    action next to an afterthought. */}
+                                <Grid size={{ xs: needsName ? 12 : 7 }}>
 
                                     <Button
                                         variant="outlined"
                                         fullWidth
+                                        size="small"
                                         disabled={checkingCustomer}
                                         onClick={handleFindCustomer}
+                                        sx={{ height: 40 }}
                                     >
                                         {needsName ? "Create Customer" : "Find / Add Customer"}
                                     </Button>
@@ -1139,13 +1151,16 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                 {!needsName && (
 
-                                    <Grid size={{ xs: 4 }}>
+                                    <Grid size={{ xs: 5 }}>
 
                                         <Button
-                                            variant="text"
+                                            variant="outlined"
+                                            color="inherit"
                                             fullWidth
+                                            size="small"
                                             disabled={checkingCustomer}
                                             onClick={handleUseGuest}
+                                            sx={{ height: 40, borderColor: "divider", color: "text.secondary" }}
                                         >
                                             Guest
                                         </Button>
@@ -1166,10 +1181,10 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         menu itself - a long order (a big table, several
                         rounds) scrolls here without ever pushing the
                         subtotal/payment/Place Order footer below off screen. */}
-                    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 2, py: 1.5 }}>
+                    <Box sx={{ flex: 1, minHeight: 0, overflowY: "auto", p: 1.5, py: 1.25 }}>
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                            Current Order
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
+                            Current Order{totalItemCount > 0 ? ` (${totalItemCount})` : ""}
                         </Typography>
 
                         {cartLines.length === 0 ? (
@@ -1180,15 +1195,40 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         ) : (
 
-                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            /* A single shared grid (not one flex row per item) is what
+                               keeps the Qty/Price/Delete columns aligned down the whole
+                               list - each item's cells are direct children of this one
+                               grid, not their own independent row container, so the
+                               browser sizes every column against every item at once.
+                               Name gets the flexible 1fr track; the other three are
+                               fixed/minmax so a long name (wrapped to 2 lines) or a
+                               large total never shifts them out of alignment. */
+                            <Box
+                                sx={{
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr 84px minmax(56px, auto) 28px",
+                                    columnGap: 1,
+                                    rowGap: 1,
+                                    alignItems: "center"
+                                }}
+                            >
 
                                 {cartLines.map((line) => (
 
-                                    <Box key={line.lineKey} sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                    <Fragment key={line.lineKey}>
 
                                         <Box sx={{ minWidth: 0 }}>
 
-                                            <Typography variant="body2" noWrap>
+                                            <Typography
+                                                variant="body2"
+                                                sx={{
+                                                    display: "-webkit-box",
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: "vertical",
+                                                    overflow: "hidden",
+                                                    lineHeight: 1.3
+                                                }}
+                                            >
                                                 {line.itemName}
                                             </Typography>
 
@@ -1200,59 +1240,63 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                                         </Box>
 
-                                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexShrink: 0 }}>
+                                        {/* Same +/- stepper pattern as the menu list - the cart
+                                            previously had only a bare 28px number field with no
+                                            visible way to change quantity short of clicking in and
+                                            typing, inconsistent with how quantity works everywhere
+                                            else on this screen. */}
+                                        <Box
+                                            sx={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                border: "1px solid #E5E7EB",
+                                                borderRadius: 5,
+                                                px: 0.25,
+                                                py: 0.125
+                                            }}
+                                        >
 
-                                            {/* Same +/- stepper pattern as the menu list - the cart
-                                                previously had only a bare 28px number field with no
-                                                visible way to change quantity short of clicking in and
-                                                typing, inconsistent with how quantity works everywhere
-                                                else on this screen. */}
-                                            <Box
-                                                sx={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    border: "1px solid #E5E7EB",
-                                                    borderRadius: 5,
-                                                    px: 0.25,
-                                                    py: 0.125
-                                                }}
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleSetLineQuantity(line.lineKey, line.quantity - 1)}
+                                                sx={{ p: 0.5 }}
                                             >
+                                                <RemoveRoundedIcon sx={{ fontSize: 15 }} />
+                                            </IconButton>
 
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleSetLineQuantity(line.lineKey, line.quantity - 1)}
-                                                    sx={{ p: 0.5 }}
-                                                >
-                                                    <RemoveRoundedIcon sx={{ fontSize: 15 }} />
-                                                </IconButton>
+                                            <QuantityInput
+                                                value={line.quantity}
+                                                onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
+                                                sx={{ width: 22 }}
+                                            />
 
-                                                <QuantityInput
-                                                    value={line.quantity}
-                                                    onCommit={(next) => handleSetLineQuantity(line.lineKey, next)}
-                                                    sx={{ width: 22 }}
-                                                />
-
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => handleSetLineQuantity(line.lineKey, line.quantity + 1)}
-                                                    sx={{ p: 0.5 }}
-                                                >
-                                                    <AddRoundedIcon sx={{ fontSize: 15 }} />
-                                                </IconButton>
-
-                                            </Box>
-
-                                            <Typography variant="body2" fontWeight={600}>
-                                                ₹ {(line.price * line.quantity).toFixed(2)}
-                                            </Typography>
-
-                                            <IconButton size="small" color="error" onClick={() => handleRemoveLine(line.lineKey)}>
-                                                <DeleteRoundedIcon fontSize="small" />
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleSetLineQuantity(line.lineKey, line.quantity + 1)}
+                                                sx={{ p: 0.5 }}
+                                            >
+                                                <AddRoundedIcon sx={{ fontSize: 15 }} />
                                             </IconButton>
 
                                         </Box>
 
-                                    </Box>
+                                        <Typography variant="body2" fontWeight={600} sx={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                                            ₹{(line.price * line.quantity).toFixed(2)}
+                                        </Typography>
+
+                                        {/* De-emphasized until hovered - a trash icon at full
+                                            error-red weight next to every single line reads as a
+                                            row of warnings, not a rarely-used remove action. */}
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => handleRemoveLine(line.lineKey)}
+                                            sx={{ color: "text.disabled", justifySelf: "center", "&:hover": { color: "error.main" } }}
+                                        >
+                                            <DeleteRoundedIcon fontSize="small" />
+                                        </IconButton>
+
+                                    </Fragment>
 
                                 ))}
 
@@ -1266,11 +1310,11 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         scrolls out of view, regardless of how long the cart
                         above gets - the primary action stays reachable at
                         all times, per this screen's own requirements. */}
-                    <Box sx={{ p: 2, pt: 1.5, borderTop: "1px solid #E5E7EB", flexShrink: 0 }}>
+                    <Box sx={{ p: 1.5, pt: 1.25, borderTop: "1px solid #E5E7EB", flexShrink: 0 }}>
 
                         {cartLines.length > 0 && (
 
-                            <Box sx={{ mb: 1.5, textAlign: "right" }}>
+                            <Box sx={{ mb: 1.25, textAlign: "right" }}>
 
                                 <Typography variant="h6" fontWeight={700}>
                                     Subtotal: ₹ {subtotal.toFixed(2)}
@@ -1284,7 +1328,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                         )}
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
                             Payment Method
                         </Typography>
 
@@ -1295,7 +1339,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             size="small"
                             value={paymentMethod}
                             onChange={(event, value) => value && setPaymentMethod(value)}
-                            sx={{ mb: 1.5 }}
+                            sx={{ mb: 1.25, "& .MuiToggleButton-root": { height: 36 } }}
                         >
 
                             {PAYMENT_METHODS.map((method) => (
@@ -1314,20 +1358,23 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             label="Order Notes (optional)"
                             value={notes}
                             onChange={(event) => setNotes(event.target.value)}
-                            sx={{ mb: 1.5 }}
+                            sx={{ mb: 1.25 }}
                         />
 
                         {/* Back is already the header's job (Pos.jsx renders
                             "Back to Floor" there) - repeating it here just to
                             balance the row was giving Place Order, the one
                             action this whole screen exists to reach, half the
-                            width and equal visual weight to leaving. */}
+                            width and equal visual weight to leaving. Sized by
+                            an explicit py rather than size="large" - prominent
+                            through weight/color, not through being taller than
+                            the compact controls above it. */}
                         <Button
                             variant="contained"
                             fullWidth
-                            size="large"
                             disabled={submitting || cartLines.length === 0}
                             onClick={handlePlaceOrder}
+                            sx={{ py: 1.1, fontWeight: 700 }}
                         >
                             {submitting ? "Placing Order..." : "Place Order"}
                         </Button>
