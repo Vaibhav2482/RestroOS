@@ -2,6 +2,7 @@ import { Box, Button, Card, Chip, IconButton, Tooltip, Typography } from "@mui/m
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import ReceiptLongRoundedIcon from "@mui/icons-material/ReceiptLongRounded";
 
 import { POS_STATUS_COLOR, getPosForwardStatuses } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
@@ -35,7 +36,7 @@ const CARD_HEIGHT = TOP_ZONE_HEIGHT + STATUS_ZONE_HEIGHT + DETAIL_ZONE_HEIGHT + 
 // The single next status only (never skip-ahead) - jumping multiple steps
 // or cancelling still requires opening the full order details dialog, so
 // this quick action can't be used to fast-forward past a step by mistake.
-function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance, onAddOrder, pendingAdvanceOrderIds }) {
+function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvance, onAddOrder, onSettleBill, pendingAdvanceOrderIds }) {
 
     if (tables.length === 0) {
 
@@ -117,6 +118,35 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                                     }}
                                 >
                                     <AddRoundedIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+
+                        )}
+
+                        {/* Reaches the table's consolidated bill directly,
+                            regardless of how many separate rounds/orders
+                            it's carrying - staff shouldn't have to open the
+                            multi-order chooser first just to settle up. */}
+                        {isOccupied && (
+
+                            <Tooltip title="Settle bill for this table">
+                                <IconButton
+                                    size="small"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onSettleBill(table);
+                                    }}
+                                    sx={{
+                                        position: "absolute",
+                                        top: 6,
+                                        left: 6,
+                                        bgcolor: "background.paper",
+                                        border: "1px solid",
+                                        borderColor: "divider",
+                                        "&:hover": { bgcolor: "primary.main", color: "#fff" }
+                                    }}
+                                >
+                                    <ReceiptLongRoundedIcon fontSize="small" />
                                 </IconButton>
                             </Tooltip>
 

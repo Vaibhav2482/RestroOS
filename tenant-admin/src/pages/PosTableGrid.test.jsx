@@ -23,6 +23,7 @@ const renderGrid = (overrides = {}) => {
         onTableClick: vi.fn(),
         onQuickAdvance: vi.fn(),
         onAddOrder: vi.fn(),
+        onSettleBill: vi.fn(),
         pendingAdvanceOrderIds: new Set(),
         ...overrides
     };
@@ -104,6 +105,30 @@ describe("PosTableGrid", () => {
         expect(screen.queryByRole("button", { name: /^ready$/i })).not.toBeInTheDocument();
         expect(screen.queryByRole("button", { name: /^preparing$/i })).not.toBeInTheDocument();
         expect(screen.getByText(/300/)).toBeInTheDocument();
+
+    });
+
+    it("offers Settle Bill only on an occupied table, and reaches it independent of Start Another Order", () => {
+
+        const { props } = renderGrid({
+            activeOrdersByTable: new Map([
+                ["A1", [{ OrderId: 281, OrderStatus: "Preparing", TotalAmount: 100 }]]
+            ])
+        });
+
+        return userEvent.click(screen.getByRole("button", { name: /settle bill for this table/i })).then(() => {
+            expect(props.onSettleBill).toHaveBeenCalledTimes(1);
+            expect(props.onSettleBill.mock.calls[0][0]).toMatchObject({ TableName: "A1" });
+            expect(props.onAddOrder).not.toHaveBeenCalled();
+        });
+
+    });
+
+    it("does not offer Settle Bill on an available table", () => {
+
+        renderGrid();
+
+        expect(screen.queryByRole("button", { name: /settle bill for this table/i })).not.toBeInTheDocument();
 
     });
 

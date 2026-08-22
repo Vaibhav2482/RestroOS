@@ -16,6 +16,7 @@ import PosTableGrid from "./PosTableGrid";
 import PosOrderBuilder from "./PosOrderBuilder";
 import PosOrderDetails from "./PosOrderDetails";
 import PosTableOrdersDialog from "./PosTableOrdersDialog";
+import SettleBillDialog from "./SettleBillDialog";
 import { SIDEBAR_FORCE_COLLAPSE_EVENT } from "../components/Layout";
 
 function Pos() {
@@ -40,6 +41,10 @@ function Pos() {
     // clicking straight into whichever order happened to load last would
     // silently hide the other one from the staff member.
     const [tableOrdersView, setTableOrdersView] = useState(null);
+    // The table whose consolidated bill is currently open in SettleBillDialog
+    // - separate from tableOrdersView/detailsOrder, since settling reaches a
+    // table's whole visit directly rather than any one order within it.
+    const [settleBillTable, setSettleBillTable] = useState(null);
     // OrderIds with a status-advance request in flight - the quick-advance
     // button on the table grid had no guard against a rapid second tap
     // firing before the first one's response (and the table refresh it
@@ -390,6 +395,7 @@ function Pos() {
                     onTableClick={handleTableClick}
                     onQuickAdvance={handleAdvanceStatus}
                     onAddOrder={handleAddAnotherOrder}
+                    onSettleBill={setSettleBillTable}
                     pendingAdvanceOrderIds={pendingAdvanceOrderIds}
                 />
 
@@ -483,6 +489,14 @@ function Pos() {
                 onSelectOrder={handleSelectTableOrder}
                 onAddAnotherOrder={() => handleAddAnotherOrder(tableOrdersView.table)}
                 onClose={() => setTableOrdersView(null)}
+            />
+
+            <SettleBillDialog
+                open={Boolean(settleBillTable)}
+                branchId={selectedBranchId}
+                table={settleBillTable}
+                onClose={() => setSettleBillTable(null)}
+                onSettled={() => loadTableState(selectedBranchId, true)}
             />
 
         </Box>
