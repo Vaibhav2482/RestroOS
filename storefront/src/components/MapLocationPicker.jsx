@@ -8,6 +8,22 @@ const LIBRARIES = ["places"];
 const MAP_CONTAINER_STYLE = { width: "100%", height: "220px", borderRadius: "12px" };
 const DEFAULT_CENTER = { lat: 20.5937, lng: 78.9629 }; // India, roughly centered - only used before a pin exists.
 
+// Pulls city/state/pincode out of a Geocoder result the same way Places'
+// formatted_address is used above - address_components is an unordered bag
+// of {long_name, types[]}, so each field is picked out by its type rather
+// than by position.
+const parseAddressComponents = (components = []) => {
+
+    const findByType = (type) => components.find((component) => component.types.includes(type))?.long_name || "";
+
+    return {
+        city: findByType("locality") || findByType("postal_town") || findByType("administrative_area_level_2"),
+        state: findByType("administrative_area_level_1"),
+        pincode: findByType("postal_code")
+    };
+
+};
+
 // Optional by design - VITE_GOOGLE_MAPS_API_KEY may not be set (the .env.example
 // says as much), and this component renders nothing at all when it isn't,
 // so AddressDialog's existing plain text fields keep working unchanged.
@@ -21,10 +37,40 @@ function MapLocationPicker({ latitude, longitude, onPick }) {
     });
 
     const autocompleteRef = useRef(null);
+    const geocoderRef = useRef(null);
     const [locating, setLocating] = useState(false);
 
     const hasPin = typeof latitude === "number" && typeof longitude === "number";
     const center = hasPin ? { lat: latitude, lng: longitude } : DEFAULT_CENTER;
+
+    // Reverse geocoding is best-effort - a pin still drops (and the customer
+    // can always type the address themselves) even if this fails or the
+    // Geocoding API isn't enabled on the caller's Google Cloud project, so
+    // errors here are swallowed rather than surfaced as a toast.
+    const reverseGeocode = useCallback(async (lat, lng) => {
+
+        if (!geocoderRef.current) {
+            geocoderRef.current = new window.google.maps.Geocoder();
+        }
+
+        try {
+
+            const { results } = await geocoderRef.current.geocode({ location: { lat, lng } });
+            const result = results?.[0];
+
+            if (!result) {
+                return {};
+            }
+
+            return { formattedAddress: result.formatted_address || "", ...parseAddressComponents(result.address_components) };
+
+        } catch {
+
+            return {};
+
+        }
+
+    }, []);
 
     const handlePlaceChanged = useCallback(() => {
 
@@ -38,18 +84,31 @@ function MapLocationPicker({ latitude, longitude, onPick }) {
         onPick({
             latitude: location.lat(),
             longitude: location.lng(),
-            formattedAddress: place.formatted_address || ""
+            formattedAddress: place.formatted_address || "",
+            ...parseAddressComponents(place.address_components)
         });
 
     }, [onPick]);
 
+    const pickWithReverseGeocode = useCallback(async (lat, lng) => {
+
+        onPick({ latitude: lat, longitude: lng });
+
+        const details = await reverseGeocode(lat, lng);
+
+        if (Object.keys(details).length > 0) {
+            onPick({ latitude: lat, longitude: lng, ...details });
+        }
+
+    }, [onPick, reverseGeocode]);
+
     const handleMapClick = useCallback((event) => {
-        onPick({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
-    }, [onPick]);
+        pickWithReverseGeocode(event.latLng.lat(), event.latLng.lng());
+    }, [pickWithReverseGeocode]);
 
     const handleMarkerDragEnd = useCallback((event) => {
-        onPick({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
-    }, [onPick]);
+        pickWithReverseGeocode(event.latLng.lat(), event.latLng.lng());
+    }, [pickWithReverseGeocode]);
 
     const handleUseCurrentLocation = () => {
 
@@ -61,9 +120,9 @@ function MapLocationPicker({ latitude, longitude, onPick }) {
         setLocating(true);
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
+                await pickWithReverseGeocode(position.coords.latitude, position.coords.longitude);
                 setLocating(false);
-                onPick({ latitude: position.coords.latitude, longitude: position.coords.longitude });
             },
             () => {
                 setLocating(false);

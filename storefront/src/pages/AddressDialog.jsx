@@ -60,14 +60,18 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
     };
 
-    const handlePick = ({ latitude, longitude, formattedAddress }) => {
+    const handlePick = ({ latitude, longitude, formattedAddress, city, state, pincode }) => {
         setFormData((prev) => ({
             ...prev,
             latitude,
             longitude,
             // Only overwrite a still-blank field - never clobber an address
-            // the customer already typed just because they also dropped a pin.
-            fullAddress: formattedAddress && !prev.fullAddress.trim() ? formattedAddress : prev.fullAddress
+            // the customer already typed just because they also dropped a pin
+            // or moved it (reverse geocoding fires again on every drag).
+            fullAddress: formattedAddress && !prev.fullAddress.trim() ? formattedAddress : prev.fullAddress,
+            city: city && !prev.city.trim() ? city : prev.city,
+            state: state && !prev.state.trim() ? state : prev.state,
+            pincode: pincode && !prev.pincode.trim() ? pincode : prev.pincode
         }));
     };
 

@@ -85,8 +85,19 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
     };
 
-    const handlePick = ({ latitude, longitude }) => {
-        setFormData((prev) => ({ ...prev, latitude, longitude }));
+    const handlePick = ({ latitude, longitude, formattedAddress, city, state, pincode }) => {
+        setFormData((prev) => ({
+            ...prev,
+            latitude,
+            longitude,
+            // Only overwrite a still-blank field - never clobber an address
+            // already typed just because the pin also got moved (reverse
+            // geocoding fires again on every drag).
+            address: formattedAddress && !prev.address.trim() ? formattedAddress : prev.address,
+            city: city && !prev.city.trim() ? city : prev.city,
+            state: state && !prev.state.trim() ? state : prev.state,
+            pincode: pincode && !prev.pincode.trim() ? pincode : prev.pincode
+        }));
     };
 
     const handleSubmit = () => {
