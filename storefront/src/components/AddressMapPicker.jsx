@@ -82,6 +82,7 @@ function AddressMapPicker({ open, onClose, onConfirm }) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     mapRef.current?.panTo({ lat: position.coords.latitude, lng: position.coords.longitude });
+                    mapRef.current?.setZoom(17);
                     resolveCenter();
                 },
                 () => resolveCenter(),
@@ -108,6 +109,7 @@ function AddressMapPicker({ open, onClose, onConfirm }) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 mapRef.current?.panTo({ lat: position.coords.latitude, lng: position.coords.longitude });
+                mapRef.current?.setZoom(17);
             },
             () => setResolving(false),
             { enableHighAccuracy: true, timeout: 8000 }

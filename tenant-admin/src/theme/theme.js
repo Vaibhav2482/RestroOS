@@ -92,7 +92,15 @@ const theme = createTheme({
                 'input[type="date"]::-webkit-calendar-picker-indicator': {
                     filter: "invert(46%) sepia(4%) saturate(464%) hue-rotate(182deg) brightness(93%) contrast(87%)",
                     cursor: "pointer"
-                }
+                },
+                // Google Places Autocomplete appends its suggestion dropdown
+                // (.pac-container) straight to <body>, outside any React
+                // tree - its own z-index sits well below MUI's Modal/Dialog
+                // (1300), so inside the Branches "Add/Edit" dialog the
+                // suggestions rendered but were entirely hidden behind the
+                // dialog paper. Bumped above that so the dropdown is
+                // actually visible and clickable there.
+                ".pac-container": { zIndex: 1400 }
             }
         },
 

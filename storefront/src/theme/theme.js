@@ -85,7 +85,14 @@ const baseThemeOptions = {
 
         MuiCssBaseline: {
             styleOverrides: {
-                body: { backgroundColor: "#FCFAF6" }
+                body: { backgroundColor: "#FCFAF6" },
+                // Google Places Autocomplete appends its suggestion dropdown
+                // (.pac-container) straight to <body>, outside any React
+                // tree - its own z-index sits well below MUI's Modal/Dialog
+                // (1300, and AddressMapPicker is a fullScreen Dialog on top
+                // of that), so the suggestions rendered but were hidden
+                // behind the dialog. Bumped above both.
+                ".pac-container": { zIndex: 1400 }
             }
         },
 
