@@ -1,30 +1,5 @@
 import pool from "../config/db.js";
 
-// This codebase has no migration runner (database/*.sql are the schema of
-// record, applied by hand) - rather than requiring a manual ALTER TABLE
-// against production before this code can go live, the columns add
-// themselves the first time they're needed. IF NOT EXISTS makes repeat
-// calls (every cold start, potentially) harmless no-ops; the module-level
-// flag just avoids re-running the statement on every request within the
-// same warm instance.
-let brandingColumnsEnsured = false;
-
-const ensureBrandingColumns = async () => {
-
-    if (brandingColumnsEnsured) {
-        return;
-    }
-
-    await pool.query(`
-        ALTER TABLE "Tenants"
-        ADD COLUMN IF NOT EXISTS "LogoUrl" VARCHAR(500),
-        ADD COLUMN IF NOT EXISTS "PrimaryColor" VARCHAR(7) DEFAULT '#4F46E5'
-    `);
-
-    brandingColumnsEnsured = true;
-
-};
-
 export const getAll = async () => {
 
     const result = await pool.query(
@@ -42,8 +17,6 @@ export const getAll = async () => {
 // unauthenticated caller.
 export const getPublicBySlug = async (slug) => {
 
-    await ensureBrandingColumns();
-
     const result = await pool.query(
         `SELECT "TenantId", "TenantName", "Slug", "LogoUrl", "PrimaryColor"
          FROM "Tenants" WHERE "Slug" = $1 AND "IsActive" = TRUE`,
@@ -55,8 +28,6 @@ export const getPublicBySlug = async (slug) => {
 };
 
 export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
-
-    await ensureBrandingColumns();
 
     const result = await pool.query(
         `UPDATE "Tenants"

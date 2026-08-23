@@ -32,28 +32,6 @@ export const count = async () => {
 
 };
 
-// LockedUntil is only set once FailedLoginAttempts crosses the threshold
-// (checked in PlatformAdminService) - below that, this just keeps counting.
-export const recordFailedLogin = async (platformAdminId, lockedUntil) => {
-
-    await pool.query(
-        `UPDATE "PlatformAdmins"
-         SET "FailedLoginAttempts" = "FailedLoginAttempts" + 1, "LockedUntil" = COALESCE($2, "LockedUntil")
-         WHERE "PlatformAdminId" = $1`,
-        [platformAdminId, lockedUntil ?? null]
-    );
-
-};
-
-export const resetFailedLogins = async (platformAdminId) => {
-
-    await pool.query(
-        `UPDATE "PlatformAdmins" SET "FailedLoginAttempts" = 0, "LockedUntil" = NULL WHERE "PlatformAdminId" = $1`,
-        [platformAdminId]
-    );
-
-};
-
 // Only ever used internally to verify a password on a self-service change -
 // the hash itself must never appear in an API response.
 export const getPasswordHash = async (platformAdminId) => {

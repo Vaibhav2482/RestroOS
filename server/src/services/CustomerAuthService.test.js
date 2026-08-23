@@ -17,8 +17,6 @@ const buildCustomer = (overrides = {}) => ({
     FullName: "Ravi Kumar",
     Email: "ravi@example.com",
     Password: "hashed-password",
-    FailedLoginAttempts: 0,
-    LockedUntil: null,
     ...overrides
 });
 
@@ -32,30 +30,15 @@ beforeEach(() => {
 
 describe("CustomerAuthService.login", () => {
 
-    it("rejects a wrong password and records the failed attempt", async () => {
+    it("rejects a wrong password with the generic message", async () => {
 
-        CustomerRepository.customerLogin.mockResolvedValue(buildCustomer({ FailedLoginAttempts: 1 }));
+        CustomerRepository.customerLogin.mockResolvedValue(buildCustomer());
         bcrypt.compare.mockResolvedValue(false);
 
         const result = await CustomerAuthService.login("alpha-diner", "ravi@example.com", "wrong");
 
         expect(result.success).toBe(false);
-        expect(CustomerRepository.recordFailedLogin).toHaveBeenCalledWith(7, null);
-
-    });
-
-    it("never locks the account, however many attempts have already failed", async () => {
-
-        CustomerRepository.customerLogin.mockResolvedValue(buildCustomer({ FailedLoginAttempts: 99 }));
-        bcrypt.compare.mockResolvedValue(false);
-
-        const result = await CustomerAuthService.login("alpha-diner", "ravi@example.com", "wrong");
-
-        expect(result.success).toBe(false);
-        // The generic message, never a lockout one - and null, never a Date,
-        // so no threshold can quietly reappear here.
         expect(result.message).toBe("Invalid Email or Password.");
-        expect(CustomerRepository.recordFailedLogin).toHaveBeenCalledWith(7, null);
 
     });
 
@@ -74,14 +57,9 @@ describe("CustomerAuthService.login", () => {
 
     });
 
-    it("ignores a LockedUntil still sitting in the database from before lockout was removed", async () => {
+    it("logs in successfully with the correct password", async () => {
 
-        // Rows locked while the old policy was live keep their LockedUntil -
-        // nothing clears it - so the only thing stopping those accounts from
-        // being permanently shut out is that login no longer reads it.
-        CustomerRepository.customerLogin.mockResolvedValue(
-            buildCustomer({ LockedUntil: new Date(Date.now() + 5 * 60 * 1000) })
-        );
+        CustomerRepository.customerLogin.mockResolvedValue(buildCustomer());
         bcrypt.compare.mockResolvedValue(true);
 
         const result = await CustomerAuthService.login("alpha-diner", "ravi@example.com", "correct-password");
@@ -90,19 +68,7 @@ describe("CustomerAuthService.login", () => {
 
     });
 
-    it("resets the failed-attempt counter on a successful login", async () => {
-
-        CustomerRepository.customerLogin.mockResolvedValue(buildCustomer({ FailedLoginAttempts: 3 }));
-        bcrypt.compare.mockResolvedValue(true);
-
-        const result = await CustomerAuthService.login("alpha-diner", "ravi@example.com", "correct-password");
-
-        expect(result.success).toBe(true);
-        expect(CustomerRepository.resetFailedLogins).toHaveBeenCalledWith(7);
-
-    });
-
-    it("never includes the password hash or lockout bookkeeping fields in the response", async () => {
+    it("never includes the password hash in the response", async () => {
 
         CustomerRepository.customerLogin.mockResolvedValue(buildCustomer());
         bcrypt.compare.mockResolvedValue(true);
@@ -110,8 +76,6 @@ describe("CustomerAuthService.login", () => {
         const result = await CustomerAuthService.login("alpha-diner", "ravi@example.com", "correct-password");
 
         expect(result.data.Password).toBeUndefined();
-        expect(result.data.FailedLoginAttempts).toBeUndefined();
-        expect(result.data.LockedUntil).toBeUndefined();
 
     });
 

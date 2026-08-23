@@ -1,20 +1,13 @@
 import * as MenuRepository from "../repositories/MenuRepository.js";
-import * as BranchRepository from "../repositories/BranchRepository.js";
 import * as CategoryRepository from "../repositories/CategoryRepository.js";
 import * as AuditService from "./AuditService.js";
+import { assertBranchBelongsToTenant } from "../utils/branchScope.js";
 
 // MenuItems has no TenantId column of its own - its tenant is implied
 // through the Branch it belongs to. Every write path below verifies that
 // implied tenant matches the caller before touching a row, which is what
 // stops a tenant admin from writing menu items onto another restaurant's
 // branch by guessing/enumerating a branchId.
-const assertBranchBelongsToTenant = async (branchId, tenantId) => {
-
-    const branch = await BranchRepository.getBranchById(branchId);
-
-    return Boolean(branch && branch.TenantId === tenantId);
-
-};
 
 // Same boundary, for CategoryId - without this a menu item can be filed
 // under another tenant's category by guessing/enumerating a categoryId.

@@ -2,20 +2,12 @@ import pool from "../config/db.js";
 import * as InventoryRepository from "../repositories/InventoryRepository.js";
 import * as IngredientRepository from "../repositories/IngredientRepository.js";
 import * as UnitRepository from "../repositories/UnitRepository.js";
-import * as BranchRepository from "../repositories/BranchRepository.js";
+import { assertBranchBelongsToTenant } from "../utils/branchScope.js";
 
 // Cross-tenant/cross-branch reference checks (Security Requirements) -
 // every write in this service validates both of these before touching the
 // ledger, the same "prove it belongs to the caller's own tenant" pattern
 // every other module in this codebase uses.
-const assertBranchBelongsToTenant = async (branchId, tenantId) => {
-
-    const branch = await BranchRepository.getBranchById(branchId);
-
-    return Boolean(branch && branch.TenantId === tenantId);
-
-};
-
 const assertIngredientBelongsToTenant = async (ingredientId, tenantId) => {
 
     const ingredient = await IngredientRepository.getIngredientById(ingredientId);

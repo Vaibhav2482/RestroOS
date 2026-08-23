@@ -28,22 +28,10 @@ export const login = async (tenantSlug, email, password) => {
     const passwordMatches = await bcrypt.compare(password, admin.Password);
 
     if (!passwordMatches) {
-
-        // Failed attempts are still counted, but nothing acts on the count -
-        // passing null leaves LockedUntil untouched, so the tally is now
-        // purely informational. Rate limiting on the route is what slows a
-        // guessing attack (middleware/RateLimit.js).
-        await AdminRepository.recordFailedLogin(admin.AdminId, null);
-
         return { success: false, message: "Invalid email or password." };
-
     }
 
-    await AdminRepository.resetFailedLogins(admin.AdminId);
-
     delete admin.Password;
-    delete admin.FailedLoginAttempts;
-    delete admin.LockedUntil;
 
     return {
         success: true,

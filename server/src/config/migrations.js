@@ -513,5 +513,38 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "TableVisits" DROP COLUMN "GuestCount";
         `
+    },
+    {
+        // Account lockout was deliberately removed (per commit history)
+        // in favor of rate limiting, but FailedLoginAttempts/LockedUntil
+        // kept being written on every login across all three account
+        // types, with nothing ever reading them back to actually block
+        // one - a production-readiness audit flagged this as confusing,
+        // write-only bookkeeping. The application code no longer writes
+        // to them (config/lockoutPolicy.js and every recordFailedLogin/
+        // resetFailedLogins call site were removed in the same change);
+        // this drops the now-orphaned columns themselves.
+        id: "0027_drop_dead_lockout_columns",
+        sql: `
+            ALTER TABLE "Admins" DROP COLUMN "FailedLoginAttempts", DROP COLUMN "LockedUntil";
+            ALTER TABLE "Customers" DROP COLUMN "FailedLoginAttempts", DROP COLUMN "LockedUntil";
+            ALTER TABLE "PlatformAdmins" DROP COLUMN "FailedLoginAttempts", DROP COLUMN "LockedUntil";
+        `
+    },
+    {
+        // TenantRepository used to add these two columns itself, lazily, on
+        // first use (IF NOT EXISTS, guarded by a module-level flag) instead
+        // of through this migration runner - a second, untracked schema-
+        // evolution path that a production-readiness audit flagged as
+        // having no single source of truth. Both columns already exist in
+        // every real environment (the lazy path already ran there), so
+        // IF NOT EXISTS here is a safe no-op that just brings them under
+        // the tracked migration history where every other column lives.
+        id: "0028_tenant_branding_columns",
+        sql: `
+            ALTER TABLE "Tenants"
+            ADD COLUMN IF NOT EXISTS "LogoUrl" VARCHAR(500),
+            ADD COLUMN IF NOT EXISTS "PrimaryColor" VARCHAR(7) DEFAULT '#4F46E5';
+        `
     }
 ];

@@ -16,21 +16,10 @@ export const login = async (email, password) => {
     const passwordMatches = await bcrypt.compare(password, admin.Password);
 
     if (!passwordMatches) {
-
-        // Failed attempts are still counted, but nothing acts on the count -
-        // passing null leaves LockedUntil untouched, so the tally is now
-        // purely informational.
-        await PlatformAdminRepository.recordFailedLogin(admin.PlatformAdminId, null);
-
         return { success: false, message: "Invalid email or password." };
-
     }
 
-    await PlatformAdminRepository.resetFailedLogins(admin.PlatformAdminId);
-
     delete admin.Password;
-    delete admin.FailedLoginAttempts;
-    delete admin.LockedUntil;
 
     return { success: true, message: "Login successful.", data: admin };
 

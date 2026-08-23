@@ -1,16 +1,7 @@
 import * as TableVisitService from "../services/TableVisitService.js";
-import * as BranchRepository from "../repositories/BranchRepository.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
-import { branchMismatch } from "../utils/branchScope.js";
-
-const assertBranchBelongsToTenant = async (branchId, tenantId) => {
-
-    const branch = await BranchRepository.getBranchById(branchId);
-
-    return Boolean(branch && branch.TenantId === tenantId);
-
-};
+import { branchMismatch, assertBranchBelongsToTenant } from "../utils/branchScope.js";
 
 // A visit's tenant boundary is its Branch's TenantId, same convention as
 // Order (see OrderController.canAccessOrder) - Orders/TableVisits don't

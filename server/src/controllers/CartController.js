@@ -1,23 +1,7 @@
 import * as CartService from "../services/CartService.js";
-import * as CustomerRepository from "../repositories/CustomerRepository.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
-
-const canActOnCustomer = async (req, customerId) => {
-
-    if (String(req.user.id) === String(customerId) && req.user.role === "customer") {
-        return true;
-    }
-
-    if (req.user.role !== "admin") {
-        return false;
-    }
-
-    const customer = await CustomerRepository.getCustomerById(customerId);
-
-    return Boolean(customer && customer.TenantId === req.user.tenantId);
-
-};
+import { canActOnCustomer } from "../utils/customerScope.js";
 
 export const addToCart = asyncHandler(async (req, res) => {
 

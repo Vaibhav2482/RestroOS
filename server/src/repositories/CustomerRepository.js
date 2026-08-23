@@ -38,36 +38,13 @@ export const createCustomer = async (customer) => {
 export const customerLogin = async (tenantId, email) => {
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "Password", "IsActive",
-                "FailedLoginAttempts", "LockedUntil"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "Password", "IsActive"
          FROM "Customers"
          WHERE "TenantId" = $1 AND "Email" = $2 AND "IsActive" = TRUE`,
         [tenantId, email]
     );
 
     return result.rows[0];
-
-};
-
-// LockedUntil is only set once FailedLoginAttempts crosses the threshold
-// (checked in CustomerAuthService) - below that, this just keeps counting.
-export const recordFailedLogin = async (customerId, lockedUntil) => {
-
-    await pool.query(
-        `UPDATE "Customers"
-         SET "FailedLoginAttempts" = "FailedLoginAttempts" + 1, "LockedUntil" = COALESCE($2, "LockedUntil")
-         WHERE "CustomerId" = $1`,
-        [customerId, lockedUntil ?? null]
-    );
-
-};
-
-export const resetFailedLogins = async (customerId) => {
-
-    await pool.query(
-        `UPDATE "Customers" SET "FailedLoginAttempts" = 0, "LockedUntil" = NULL WHERE "CustomerId" = $1`,
-        [customerId]
-    );
 
 };
 

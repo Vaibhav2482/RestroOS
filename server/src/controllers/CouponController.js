@@ -1,7 +1,7 @@
 import * as CouponService from "../services/CouponService.js";
-import * as CustomerRepository from "../repositories/CustomerRepository.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
+import { canActOnCustomer } from "../utils/customerScope.js";
 
 export const getAllCoupons = asyncHandler(async (req, res) => {
 
@@ -50,22 +50,6 @@ export const deactivateCoupon = asyncHandler(async (req, res) => {
     return successResponse(res, null, result.message);
 
 });
-
-const canActOnCustomer = async (req, customerId) => {
-
-    if (String(req.user.id) === String(customerId) && req.user.role === "customer") {
-        return true;
-    }
-
-    if (req.user.role !== "admin") {
-        return false;
-    }
-
-    const customer = await CustomerRepository.getCustomerById(customerId);
-
-    return Boolean(customer && customer.TenantId === req.user.tenantId);
-
-};
 
 export const previewCoupon = asyncHandler(async (req, res) => {
 

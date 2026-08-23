@@ -74,11 +74,6 @@ export const login = async (tenantSlug, email, password) => {
 
     if (!passwordMatches) {
 
-        // Failed attempts are still counted, but nothing acts on the count -
-        // passing null leaves LockedUntil untouched, so the tally is now
-        // purely informational.
-        await CustomerRepository.recordFailedLogin(customer.CustomerId, null);
-
         // Deliberately word-for-word identical to the unknown-email branch
         // above, so the response cannot be used to tell a registered address
         // apart from an unregistered one.
@@ -86,11 +81,7 @@ export const login = async (tenantSlug, email, password) => {
 
     }
 
-    await CustomerRepository.resetFailedLogins(customer.CustomerId);
-
     delete customer.Password;
-    delete customer.FailedLoginAttempts;
-    delete customer.LockedUntil;
 
     return { success: true, message: "Login successful.", data: { ...customer, tenantSlug: tenant.Slug } };
 

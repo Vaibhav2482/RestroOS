@@ -1,33 +1,8 @@
 import * as OrderService from "../services/OrderService.js";
-import * as CustomerRepository from "../repositories/CustomerRepository.js";
-import * as BranchRepository from "../repositories/BranchRepository.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
-import { resolveBranchId, branchMismatch } from "../utils/branchScope.js";
-
-const canActOnCustomer = async (req, customerId) => {
-
-    if (String(req.user.id) === String(customerId) && req.user.role === "customer") {
-        return true;
-    }
-
-    if (req.user.role !== "admin") {
-        return false;
-    }
-
-    const customer = await CustomerRepository.getCustomerById(customerId);
-
-    return Boolean(customer && customer.TenantId === req.user.tenantId);
-
-};
-
-const assertBranchBelongsToTenant = async (branchId, tenantId) => {
-
-    const branch = await BranchRepository.getBranchById(branchId);
-
-    return Boolean(branch && branch.TenantId === tenantId);
-
-};
+import { resolveBranchId, branchMismatch, assertBranchBelongsToTenant } from "../utils/branchScope.js";
+import { canActOnCustomer } from "../utils/customerScope.js";
 
 // An order's real tenant boundary is its Branch's TenantId - branchMismatch
 // alone only restricts branch-scoped admins, so a tenant owner (no branchId

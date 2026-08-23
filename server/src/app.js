@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 
 import { initSentry } from "./config/sentry.js";
 import notFound from "./middleware/NotFound.js";
@@ -49,6 +50,19 @@ const app = express();
 // production was bucketing together under the same address instead of
 // being scoped per real client.
 app.set("trust proxy", true);
+
+// contentSecurityPolicy is irrelevant here - this API never serves HTML,
+// only JSON, so a directive set meant for rendered pages adds nothing.
+// crossOriginResourcePolicy must be explicitly opened up: helmet's default
+// ("same-origin") is meant for a server that also serves its own frontend
+// and wants to stop OTHER sites from embedding its resources - here the
+// three real frontends (storefront/tenant-admin/platform-admin) are
+// themselves different origins from this API by design, and the default
+// would have blocked their own legitimate requests.
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Without maxAge, browsers don't cache the CORS preflight at all - every
 // mutating request (any JSON body + Authorization header counts as

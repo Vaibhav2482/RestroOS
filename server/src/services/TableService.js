@@ -1,13 +1,5 @@
 import * as TableRepository from "../repositories/TableRepository.js";
-import * as BranchRepository from "../repositories/BranchRepository.js";
-
-const assertBranchBelongsToTenant = async (branchId, tenantId) => {
-
-    const branch = await BranchRepository.getBranchById(branchId);
-
-    return Boolean(branch && branch.TenantId === tenantId);
-
-};
+import { assertBranchBelongsToTenant } from "../utils/branchScope.js";
 
 export const getActiveTables = async (branchId, tenantId) => {
 
