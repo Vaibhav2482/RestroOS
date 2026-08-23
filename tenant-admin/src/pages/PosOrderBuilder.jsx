@@ -14,6 +14,7 @@ import {
     TextField,
     ToggleButton,
     ToggleButtonGroup,
+    Tooltip,
     Typography
 } from "@mui/material";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
@@ -202,7 +203,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
         const handleKeyDown = (event) => {
 
-            if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" && !optionsDialogItem && !placedOrder) {
+            if (((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k" || event.key === "F1") && !optionsDialogItem && !placedOrder) {
                 event.preventDefault();
                 searchInputRef.current?.focus();
             }
@@ -631,6 +632,52 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
     };
 
+    // handlePlaceOrder is a plain const, recreated every render, closing
+    // over resolvedCustomer/paymentMethod/notes/etc - a ref kept current
+    // every render is what lets the keydown listener below always call the
+    // latest version without needing every one of those in its own
+    // dependency array (and risking a stale customer/payment/notes on a
+    // shortcut fired a few renders after they last changed).
+    const handlePlaceOrderRef = useRef(handlePlaceOrder);
+    handlePlaceOrderRef.current = handlePlaceOrder;
+
+    // F2/Ctrl+Enter place the order (same guard as the button itself:
+    // a resolved customer and a non-empty cart), and F3 prints the KOT once
+    // one exists to print - the three shortcuts a captain actually reaches
+    // for repeatedly through a shift, on top of the search focus above.
+    // Typing into a text field (phone number, notes, an item search) must
+    // never have a bare F-key hijacked into an action, so those are only
+    // armed while focus isn't inside an input/textarea - Ctrl+Enter is
+    // exempt from that guard since it's a deliberate combination, not
+    // something a normal typing flow would ever produce by accident.
+    useEffect(() => {
+
+        const isTypingTarget = (target) =>
+            target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA");
+
+        const handleKeyDown = (event) => {
+
+            if (event.key === "F3" && placedOrder) {
+                event.preventDefault();
+                printKot(() => buildKotTicket({ order: placedOrder.kotOrder, restaurantName: admin?.tenantName }));
+                return;
+            }
+
+            const wantsPlaceOrder = (event.key === "Enter" && (event.metaKey || event.ctrlKey)) ||
+                (event.key === "F2" && !isTypingTarget(event.target));
+
+            if (wantsPlaceOrder && !optionsDialogItem && !placedOrder && !submitting && cartLines.length > 0) {
+                event.preventDefault();
+                handlePlaceOrderRef.current();
+            }
+
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+
+    }, [optionsDialogItem, placedOrder, submitting, cartLines, admin, printKot]);
+
     return (
 
         <Box
@@ -724,7 +771,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 <TextField
                     fullWidth
                     inputRef={searchInputRef}
-                    placeholder="Search menu items..."
+                    placeholder="Search menu items... (F1)"
                     value={itemSearch}
                     onChange={(event) => setItemSearch(event.target.value)}
                     slotProps={{
@@ -1372,15 +1419,19 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             an explicit py rather than size="large" - prominent
                             through weight/color, not through being taller than
                             the compact controls above it. */}
-                        <Button
-                            variant="contained"
-                            fullWidth
-                            disabled={submitting || cartLines.length === 0}
-                            onClick={handlePlaceOrder}
-                            sx={{ py: 1.1, fontWeight: 700 }}
-                        >
-                            {submitting ? "Placing Order..." : "Place Order"}
-                        </Button>
+                        <Tooltip title="Shortcut: F2 or Ctrl+Enter" placement="top">
+                            <span>
+                                <Button
+                                    variant="contained"
+                                    fullWidth
+                                    disabled={submitting || cartLines.length === 0}
+                                    onClick={handlePlaceOrder}
+                                    sx={{ py: 1.1, fontWeight: 700 }}
+                                >
+                                    {submitting ? "Placing Order..." : "Place Order"}
+                                </Button>
+                            </span>
+                        </Tooltip>
 
                     </Box>
 
@@ -1398,7 +1449,9 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
             <PrintDialog
                 open={Boolean(placedOrder)}
                 onClose={() => { onCreated(placedOrder.createdOrder); setPlacedOrder(null); }}
-                printLabel="Print KOT"
+                printLabel="Print KOT (F3)"
+                variant="drawer"
+                title={placedOrder ? `Order #${placedOrder.createdOrder.OrderId}` : "Order Placed"}
                 printing={kotPrinting}
                 onPrint={placedOrder ? () => printKot(() => buildKotTicket({ order: placedOrder.kotOrder, restaurantName: admin?.tenantName })) : undefined}
             >

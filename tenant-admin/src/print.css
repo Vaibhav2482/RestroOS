@@ -30,17 +30,27 @@
         display: none !important;
     }
 
-    .MuiDialogActions-root {
+    /* print-dialog-actions covers both PrintDialog variants (the Close/
+       Print row) - MuiDialogActions-root for the center-modal variant,
+       and PrintDialog's own class for the right-drawer variant (Drawer
+       has no equivalent built-in MUI class for its action row). */
+    .MuiDialogActions-root,
+    .print-dialog-actions {
         display: none !important;
     }
 
-    .MuiDialog-paper {
+    .MuiDialog-paper,
+    .MuiDrawer-paper {
         box-shadow: none !important;
         max-height: none !important;
         margin: 0 !important;
     }
 
-    .MuiDialogContent-root {
+    /* Reset on the shared print-dialog-content class itself, not just the
+       Dialog-specific MuiDialogContent-root wrapper it usually sits inside
+       - the drawer variant doesn't have that MUI class at all. */
+    .MuiDialogContent-root,
+    .print-dialog-content {
         overflow: visible !important;
         max-height: none !important;
     }

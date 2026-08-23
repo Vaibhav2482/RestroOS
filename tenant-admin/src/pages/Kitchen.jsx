@@ -416,6 +416,8 @@ function Kitchen() {
                 open={Boolean(kotOrder)}
                 onClose={() => setKotOrder(null)}
                 printLabel="Print KOT"
+                variant="drawer"
+                title={kotOrder ? `Order #${kotOrder.OrderId}` : "KOT"}
                 printing={kotPrinting}
                 onPrint={kotOrder ? () => printKot(() => buildKotTicket({
                     order: { ...kotOrder, BranchName: branches.find((branch) => branch.BranchId === selectedBranchId)?.BranchName },

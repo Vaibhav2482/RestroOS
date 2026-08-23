@@ -884,6 +884,8 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
                     open={kotOpen}
                     onClose={() => setKotOpen(false)}
                     printLabel="Print KOT"
+                    variant="drawer"
+                    title={order ? `Order #${order.OrderId}` : "KOT"}
                     printing={kotPrinting}
                     onPrint={() => printKot(() => buildKotTicket({ order, restaurantName: auth?.admin?.tenantName }))}
                 >

@@ -242,6 +242,92 @@ describe("PosOrderBuilder - placing the order", () => {
 
 });
 
+describe("PosOrderBuilder - keyboard shortcuts", () => {
+
+    beforeEach(() => {
+        window.print = vi.fn();
+    });
+
+    it("F2 places the order, same as clicking the button, once the cart has an item", async () => {
+
+        const user = userEvent.setup();
+
+        orderService.createOrder.mockResolvedValue({ success: true, data: { OrderId: 501, TotalAmount: 30 } });
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+        await addFromMenu(user, "Ginger Chai");
+
+        fireEvent.keyDown(window, { key: "F2" });
+
+        await waitFor(() => expect(orderService.createOrder).toHaveBeenCalledTimes(1));
+
+    });
+
+    it("Ctrl+Enter also places the order", async () => {
+
+        const user = userEvent.setup();
+
+        orderService.createOrder.mockResolvedValue({ success: true, data: { OrderId: 502, TotalAmount: 30 } });
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+        await addFromMenu(user, "Ginger Chai");
+
+        fireEvent.keyDown(window, { key: "Enter", ctrlKey: true });
+
+        await waitFor(() => expect(orderService.createOrder).toHaveBeenCalledTimes(1));
+
+    });
+
+    it("F2 does nothing with an empty cart, same as the disabled button", async () => {
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+
+        fireEvent.keyDown(window, { key: "F2" });
+
+        expect(orderService.createOrder).not.toHaveBeenCalled();
+
+    });
+
+    it("F1 focuses the menu search field", async () => {
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+
+        fireEvent.keyDown(window, { key: "F1" });
+
+        expect(screen.getByPlaceholderText(/search menu items/i)).toHaveFocus();
+
+    });
+
+    it("F3 prints the KOT once one exists, via the browser-print fallback (no thermal printer configured in this test)", async () => {
+
+        const user = userEvent.setup();
+
+        orderService.createOrder.mockResolvedValue({ success: true, data: { OrderId: 503, TotalAmount: 30 } });
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+        await addFromMenu(user, "Ginger Chai");
+        await user.click(screen.getByRole("button", { name: /place order/i }));
+
+        await screen.findByText(/order #503 placed/i);
+
+        fireEvent.keyDown(window, { key: "F3" });
+
+        await waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
+
+    });
+
+});
+
 describe("PosOrderBuilder - menu tile content integrity", () => {
 
     // jsdom performs no real layout, so a pixel-accurate "does this escape
