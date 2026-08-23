@@ -17,6 +17,7 @@ import PosOrderBuilder from "./PosOrderBuilder";
 import PosOrderDetails from "./PosOrderDetails";
 import PosTableOrdersDialog from "./PosTableOrdersDialog";
 import SettleBillDialog from "./SettleBillDialog";
+import { formatCurrency } from "./orderStatusUtils";
 import { SIDEBAR_FORCE_COLLAPSE_EVENT } from "../components/Layout";
 
 function Pos() {
@@ -45,6 +46,10 @@ function Pos() {
     // - separate from tableOrdersView/detailsOrder, since settling reaches a
     // table's whole visit directly rather than any one order within it.
     const [settleBillTable, setSettleBillTable] = useState(null);
+    // Live item count/subtotal reported up from PosOrderBuilder, shown in
+    // the header strip so a captain glancing up while browsing the menu
+    // doesn't need to look over at the cart panel for the running total.
+    const [cartSummary, setCartSummary] = useState(null);
     // OrderIds with a status-advance request in flight - the quick-advance
     // button on the table grid had no guard against a rapid second tap
     // firing before the first one's response (and the table refresh it
@@ -456,6 +461,21 @@ function Pos() {
 
                             <Chip label={orderDeliveryType} size="small" sx={{ fontWeight: 700 }} />
 
+                            {/* Live totals reported up from PosOrderBuilder -
+                                hidden until there's actually a cart to
+                                summarize, rather than showing "0 Items" on
+                                an empty order. */}
+                            {cartSummary && cartSummary.itemCount > 0 && (
+
+                                <Chip
+                                    label={`${cartSummary.itemCount} Item${cartSummary.itemCount === 1 ? "" : "s"} · ${formatCurrency(cartSummary.subtotal)}`}
+                                    size="small"
+                                    variant="outlined"
+                                    sx={{ fontWeight: 700, borderColor: "primary.main", color: "primary.main", display: { xs: "none", sm: "flex" } }}
+                                />
+
+                            )}
+
                         </Box>
 
                         <Button
@@ -478,6 +498,7 @@ function Pos() {
                             deliveryType={orderDeliveryType}
                             tableNumber={mode === "dine-in" ? pendingTable.TableName : undefined}
                             onCreated={handleOrderCreated}
+                            onCartSummaryChange={setCartSummary}
                         />
 
                     </Box>

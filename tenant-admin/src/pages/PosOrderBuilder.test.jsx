@@ -8,6 +8,7 @@ import * as categoryService from "../services/categoryService";
 import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
 import * as menuOptionService from "../services/menuOptionService";
+import * as tableVisitService from "../services/tableVisitService";
 
 // This file's first job is simply to import the component. One of the three
 // visual regressions that reached production on this screen was a syntax
@@ -19,6 +20,7 @@ vi.mock("../services/categoryService");
 vi.mock("../services/customerService");
 vi.mock("../services/orderService");
 vi.mock("../services/menuOptionService");
+vi.mock("../services/tableVisitService");
 
 const GUEST_CUSTOMER = { CustomerId: 1, Phone: "0000000000", FullName: "Guest" };
 
@@ -49,6 +51,9 @@ beforeEach(() => {
     customerService.getOrCreateGuestCustomer.mockResolvedValue({ success: true, data: GUEST_CUSTOMER });
     menuService.getAllMenuItems.mockResolvedValue({ success: true, data: [CHAI, SAMOSA, PIZZA] });
     menuOptionService.getOptionGroupsByMenuItem.mockResolvedValue({ success: true, data: [SIZE_GROUP] });
+    // No prior open visit on the test table by default - the "previous
+    // orders this visit" banner only appears when a test explicitly opts in.
+    tableVisitService.getOpenVisitForTable.mockResolvedValue({ success: true, data: null });
 
 });
 
@@ -237,6 +242,77 @@ describe("PosOrderBuilder - placing the order", () => {
         // still there (still showing a ₹30 subtotal), not silently cleared as
         // if the order had gone through.
         expect(screen.getByText(/subtotal: ₹\s*30\.00/i)).toBeInTheDocument();
+
+    });
+
+});
+
+describe("PosOrderBuilder - category counts and the customer chip", () => {
+
+    it("shows an item count next to each category, including All Items and Popular", async () => {
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+
+        // 3 seeded items total, all sharing the one seeded category - both
+        // "All Items" and the category itself show a count of 3.
+        expect(screen.getAllByText("3").length).toBe(2);
+
+    });
+
+    it("keeps the resolved-customer chip compact - no separate 'Customer' heading once one exists", async () => {
+
+        renderBuilder();
+
+        await screen.findByText(/walk-in guest/i);
+
+        // The default guest customer is already resolved on load - the chip
+        // itself is the only thing shown, not a heading above it.
+        expect(screen.queryByText("Customer")).not.toBeInTheDocument();
+
+    });
+
+    it("reports the live cart total up via onCartSummaryChange as items are added", async () => {
+
+        const user = userEvent.setup();
+        const onCartSummaryChange = vi.fn();
+
+        renderBuilder({ onCartSummaryChange });
+
+        await screen.findByText("Ginger Chai");
+
+        // Reported as empty before anything's in the cart.
+        expect(onCartSummaryChange).toHaveBeenCalledWith({ itemCount: 0, subtotal: 0 });
+
+        await addFromMenu(user, "Ginger Chai");
+
+        await waitFor(() => expect(onCartSummaryChange).toHaveBeenCalledWith({ itemCount: 1, subtotal: 30 }));
+
+    });
+
+    it("shows a banner summarizing this table's existing visit when one is already open", async () => {
+
+        tableVisitService.getOpenVisitForTable.mockResolvedValue({ success: true, data: { VisitId: 9 } });
+        tableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: { VisitId: 9, OrderCount: 2, TotalAmount: 626.85, Items: [], Orders: [] }
+        });
+
+        renderBuilder();
+
+        await screen.findByText(/already has 2 orders this visit/i);
+        expect(screen.getByText(/626\.85/)).toBeInTheDocument();
+
+    });
+
+    it("shows no banner for a table's first round (no prior open visit)", async () => {
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+
+        expect(screen.queryByText(/already has/i)).not.toBeInTheDocument();
 
     });
 

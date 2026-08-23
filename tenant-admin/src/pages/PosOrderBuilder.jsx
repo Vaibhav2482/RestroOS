@@ -23,12 +23,14 @@ import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
 import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
+import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
 import * as categoryService from "../services/categoryService";
 import * as customerService from "../services/customerService";
 import * as orderService from "../services/orderService";
+import * as tableVisitService from "../services/tableVisitService";
 import { getStoredAuth } from "../utils/adminAuth";
 import { cloudinaryThumbnail } from "../utils/cloudinaryImage";
 import PosItemOptionsDialog from "./PosItemOptionsDialog";
@@ -118,7 +120,7 @@ function QuantityInput({ value, onCommit, sx }) {
 // below). Mirrors the accent-border/tinted-background "active" language
 // Layout.jsx's own sidebar nav already uses, so this reads as the same app
 // rather than a one-off style.
-function CategoryNavItem({ label, icon, selected, onClick }) {
+function CategoryNavItem({ label, icon, selected, onClick, count }) {
 
     return (
 
@@ -149,9 +151,17 @@ function CategoryNavItem({ label, icon, selected, onClick }) {
             }}
         >
             {icon}
-            <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {label}
             </Box>
+            {typeof count === "number" && (
+                <Box
+                    component="span"
+                    sx={{ flexShrink: 0, fontSize: "0.72rem", fontWeight: 600, color: selected ? "primary.main" : "text.secondary" }}
+                >
+                    {count}
+                </Box>
+            )}
         </Box>
 
     );
@@ -162,7 +172,7 @@ function CategoryNavItem({ label, icon, selected, onClick }) {
 // a customer (or fall back to the shared guest placeholder), pick a payment
 // method and submit. GST is computed server-side, so only a pre-tax
 // subtotal is shown here.
-function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated }) {
+function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCartSummaryChange }) {
 
     const { admin } = getStoredAuth() || {};
     const { printing: kotPrinting, print: printKot } = useThermalPrint();
@@ -192,6 +202,13 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     // screen away) is deferred until that dialog is dismissed instead of
     // firing immediately on a successful order.
     const [placedOrder, setPlacedOrder] = useState(null);
+
+    // Set only when this table already has an Open visit before this screen
+    // even loads - i.e. this is a second (or later) round on a table that's
+    // already ordered something this sitting (see server migration
+    // 0024_table_visits). null the rest of the time, including for this
+    // table's very first round, when there's nothing prior to show.
+    const [existingVisitSummary, setExistingVisitSummary] = useState(null);
 
     const searchInputRef = useRef(null);
 
@@ -257,6 +274,42 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Surfaces what's already been ordered at this table this sitting -
+    // without it, a captain adding a second round has no visibility into
+    // the first round from this screen at all (they'd have to back out to
+    // the floor grid and open the table's order chooser separately). Only
+    // fetched for Dine In (Takeaway has no table, no visit) and silently
+    // skipped if it fails - this is informational context, not a blocker.
+    useEffect(() => {
+
+        if (deliveryType !== "Dine In" || !branchId || !tableNumber) {
+            return;
+        }
+
+        (async () => {
+
+            try {
+
+                const openVisit = await tableVisitService.getOpenVisitForTable(branchId, tableNumber);
+
+                if (!openVisit.success || !openVisit.data) {
+                    return;
+                }
+
+                const details = await tableVisitService.getVisitDetails(openVisit.data.VisitId);
+
+                if (details.success) {
+                    setExistingVisitSummary(details.data);
+                }
+
+            } catch {
+                // Informational only - see comment above.
+            }
+
+        })();
+
+    }, [deliveryType, branchId, tableNumber]);
 
     useEffect(() => {
 
@@ -539,6 +592,23 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
     const hasPopularItems = useMemo(() => menuItems.some((item) => item.IsPopular), [menuItems]);
 
+    // How many items sit under each category - lets staff see "Coffee (12)"
+    // before tapping in, instead of discovering a near-empty category only
+    // after switching to it.
+    const categoryItemCounts = useMemo(() => {
+
+        const counts = new Map();
+
+        for (const item of menuItems) {
+            counts.set(item.CategoryId, (counts.get(item.CategoryId) || 0) + 1);
+        }
+
+        return counts;
+
+    }, [menuItems]);
+
+    const popularItemCount = useMemo(() => menuItems.filter((item) => item.IsPopular).length, [menuItems]);
+
     // "popular" is a pure client-side filter over IsPopular (already fetched
     // with every menu item, already shown as the bestseller star on each
     // card) - not a new category or a backend concept, just a quick jump to
@@ -561,6 +631,20 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     // Total food items to prepare, not distinct lines - "2x Chai" and
     // "1x Samosa" is 3 items on its way to the kitchen, not 2.
     const totalItemCount = cartLines.reduce((sum, line) => sum + line.quantity, 0);
+
+    // Reports the live cart size/total up to Pos.jsx, which shows it in the
+    // shared header strip above the menu - a captain glancing up while
+    // browsing sees "6 Items - ₹459.00" without needing to look over at the
+    // cart panel itself. Cleared on unmount so the header doesn't keep
+    // showing a stale total after leaving this screen.
+    useEffect(() => {
+
+        onCartSummaryChange?.({ itemCount: totalItemCount, subtotal });
+
+        return () => onCartSummaryChange?.(null);
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [totalItemCount, subtotal]);
 
     // The sticky cart sidebar already shows every line item, the subtotal,
     // payment method and notes in full - a separate "review" dialog would
@@ -714,7 +798,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                     sx={{
                         display: { xs: "none", md: "flex" },
                         flexDirection: "column",
-                        width: 176,
+                        width: 140,
                         flexShrink: 0,
                         pr: 1.5,
                         mr: 2,
@@ -736,6 +820,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             icon={<StarRoundedIcon sx={{ fontSize: 17 }} />}
                             selected={selectedCategoryId === "popular"}
                             onClick={() => setSelectedCategoryId("popular")}
+                            count={popularItemCount}
                         />
                     )}
 
@@ -743,6 +828,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         label="All Items"
                         selected={selectedCategoryId === "all"}
                         onClick={() => setSelectedCategoryId("all")}
+                        count={menuItems.length}
                     />
 
                     {categoriesWithItems.map((category) => (
@@ -751,6 +837,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                             label={category.CategoryName}
                             selected={selectedCategoryId === category.CategoryId}
                             onClick={() => setSelectedCategoryId(category.CategoryId)}
+                            count={categoryItemCounts.get(category.CategoryId) || 0}
                         />
                     ))}
 
@@ -833,7 +920,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         {hasPopularItems && (
                             <Chip
                                 icon={<StarRoundedIcon sx={{ fontSize: 16 }} />}
-                                label="Popular"
+                                label={`Popular (${popularItemCount})`}
                                 color={selectedCategoryId === "popular" ? "primary" : "default"}
                                 onClick={() => setSelectedCategoryId("popular")}
                                 sx={{ flexShrink: 0 }}
@@ -841,7 +928,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                         )}
 
                         <Chip
-                            label="All"
+                            label={`All (${menuItems.length})`}
                             color={selectedCategoryId === "all" ? "primary" : "default"}
                             onClick={() => setSelectedCategoryId("all")}
                             sx={{ flexShrink: 0 }}
@@ -851,7 +938,7 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                             <Chip
                                 key={category.CategoryId}
-                                label={category.CategoryName}
+                                label={`${category.CategoryName} (${categoryItemCounts.get(category.CategoryId) || 0})`}
                                 color={selectedCategoryId === category.CategoryId ? "primary" : "default"}
                                 onClick={() => setSelectedCategoryId(category.CategoryId)}
                                 sx={{ flexShrink: 0 }}
@@ -1122,17 +1209,30 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 }}
             >
 
+                {existingVisitSummary && (
+
+                    <Alert severity="info" sx={{ mb: 1, py: 0.25, flexShrink: 0, "& .MuiAlert-message": { fontSize: "0.78rem" } }}>
+                        Table already has {existingVisitSummary.OrderCount} order{existingVisitSummary.OrderCount === 1 ? "" : "s"} this
+                        visit &middot; ₹{Number(existingVisitSummary.TotalAmount).toFixed(2)} so far
+                    </Alert>
+
+                )}
+
                 <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, p: 0, overflow: "hidden" }}>
 
                     <Box sx={{ p: 1.5, pb: 1.25, flexShrink: 0 }}>
 
-                        <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
-                            Customer
-                        </Typography>
-
                         {resolvedCustomer ? (
 
+                            // No separate "Customer" heading here - the icon
+                            // inside the chip itself already carries that
+                            // meaning, and this is the common case (a fresh
+                            // order defaults straight to Walk-in Guest), so
+                            // it's the one worth keeping to a single compact
+                            // row instead of a label-then-chip stack.
                             <Chip
+                                icon={<PersonRoundedIcon />}
+                                size="small"
                                 label={
                                     isGuest
                                         ? "Walk-in Guest (no details given)"
@@ -1140,10 +1240,16 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                 }
                                 color="success"
                                 onDelete={handleChangeCustomer}
-                                sx={{ maxWidth: "100%" }}
+                                sx={{ maxWidth: "100%", fontWeight: 600 }}
                             />
 
                         ) : (
+
+                            <>
+
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.75 }}>
+                                Customer
+                            </Typography>
 
                             <Grid container spacing={1}>
 
@@ -1220,6 +1326,8 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                                 )}
 
                             </Grid>
+
+                            </>
 
                         )}
 
