@@ -104,6 +104,35 @@ const resolvePagination = (req) => {
 
 };
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Only meaningful alongside pagination (resolvePagination already gates
+// this the same way) - status/search pass straight through as parameterized
+// values (an unrecognized status just yields zero rows, no injection risk
+// either way); dates are validated up front so a malformed value 400s
+// cleanly here instead of surfacing as a raw Postgres cast error later.
+// Returns an { error } shape rather than throwing - these controller tests
+// call the asyncHandler-wrapped function directly with a bare vi.fn() as
+// next, not the real Express app, so a thrown error never reaches the real
+// errorHandler middleware. Every other validation failure in this file
+// (the branch-ownership check just below) responds directly for the same
+// reason - this follows suit instead of being the one exception.
+const resolveOrderFilters = (req) => {
+
+    const { status, dateFrom, dateTo, search } = req.query;
+
+    if (dateFrom && !ISO_DATE.test(dateFrom)) {
+        return { error: "dateFrom must be in YYYY-MM-DD format." };
+    }
+
+    if (dateTo && !ISO_DATE.test(dateTo)) {
+        return { error: "dateTo must be in YYYY-MM-DD format." };
+    }
+
+    return { status: status || null, dateFrom: dateFrom || null, dateTo: dateTo || null, search: search || null };
+
+};
+
 export const getAllOrders = asyncHandler(async (req, res) => {
 
     const branchId = resolveBranchId(req);
@@ -118,7 +147,21 @@ export const getAllOrders = asyncHandler(async (req, res) => {
     const customerId = req.query.customerId ? Number(req.query.customerId) : null;
     const pagination = resolvePagination(req);
 
-    const result = await OrderService.getAllOrders(req.user.tenantId, branchId, customerId, pagination);
+    let filters = null;
+
+    if (pagination) {
+
+        const resolved = resolveOrderFilters(req);
+
+        if (resolved.error) {
+            return errorResponse(res, resolved.error, 400);
+        }
+
+        filters = resolved;
+
+    }
+
+    const result = await OrderService.getAllOrders(req.user.tenantId, branchId, customerId, pagination, filters);
 
     return successResponse(res, result.data, result.message);
 

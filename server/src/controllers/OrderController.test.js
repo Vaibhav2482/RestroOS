@@ -93,13 +93,13 @@ describe("OrderController.createOrder - staff attribution", () => {
 
 describe("OrderController.getAllOrders - pagination is opt-in from the query string", () => {
 
-    it("passes no pagination through when neither page nor limit is in the query", async () => {
+    it("passes no pagination (and no filters) through when neither page nor limit is in the query", async () => {
 
         const req = { query: {}, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
 
         getAllOrders(req, buildRes(), vi.fn());
 
-        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, null));
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, null, null));
 
     });
 
@@ -109,7 +109,9 @@ describe("OrderController.getAllOrders - pagination is opt-in from the query str
 
         getAllOrders(req, buildRes(), vi.fn());
 
-        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, { page: 2, limit: 100 }));
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(
+            3, undefined, null, { page: 2, limit: 100 }, { status: null, dateFrom: null, dateTo: null, search: null }
+        ));
 
     });
 
@@ -119,7 +121,53 @@ describe("OrderController.getAllOrders - pagination is opt-in from the query str
 
         getAllOrders(req, buildRes(), vi.fn());
 
-        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(3, undefined, null, { page: 1, limit: 10 }));
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(
+            3, undefined, null, { page: 1, limit: 10 }, { status: null, dateFrom: null, dateTo: null, search: null }
+        ));
+
+    });
+
+});
+
+describe("OrderController.getAllOrders - filters only resolve alongside pagination", () => {
+
+    it("passes status/dateFrom/dateTo/search through when pagination is requested", async () => {
+
+        const req = {
+            query: { page: "1", limit: "25", status: "Pending", dateFrom: "2026-08-01", dateTo: "2026-08-31", search: "70" },
+            user: { id: 7, role: "admin", tenantId: 3, branchId: null }
+        };
+
+        getAllOrders(req, buildRes(), vi.fn());
+
+        await vi.waitFor(() => expect(OrderService.getAllOrders).toHaveBeenCalledWith(
+            3, undefined, null, { page: 1, limit: 25 },
+            { status: "Pending", dateFrom: "2026-08-01", dateTo: "2026-08-31", search: "70" }
+        ));
+
+    });
+
+    it("400s on a malformed dateFrom instead of letting a bad date reach the database", async () => {
+
+        const req = { query: { page: "1", limit: "25", dateFrom: "08/01/2026" }, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
+        const res = buildRes();
+
+        getAllOrders(req, res, vi.fn());
+
+        await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(400));
+        expect(OrderService.getAllOrders).not.toHaveBeenCalled();
+
+    });
+
+    it("400s on a malformed dateTo the same way", async () => {
+
+        const req = { query: { page: "1", limit: "25", dateTo: "not-a-date" }, user: { id: 7, role: "admin", tenantId: 3, branchId: null } };
+        const res = buildRes();
+
+        getAllOrders(req, res, vi.fn());
+
+        await vi.waitFor(() => expect(res.status).toHaveBeenCalledWith(400));
+        expect(OrderService.getAllOrders).not.toHaveBeenCalled();
 
     });
 

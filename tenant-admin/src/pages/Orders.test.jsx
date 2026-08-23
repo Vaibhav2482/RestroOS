@@ -24,17 +24,64 @@ const sampleOrders = [
     { OrderId: 70, CustomerName: "New Guest", DeliveryType: "Dine In", TotalAmount: 50, OrderStatus: "Pending", OrderDate: "2026-07-25T22:00:00" }
 ];
 
+// Orders.jsx now fetches a server-filtered/paginated page rather than
+// filtering a full array client-side - this stands in for the real
+// backend's GET /orders?page=&limit=&status=&search=&... behavior (see
+// OrderRepository.getAllOrders/getOrderStatusCounts), so every existing
+// test's user-facing assertions (what shows up after a search/filter) stay
+// meaningful without needing to know the request was server-side now.
+const mockServerOrders = (allOrders) => {
+
+    orderService.getAllOrders.mockImplementation(async (branchId, params = {}) => {
+
+        const withoutStatus = allOrders.filter((order) => {
+
+            if (params.search) {
+
+                const query = params.search.toLowerCase();
+                const matches = String(order.OrderId).includes(query) || (order.CustomerName || "").toLowerCase().includes(query);
+
+                if (!matches) {
+                    return false;
+                }
+
+            }
+
+            return true;
+
+        });
+
+        const statusCounts = withoutStatus.reduce((counts, order) => {
+            counts[order.OrderStatus] = (counts[order.OrderStatus] || 0) + 1;
+            return counts;
+        }, {});
+
+        const filtered = params.status ? withoutStatus.filter((order) => order.OrderStatus === params.status) : withoutStatus;
+
+        const page = params.page || 1;
+        const limit = params.limit || 25;
+        const pageSlice = filtered.slice((page - 1) * limit, page * limit);
+
+        return {
+            success: true,
+            data: { orders: pageSlice, total: filtered.length, statusCounts, page, limit }
+        };
+
+    });
+
+};
+
 beforeEach(() => {
 
     vi.clearAllMocks();
     localStorage.setItem("tenantAdmin", JSON.stringify(BRANCH_ADMIN_AUTH));
-    orderService.getAllOrders.mockResolvedValue({ success: true, data: sampleOrders });
+    mockServerOrders(sampleOrders);
 
 });
 
 describe("Orders - search and status filter", () => {
 
-    it("filters by order id or customer name", async () => {
+    it("filters by order id or customer name (debounced, server-side)", async () => {
 
         const user = userEvent.setup();
 
@@ -45,7 +92,9 @@ describe("Orders - search and status filter", () => {
 
         await user.type(screen.getByPlaceholderText(/search by order/i), "70");
 
-        expect(screen.queryByText("#62")).not.toBeInTheDocument();
+        // Debounced 400ms before the filtered request fires - waitFor's
+        // default timeout comfortably covers that.
+        await waitFor(() => expect(screen.queryByText("#62")).not.toBeInTheDocument());
         expect(screen.getByText("#70")).toBeInTheDocument();
 
     });
@@ -64,7 +113,7 @@ describe("Orders - search and status filter", () => {
 
         await user.click(screen.getByRole("button", { name: /^Ready \(1\)$/ }));
 
-        expect(screen.getByText("#57")).toBeInTheDocument();
+        await waitFor(() => expect(screen.getByText("#57")).toBeInTheDocument());
         expect(screen.queryByText("#62")).not.toBeInTheDocument();
         expect(screen.queryByText("#56")).not.toBeInTheDocument();
 
@@ -128,10 +177,7 @@ describe("Orders - quick status advance", () => {
         // Isolate to only terminal orders - #57/#70 in the shared sample
         // data do have a next status, which would make a global "no mark
         // button anywhere" assertion pass or fail for the wrong reason.
-        orderService.getAllOrders.mockResolvedValue({
-            success: true,
-            data: sampleOrders.filter((order) => order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled")
-        });
+        mockServerOrders(sampleOrders.filter((order) => order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled"));
 
         render(<Orders />);
 

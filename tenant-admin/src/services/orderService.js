@@ -1,7 +1,11 @@
 import axiosClient from "../api/axiosClient";
 
-export const getAllOrders = async (branchId) => {
-    const response = await axiosClient.get("/orders", { params: branchId ? { branchId } : {} });
+// params can additionally carry { page, limit, status, dateFrom, dateTo,
+// search } - passing any of page/limit opts into the paginated response
+// shape ({ orders, total, statusCounts }) server-side; omitting both keeps
+// the plain array every other caller of this shape still expects.
+export const getAllOrders = async (branchId, params = {}) => {
+    const response = await axiosClient.get("/orders", { params: { ...(branchId ? { branchId } : {}), ...params } });
     return response.data;
 };
 

@@ -111,18 +111,23 @@ export const getKitchenOrders = async (branchId) => {
 
 };
 
-export const getAllOrders = async (tenantId, branchId, customerId, pagination = null) => {
+export const getAllOrders = async (tenantId, branchId, customerId, pagination = null, filters = null) => {
 
-    const result = await OrderRepository.getAllOrders(tenantId, branchId, customerId, pagination);
+    const result = await OrderRepository.getAllOrders(tenantId, branchId, customerId, pagination, filters);
 
     if (!pagination) {
         return { success: true, message: "Orders fetched successfully.", data: result };
     }
 
+    // statusCounts rides along with every paginated page, not just the
+    // first - the filter chip row needs current counts regardless of which
+    // page (or which status) is currently showing.
+    const statusCounts = await OrderRepository.getOrderStatusCounts(tenantId, branchId, filters);
+
     return {
         success: true,
         message: "Orders fetched successfully.",
-        data: { orders: result.orders, total: result.total, page: pagination.page, limit: pagination.limit }
+        data: { orders: result.orders, total: result.total, page: pagination.page, limit: pagination.limit, statusCounts }
     };
 
 };

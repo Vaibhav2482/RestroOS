@@ -312,8 +312,9 @@ export const getKitchenOrders = async (branchId) => {
 // the full unpaginated array back exactly as before. Only a caller that
 // explicitly opts in by passing { page, limit } gets the paginated shape
 // (rows + total), so this doesn't silently change behavior for anyone who
-// hasn't been updated to expect it.
-export const getAllOrders = async (tenantId, branchId, customerId, pagination = null) => {
+// hasn't been updated to expect it. `filters` only applies alongside
+// pagination - the unpaginated callers above have no UI to filter from.
+export const getAllOrders = async (tenantId, branchId, customerId, pagination = null, filters = null) => {
 
     const baseParams = [tenantId, branchId ?? null, customerId ?? null];
 
@@ -340,6 +341,20 @@ export const getAllOrders = async (tenantId, branchId, customerId, pagination = 
     const { page, limit } = pagination;
     const offset = (page - 1) * limit;
 
+    // Status/date-range/search are exactly the filters Orders.jsx (tenant-
+    // admin) used to apply client-side, over the entire fetched history -
+    // moved server-side so a growing order history stops meaning a growing
+    // page-load. Date range is compared against the database session's own
+    // timezone via ::date, not the browser's local calendar day - the same
+    // approximation getDashboardSummary's "Today" already makes below, kept
+    // consistent rather than introducing a second, different rule.
+    const status = filters?.status && filters.status !== "All" ? filters.status : null;
+    const dateFrom = filters?.dateFrom || null;
+    const dateTo = filters?.dateTo || null;
+    const search = filters?.search?.trim() || null;
+
+    const filterParams = [...baseParams, status, dateFrom, dateTo, search];
+
     // COUNT(*) OVER() rides along in the same query/index scan instead of a
     // second round trip for the total - every row carries the same total
     // count, so it's just read off row 0 (or defaulted to 0 if the page is
@@ -355,15 +370,51 @@ export const getAllOrders = async (tenantId, branchId, customerId, pagination = 
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          LEFT JOIN "Admins" A ON O."CreatedByAdminId" = A."AdminId"
          WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND ($3::int IS NULL OR O."CustomerId" = $3)
+           AND ($4::varchar IS NULL OR O."OrderStatus" = $4)
+           AND ($5::date IS NULL OR O."OrderDate"::date >= $5)
+           AND ($6::date IS NULL OR O."OrderDate"::date <= $6)
+           AND ($7::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $7 || '%' OR C."FullName" ILIKE '%' || $7 || '%')
          ORDER BY O."OrderDate" DESC
-         LIMIT $4 OFFSET $5`,
-        [...baseParams, limit, offset]
+         LIMIT $8 OFFSET $9`,
+        [...filterParams, limit, offset]
     );
 
     const total = result.rows[0]?.TotalCount ?? 0;
     const orders = result.rows.map(({ TotalCount, ...order }) => order);
 
     return { orders, total };
+
+};
+
+// Counts orders per status under the same branch/date-range/search scope a
+// paginated getAllOrders call is using - deliberately NOT filtered by
+// status itself, since the point is showing how many sit in EACH status
+// (the filter chip row), not just the currently-selected one. A single
+// GROUP BY alongside the paginated query, not derived from the page's own
+// rows (which are just one page, not the whole filtered set).
+export const getOrderStatusCounts = async (tenantId, branchId, filters = null) => {
+
+    const dateFrom = filters?.dateFrom || null;
+    const dateTo = filters?.dateTo || null;
+    const search = filters?.search?.trim() || null;
+
+    const result = await pool.query(
+        `SELECT O."OrderStatus", COUNT(*)::int AS "Count"
+         FROM "Orders" O
+         INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2)
+           AND ($3::date IS NULL OR O."OrderDate"::date >= $3)
+           AND ($4::date IS NULL OR O."OrderDate"::date <= $4)
+           AND ($5::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $5 || '%' OR C."FullName" ILIKE '%' || $5 || '%')
+         GROUP BY O."OrderStatus"`,
+        [tenantId, branchId ?? null, dateFrom, dateTo, search]
+    );
+
+    return result.rows.reduce((counts, row) => {
+        counts[row.OrderStatus] = row.Count;
+        return counts;
+    }, {});
 
 };
 

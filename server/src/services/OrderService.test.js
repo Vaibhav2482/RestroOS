@@ -352,24 +352,31 @@ describe("OrderService.reorderOrder", () => {
 
 describe("OrderService.getAllOrders", () => {
 
-    it("returns the plain array unchanged when no pagination is requested", async () => {
+    it("returns the plain array unchanged when no pagination is requested, and never touches status counts", async () => {
 
         OrderRepository.getAllOrders.mockResolvedValue([order]);
 
         const result = await OrderService.getAllOrders(3, null, null, null);
 
         expect(result.data).toEqual([order]);
-        expect(OrderRepository.getAllOrders).toHaveBeenCalledWith(3, null, null, null);
+        expect(OrderRepository.getAllOrders).toHaveBeenCalledWith(3, null, null, null, null);
+        expect(OrderRepository.getOrderStatusCounts).not.toHaveBeenCalled();
 
     });
 
-    it("shapes the response as { orders, total, page, limit } when pagination is requested", async () => {
+    it("shapes the response as { orders, total, page, limit, statusCounts } when pagination is requested", async () => {
 
         OrderRepository.getAllOrders.mockResolvedValue({ orders: [order], total: 47 });
+        OrderRepository.getOrderStatusCounts.mockResolvedValue({ Pending: 3, Delivered: 44 });
 
-        const result = await OrderService.getAllOrders(3, null, null, { page: 2, limit: 25 });
+        const filters = { status: null, dateFrom: null, dateTo: null, search: null };
+        const result = await OrderService.getAllOrders(3, null, null, { page: 2, limit: 25 }, filters);
 
-        expect(result.data).toEqual({ orders: [order], total: 47, page: 2, limit: 25 });
+        expect(result.data).toEqual({
+            orders: [order], total: 47, page: 2, limit: 25, statusCounts: { Pending: 3, Delivered: 44 }
+        });
+        expect(OrderRepository.getAllOrders).toHaveBeenCalledWith(3, null, null, { page: 2, limit: 25 }, filters);
+        expect(OrderRepository.getOrderStatusCounts).toHaveBeenCalledWith(3, null, filters);
 
     });
 

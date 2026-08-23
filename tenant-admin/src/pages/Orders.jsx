@@ -40,7 +40,6 @@ import BillReceipt from "../components/BillReceipt";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
 import { formatCurrency, formatDateTime, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
-import { toDateInputValue } from "../utils/dateRange";
 
 // "All" first, then the sequence a Delivery order actually moves through -
 // Dine In/Takeaway orders just never hit "Out For Delivery", which is fine
@@ -91,6 +90,12 @@ function Orders() {
     const ownerMode = isOwner(admin);
 
     const [orders, setOrders] = useState([]);
+    // Server-reported total for the current filtered set (not orders.length,
+    // which is just the current page) and per-status counts across that
+    // same filtered set (not just the current page) - both drive the
+    // TablePagination footer and the filter chip row respectively.
+    const [totalCount, setTotalCount] = useState(0);
+    const [statusCounts, setStatusCounts] = useState({});
     const [loading, setLoading] = useState(true);
 
     const [branches, setBranches] = useState([]);
@@ -100,6 +105,11 @@ function Orders() {
     const [dialogOpen, setDialogOpen] = useState(false);
 
     const [search, setSearch] = useState("");
+    // The value actually sent to the server - updated 400ms after typing
+    // stops, so a paginated/server-filtered search doesn't fire a request
+    // per keystroke (harmless when it was a client-side array filter,
+    // wasteful now that it's a real network round trip).
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("All");
     // Empty means "all time" - the page's existing behaviour, so opening
     // Orders still shows everything rather than silently hiding history
@@ -119,8 +129,9 @@ function Orders() {
     const [printMode, setPrintMode] = useState(null);
     const [printLoadingId, setPrintLoadingId] = useState(null);
 
-    // Client-side paging over the already-fetched (filtered) list - the
-    // backend has no page/limit param on GET /orders.
+    // Server-side paging - page/rowsPerPage drive the actual GET /orders
+    // request (page/limit params) rather than slicing an already-fetched
+    // full history client-side.
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(25);
 
@@ -140,6 +151,29 @@ function Orders() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Debounced separately from the raw input - a paginated/server-filtered
+    // search is a real network request per change now, not a client-side
+    // array filter, so typing shouldn't fire one per keystroke.
+    useEffect(() => {
+
+        const timeout = setTimeout(() => setDebouncedSearch(search), 400);
+        return () => clearTimeout(timeout);
+
+    }, [search]);
+
+    // Keep the page in range whenever a filter (not the page/rowsPerPage
+    // themselves) changes - otherwise a filter that shrinks the result set
+    // can leave the user stranded on an empty page. Guarded so this only
+    // touches page state (and so only fires one fetch, not two) when it's
+    // actually not already 0 - the common case of changing a filter while
+    // already on the first page needs no reset at all.
+    useEffect(() => {
+
+        setPage((prev) => (prev === 0 ? prev : 0));
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statusFilter, selectedBranchId, dateRange.from, dateRange.to, debouncedSearch]);
+
     useEffect(() => {
 
         loadOrders();
@@ -158,7 +192,7 @@ function Orders() {
         return () => clearInterval(interval);
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedBranchId]);
+    }, [selectedBranchId, statusFilter, dateRange.from, dateRange.to, debouncedSearch, page, rowsPerPage]);
 
     // Realtime: subscribe to every branch this admin can see so a new order
     // or a status change made from the POS/another tab shows up immediately
@@ -235,10 +269,19 @@ function Orders() {
 
             const branchId = ownerMode && selectedBranchId !== "all" ? selectedBranchId : undefined;
 
-            const response = await orderService.getAllOrders(branchId);
+            const response = await orderService.getAllOrders(branchId, {
+                page: page + 1, // server is 1-indexed, MUI's TablePagination is 0-indexed
+                limit: rowsPerPage,
+                status: statusFilter !== "All" ? statusFilter : undefined,
+                dateFrom: dateRange.from || undefined,
+                dateTo: dateRange.to || undefined,
+                search: debouncedSearch.trim() || undefined
+            });
 
             if (response.success) {
-                setOrders(response.data);
+                setOrders(response.data.orders);
+                setTotalCount(response.data.total);
+                setStatusCounts(response.data.statusCounts || {});
             } else if (!silent) {
                 toast.error(response.message || "Failed to load orders.");
             }
@@ -350,58 +393,11 @@ function Orders() {
         setPrintMode(null);
     };
 
-    const statusCounts = orders.reduce((counts, order) => {
-        counts[order.OrderStatus] = (counts[order.OrderStatus] || 0) + 1;
-        return counts;
-    }, {});
-
-    // Keep the page in range whenever the underlying filters (or the data
-    // itself, via the background refresh) change - otherwise a filter that
-    // shrinks the result set can leave the user stranded on an empty page.
-    useEffect(() => {
-        setPage(0);
-    }, [search, statusFilter, selectedBranchId, dateRange.from, dateRange.to]);
-
-    const filteredOrders = orders.filter((order) => {
-
-        if (statusFilter !== "All" && order.OrderStatus !== statusFilter) {
-            return false;
-        }
-
-        // Compared as YYYY-MM-DD strings (which sort lexically) against the
-        // order's *local* calendar day - the same local-components approach
-        // dateRange.toDateInputValue uses, so an early-morning IST order
-        // isn't pushed into the previous day the way a UTC comparison would.
-        if (dateRange.from || dateRange.to) {
-
-            const orderDay = toDateInputValue(new Date(order.OrderDate));
-
-            if (dateRange.from && orderDay < dateRange.from) {
-                return false;
-            }
-
-            if (dateRange.to && orderDay > dateRange.to) {
-                return false;
-            }
-
-        }
-
-        const query = search.trim().toLowerCase();
-
-        if (!query) {
-            return true;
-        }
-
-        const matchesId = String(order.OrderId).includes(query);
-        const matchesCustomer = (order.CustomerName || "").toLowerCase().includes(query);
-
-        return matchesId || matchesCustomer;
-
-    });
-
     // Cancelled orders are counted but never billed, so they're excluded from
     // revenue and from the average - including them would understate what an
     // order is actually worth.
+
+    const hasActiveFilters = Boolean(debouncedSearch.trim() || statusFilter !== "All" || dateRange.from || dateRange.to);
 
     return (
 
@@ -489,7 +485,15 @@ function Orders() {
 
                 {STATUS_FILTERS.map((status) => {
 
-                    const count = status === "All" ? orders.length : (statusCounts[status] || 0);
+                    // statusCounts is scoped to branch/date/search but
+                    // deliberately NOT the current status filter itself (see
+                    // OrderRepository.getOrderStatusCounts) - "All" is the
+                    // sum across every status in that same scope, not
+                    // totalCount, which reflects whichever status IS
+                    // currently selected.
+                    const count = status === "All"
+                        ? Object.values(statusCounts).reduce((sum, value) => sum + value, 0)
+                        : (statusCounts[status] || 0);
                     const selected = statusFilter === status;
                     // A status nothing is sitting in is a dead end - still
                     // clickable (so the set of statuses stays discoverable),
@@ -561,21 +565,21 @@ function Orders() {
 
                             <TableBody>
 
-                                {filteredOrders.length === 0 ? (
+                                {orders.length === 0 ? (
 
                                     <TableRow>
                                         <TableCell colSpan={ownerMode ? 8 : 7} sx={{ py: 0 }}>
                                             <EmptyState
                                                 icon={<ReceiptLongOutlinedIcon />}
-                                                title={orders.length === 0 ? "No orders yet" : "No orders match your search/filter"}
-                                                description={orders.length === 0 ? "Orders will show up here as customers or staff place them." : "Try a different search term or status filter."}
+                                                title={hasActiveFilters ? "No orders match your search/filter" : "No orders yet"}
+                                                description={hasActiveFilters ? "Try a different search term or status filter." : "Orders will show up here as customers or staff place them."}
                                             />
                                         </TableCell>
                                     </TableRow>
 
                                 ) : (
 
-                                    filteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((order) => {
+                                    orders.map((order) => {
 
                                         // Pending is the one status that always needs a human to
                                         // notice it right now - a new order sitting unhandled is
@@ -694,11 +698,11 @@ function Orders() {
 
                 )}
 
-                {!loading && filteredOrders.length > 0 && (
+                {!loading && totalCount > 0 && (
 
                     <TablePagination
                         component="div"
-                        count={filteredOrders.length}
+                        count={totalCount}
                         page={page}
                         onPageChange={(event, newPage) => setPage(newPage)}
                         rowsPerPage={rowsPerPage}
