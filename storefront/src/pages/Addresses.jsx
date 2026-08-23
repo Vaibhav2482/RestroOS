@@ -18,11 +18,33 @@ import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import HomeRoundedIcon from "@mui/icons-material/HomeRounded";
+import WorkRoundedIcon from "@mui/icons-material/WorkRounded";
+import NearMeRoundedIcon from "@mui/icons-material/NearMeRounded";
 import toast from "react-hot-toast";
 
 import * as addressService from "../services/addressService";
 import { useStorefront } from "../context/StorefrontContext";
 import AddressDialog from "./AddressDialog";
+
+// AddressType drives the icon directly (independent of the display title -
+// "Ira" can still show a house icon). Falls back to inferring from the
+// title text only for a row saved before AddressType existed.
+const addressIcon = (address) => {
+
+    let type = address.AddressType;
+
+    if (!type) {
+        const normalizedTitle = (address.AddressTitle || "").trim().toLowerCase();
+        type = normalizedTitle === "home" ? "Home" : normalizedTitle === "work" ? "Work" : "Other";
+    }
+
+    if (type === "Home") return <HomeRoundedIcon fontSize="small" />;
+    if (type === "Work") return <WorkRoundedIcon fontSize="small" />;
+
+    return <NearMeRoundedIcon fontSize="small" />;
+
+};
 
 function Addresses() {
 
@@ -164,9 +186,10 @@ function Addresses() {
             // updateAddress replaces the whole row server-side, so every
             // existing field has to be resent alongside isDefault - not just
             // the flag - or the address would lose its title/city/etc. (and,
-            // now, its saved map pin).
+            // now, its saved map pin and Home/Work/Other type).
             const response = await addressService.updateAddress(address.AddressId, {
                 addressTitle: address.AddressTitle,
+                addressType: address.AddressType ?? null,
                 fullAddress: address.FullAddress,
                 city: address.City,
                 state: address.State,
@@ -250,6 +273,9 @@ function Addresses() {
                                 <Box sx={{ minWidth: 0 }}>
 
                                     <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                        <Box sx={{ color: "text.secondary", display: "flex" }}>
+                                            {addressIcon(address)}
+                                        </Box>
                                         <Typography fontWeight={700}>{address.AddressTitle}</Typography>
                                         {address.IsDefault && <Chip label="Default" size="small" color="primary" />}
                                     </Stack>

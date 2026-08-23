@@ -1,9 +1,18 @@
 import * as CustomerAddressRepository from "../repositories/CustomerAddressRepository.js";
 
+const ADDRESS_TYPES = new Set(["Home", "Work", "Other"]);
+
 const validate = (address) => {
 
     if (!address.addressTitle || address.addressTitle.trim() === "") {
         return "Address Title is required.";
+    }
+
+    // Optional - a row saved before this existed (or a caller that skips
+    // it) just has no type, and the frontend falls back to inferring one
+    // from the title text for display.
+    if (address.addressType && !ADDRESS_TYPES.has(address.addressType)) {
+        return "Address type must be Home, Work, or Other.";
     }
 
     if (!address.fullAddress || address.fullAddress.trim() === "") {

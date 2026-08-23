@@ -26,8 +26,8 @@ export const createCustomerAddress = async (address) => {
 
         const inserted = await client.query(
             `INSERT INTO "CustomerAddresses"
-                ("CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "Latitude", "Longitude")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                ("CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "Latitude", "Longitude", "AddressType")
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              RETURNING *`,
             [
                 address.customerId,
@@ -39,7 +39,8 @@ export const createCustomerAddress = async (address) => {
                 address.landmark ?? null,
                 address.isDefault ?? false,
                 address.latitude ?? null,
-                address.longitude ?? null
+                address.longitude ?? null,
+                address.addressType ?? null
             ]
         );
 
@@ -63,7 +64,7 @@ export const createCustomerAddress = async (address) => {
 export const getCustomerAddresses = async (customerId) => {
 
     const result = await pool.query(
-        `SELECT "AddressId", "CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "CreatedAt", "Latitude", "Longitude"
+        `SELECT "AddressId", "CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "CreatedAt", "Latitude", "Longitude", "AddressType"
          FROM "CustomerAddresses"
          WHERE "CustomerId" = $1
          ORDER BY "IsDefault" DESC, "AddressId" DESC`,
@@ -123,9 +124,9 @@ export const updateCustomerAddress = async (address, tenantId) => {
         const updated = await client.query(
             `UPDATE "CustomerAddresses"
              SET "AddressTitle" = $1, "FullAddress" = $2, "City" = $3, "State" = $4, "Pincode" = $5, "Landmark" = $6, "IsDefault" = $7,
-                 "Latitude" = $8, "Longitude" = $9
-             WHERE "AddressId" = $10
-             RETURNING "AddressId", "CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "CreatedAt", "Latitude", "Longitude"`,
+                 "Latitude" = $8, "Longitude" = $9, "AddressType" = $10
+             WHERE "AddressId" = $11
+             RETURNING "AddressId", "CustomerId", "AddressTitle", "FullAddress", "City", "State", "Pincode", "Landmark", "IsDefault", "CreatedAt", "Latitude", "Longitude", "AddressType"`,
             [
                 address.addressTitle,
                 address.fullAddress,
@@ -136,6 +137,7 @@ export const updateCustomerAddress = async (address, tenantId) => {
                 address.isDefault ?? false,
                 address.latitude ?? null,
                 address.longitude ?? null,
+                address.addressType ?? null,
                 address.addressId
             ]
         );

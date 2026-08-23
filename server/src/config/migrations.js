@@ -574,5 +574,17 @@ export const MIGRATIONS = [
             ALTER TABLE "Tenants"
             ADD COLUMN "DeliveryStaffingMode" VARCHAR(20) NOT NULL DEFAULT 'branch_staff';
         `
+    },
+    {
+        // Separate from AddressTitle (still the free-text display name, e.g.
+        // "Ira") on purpose - Home/Work/Other picks an icon, the title is
+        // whatever the customer wants to call it, and a row saved before
+        // this existed just has NULL here (the frontend falls back to
+        // inferring from the title text for those older rows).
+        id: "0031_customer_address_type",
+        sql: `
+            ALTER TABLE "CustomerAddresses"
+            ADD COLUMN "AddressType" VARCHAR(10);
+        `
     }
 ];
