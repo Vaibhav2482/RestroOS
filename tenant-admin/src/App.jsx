@@ -15,6 +15,7 @@ import Reports from "./pages/Reports";
 import Categories from "./pages/Categories";
 import Coupons from "./pages/Coupons";
 import Branches from "./pages/Branches";
+import DeliverySettings from "./pages/DeliverySettings";
 import Admins from "./pages/Admins";
 import Integrations from "./pages/Integrations";
 import PrinterSettings from "./pages/PrinterSettings";
@@ -72,6 +73,7 @@ function App() {
                 <Route path="/categories" element={withLayout(<Categories />, { permission: "manage_categories" })} />
                 <Route path="/coupons" element={withLayout(<Coupons />, { permission: "manage_coupons" })} />
                 <Route path="/branches" element={withLayout(<Branches />, { ownerOnly: true, feature: "manage_branches" })} />
+                <Route path="/delivery-settings" element={withLayout(<DeliverySettings />, { permission: "manage_delivery" })} />
                 <Route path="/admins" element={withLayout(<Admins />, { ownerOnly: true })} />
                 <Route path="/integrations" element={withLayout(<Integrations />, { permission: "manage_integrations" })} />
                 <Route path="/activity-log" element={withLayout(<AuditLog />, { permission: "view_activity_log" })} />

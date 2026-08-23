@@ -40,6 +40,18 @@ export const updateBranding = asyncHandler(async (req, res) => {
 
 });
 
+export const updateDeliveryStaffingMode = asyncHandler(async (req, res) => {
+
+    const result = await TenantService.updateDeliveryStaffingMode(req.user.tenantId, req.body.deliveryStaffingMode);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const updateDisabledFeatures = asyncHandler(async (req, res) => {
 
     const result = await TenantService.updateDisabledFeatures(req.user.tenantId, req.body.disabledFeatures);

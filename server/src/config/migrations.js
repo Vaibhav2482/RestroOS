@@ -546,5 +546,33 @@ export const MIGRATIONS = [
             ADD COLUMN IF NOT EXISTS "LogoUrl" VARCHAR(500),
             ADD COLUMN IF NOT EXISTS "PrimaryColor" VARCHAR(7) DEFAULT '#4F46E5';
         `
+    },
+    {
+        // Nullable everywhere - old rows (and any tenant that never sets up
+        // a Maps key) keep working exactly as before. Radius/ETA/tracking
+        // features all check for these before doing anything, rather than
+        // assuming they're populated.
+        id: "0029_delivery_coordinates",
+        sql: `
+            ALTER TABLE "CustomerAddresses"
+            ADD COLUMN "Latitude" DECIMAL(9, 6),
+            ADD COLUMN "Longitude" DECIMAL(9, 6);
+
+            ALTER TABLE "Branches"
+            ADD COLUMN "Latitude" DECIMAL(9, 6),
+            ADD COLUMN "Longitude" DECIMAL(9, 6),
+            ADD COLUMN "DeliveryRadiusKm" DECIMAL(5, 2),
+            ADD COLUMN "DeliveryStaffingMode" VARCHAR(20);
+        `
+    },
+    {
+        // Tenant-wide default; a branch's own DeliveryStaffingMode (above),
+        // when set, overrides it - a chain can mix branch-staff and
+        // dedicated-rider branches without needing a second tenant.
+        id: "0030_tenant_delivery_staffing_mode",
+        sql: `
+            ALTER TABLE "Tenants"
+            ADD COLUMN "DeliveryStaffingMode" VARCHAR(20) NOT NULL DEFAULT 'branch_staff';
+        `
     }
 ];

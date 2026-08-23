@@ -10,6 +10,11 @@ export const updateBranding = async (branding) => {
     return response.data;
 };
 
+export const updateDeliveryStaffingMode = async (deliveryStaffingMode) => {
+    const response = await axiosClient.put("/tenants/me/delivery-settings", { deliveryStaffingMode });
+    return response.data;
+};
+
 export const updateDisabledFeatures = async (disabledFeatures) => {
     const response = await axiosClient.put("/tenants/me/features", { disabledFeatures });
     return response.data;

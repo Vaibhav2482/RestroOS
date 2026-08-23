@@ -51,6 +51,20 @@ export const updateBranding = async (tenantId, { logoUrl, primaryColor }) => {
 
 };
 
+const DELIVERY_STAFFING_MODES = new Set(["branch_staff", "dedicated_riders"]);
+
+export const updateDeliveryStaffingMode = async (tenantId, deliveryStaffingMode) => {
+
+    if (!DELIVERY_STAFFING_MODES.has(deliveryStaffingMode)) {
+        return { success: false, message: "Delivery staffing mode must be 'branch_staff' or 'dedicated_riders'." };
+    }
+
+    const tenant = await TenantRepository.updateDeliveryStaffingMode(tenantId, deliveryStaffingMode);
+
+    return { success: true, message: "Delivery settings updated.", data: tenant };
+
+};
+
 // Reachable two ways: a tenant's own Owner via PUT /tenants/me/features
 // (tenantId always valid there - it's their own JWT's tenantId, and there's
 // no platform admin actor to attribute) and a platform admin via

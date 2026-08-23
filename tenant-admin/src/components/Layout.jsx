@@ -41,6 +41,7 @@ import TuneOutlinedIcon from "@mui/icons-material/TuneOutlined";
 import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import LogoutOutlinedIcon from "@mui/icons-material/LogoutOutlined";
 import RestaurantRoundedIcon from "@mui/icons-material/RestaurantRounded";
+import TwoWheelerOutlinedIcon from "@mui/icons-material/TwoWheelerOutlined";
 import { NavLink, useNavigate } from "react-router-dom";
 import { alpha } from "@mui/material/styles";
 
@@ -95,6 +96,7 @@ const NAV_GROUPS = [
         items: [
             { label: "Coupons", to: "/coupons", icon: <LocalOfferOutlinedIcon />, permission: "manage_coupons" },
             { label: "Branches", to: "/branches", icon: <StoreOutlinedIcon />, ownerOnly: true, feature: "manage_branches" },
+            { label: "Delivery", to: "/delivery-settings", icon: <TwoWheelerOutlinedIcon />, permission: "manage_delivery" },
             { label: "Staff", to: "/admins", icon: <GroupOutlinedIcon />, ownerOnly: true },
             { label: "Integrations", to: "/integrations", icon: <ExtensionOutlinedIcon />, permission: "manage_integrations" }
         ]

@@ -10,13 +10,17 @@ import {
     TextField
 } from "@mui/material";
 
+import MapLocationPicker from "../components/MapLocationPicker";
+
 const emptyForm = {
     addressTitle: "",
     fullAddress: "",
     city: "",
     state: "",
     pincode: "",
-    landmark: ""
+    landmark: "",
+    latitude: null,
+    longitude: null
 };
 
 // Shared create/edit form used by both the Addresses page and the Checkout
@@ -39,7 +43,9 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                 city: address.City || "",
                 state: address.State || "",
                 pincode: address.Pincode || "",
-                landmark: address.Landmark || ""
+                landmark: address.Landmark || "",
+                latitude: address.Latitude ?? null,
+                longitude: address.Longitude ?? null
             });
 
         } else {
@@ -52,6 +58,17 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
 
     const handleChange = (event) => {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+    };
+
+    const handlePick = ({ latitude, longitude, formattedAddress }) => {
+        setFormData((prev) => ({
+            ...prev,
+            latitude,
+            longitude,
+            // Only overwrite a still-blank field - never clobber an address
+            // the customer already typed just because they also dropped a pin.
+            fullAddress: formattedAddress && !prev.fullAddress.trim() ? formattedAddress : prev.fullAddress
+        }));
     };
 
     const handleSubmit = (event) => {
@@ -75,6 +92,14 @@ function AddressDialog({ open, onClose, onSave, address, saving }) {
                 <DialogContent sx={{ pt: 1 }}>
 
                     <Grid container spacing={2}>
+
+                        <Grid size={{ xs: 12 }}>
+                            <MapLocationPicker
+                                latitude={formData.latitude}
+                                longitude={formData.longitude}
+                                onPick={handlePick}
+                            />
+                        </Grid>
 
                         <Grid size={{ xs: 12 }}>
                             <TextField

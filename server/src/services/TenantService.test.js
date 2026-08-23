@@ -197,6 +197,32 @@ describe("TenantService.suspendTenant / reactivateTenant", () => {
 
 });
 
+describe("TenantService.updateDeliveryStaffingMode", () => {
+
+    it("saves a valid mode", async () => {
+
+        TenantRepository.updateDeliveryStaffingMode.mockResolvedValue({
+            TenantId: TENANT_ID, DeliveryStaffingMode: "dedicated_riders"
+        });
+
+        const result = await TenantService.updateDeliveryStaffingMode(TENANT_ID, "dedicated_riders");
+
+        expect(result.success).toBe(true);
+        expect(TenantRepository.updateDeliveryStaffingMode).toHaveBeenCalledWith(TENANT_ID, "dedicated_riders");
+
+    });
+
+    it("rejects anything other than the two known modes, without writing anything", async () => {
+
+        const result = await TenantService.updateDeliveryStaffingMode(TENANT_ID, "carrier_pigeon");
+
+        expect(result.success).toBe(false);
+        expect(TenantRepository.updateDeliveryStaffingMode).not.toHaveBeenCalled();
+
+    });
+
+});
+
 describe("TenantService.updateDisabledFeatures", () => {
 
     it("sanitizes and saves the disabled feature list for a known tenant", async () => {

@@ -163,7 +163,8 @@ function Addresses() {
 
             // updateAddress replaces the whole row server-side, so every
             // existing field has to be resent alongside isDefault - not just
-            // the flag - or the address would lose its title/city/etc.
+            // the flag - or the address would lose its title/city/etc. (and,
+            // now, its saved map pin).
             const response = await addressService.updateAddress(address.AddressId, {
                 addressTitle: address.AddressTitle,
                 fullAddress: address.FullAddress,
@@ -171,6 +172,8 @@ function Addresses() {
                 state: address.State,
                 pincode: address.Pincode,
                 landmark: address.Landmark,
+                latitude: address.Latitude ?? null,
+                longitude: address.Longitude ?? null,
                 isDefault: true
             });
 

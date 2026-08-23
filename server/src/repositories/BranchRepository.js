@@ -5,7 +5,8 @@ import pool from "../config/db.js";
 export const getActiveBranchesByTenantSlug = async (tenantSlug) => {
 
     const result = await pool.query(
-        `SELECT B."BranchId", B."BranchName", B."Address", B."City", B."State", B."Pincode", B."Phone"
+        `SELECT B."BranchId", B."BranchName", B."Address", B."City", B."State", B."Pincode", B."Phone",
+                B."Latitude", B."Longitude", B."DeliveryRadiusKm"
          FROM "Branches" B
          INNER JOIN "Tenants" T ON B."TenantId" = T."TenantId"
          WHERE T."Slug" = $1 AND T."IsActive" = TRUE AND B."IsActive" = TRUE
@@ -25,7 +26,8 @@ export const getActiveBranchesByTenantSlug = async (tenantSlug) => {
 export const getAllBranches = async (tenantId, branchId) => {
 
     const result = await pool.query(
-        `SELECT "BranchId", "BranchName", "Address", "City", "State", "Pincode", "Phone", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "BranchId", "BranchName", "Address", "City", "State", "Pincode", "Phone",
+                "Latitude", "Longitude", "DeliveryRadiusKm", "DeliveryStaffingMode", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Branches"
          WHERE "TenantId" = $1 AND ($2::int IS NULL OR "BranchId" = $2)
          ORDER BY "BranchName"`,
@@ -39,7 +41,8 @@ export const getAllBranches = async (tenantId, branchId) => {
 export const getBranchById = async (branchId) => {
 
     const result = await pool.query(
-        `SELECT "BranchId", "TenantId", "BranchName", "Address", "City", "State", "Pincode", "Phone", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "BranchId", "TenantId", "BranchName", "Address", "City", "State", "Pincode", "Phone",
+                "Latitude", "Longitude", "DeliveryRadiusKm", "DeliveryStaffingMode", "IsActive", "CreatedAt", "UpdatedAt"
          FROM "Branches"
          WHERE "BranchId" = $1`,
         [branchId]
@@ -52,8 +55,9 @@ export const getBranchById = async (branchId) => {
 export const createBranch = async (branch) => {
 
     const result = await pool.query(
-        `INSERT INTO "Branches" ("TenantId", "BranchName", "Address", "City", "State", "Pincode", "Phone", "IsActive", "CreatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE, NOW())
+        `INSERT INTO "Branches"
+            ("TenantId", "BranchName", "Address", "City", "State", "Pincode", "Phone", "Latitude", "Longitude", "DeliveryRadiusKm", "DeliveryStaffingMode", "IsActive", "CreatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, TRUE, NOW())
          RETURNING *`,
         [
             branch.tenantId,
@@ -62,7 +66,11 @@ export const createBranch = async (branch) => {
             branch.city ?? null,
             branch.state ?? null,
             branch.pincode ?? null,
-            branch.phone ?? null
+            branch.phone ?? null,
+            branch.latitude ?? null,
+            branch.longitude ?? null,
+            branch.deliveryRadiusKm ?? null,
+            branch.deliveryStaffingMode ?? null
         ]
     );
 
@@ -74,8 +82,9 @@ export const updateBranch = async (branch) => {
 
     const result = await pool.query(
         `UPDATE "Branches"
-         SET "BranchName" = $1, "Address" = $2, "City" = $3, "State" = $4, "Pincode" = $5, "Phone" = $6, "IsActive" = $7, "UpdatedAt" = NOW()
-         WHERE "BranchId" = $8
+         SET "BranchName" = $1, "Address" = $2, "City" = $3, "State" = $4, "Pincode" = $5, "Phone" = $6, "IsActive" = $7,
+             "Latitude" = $8, "Longitude" = $9, "DeliveryRadiusKm" = $10, "DeliveryStaffingMode" = $11, "UpdatedAt" = NOW()
+         WHERE "BranchId" = $12
          RETURNING *`,
         [
             branch.branchName,
@@ -85,6 +94,10 @@ export const updateBranch = async (branch) => {
             branch.pincode ?? null,
             branch.phone ?? null,
             branch.isActive ?? true,
+            branch.latitude ?? null,
+            branch.longitude ?? null,
+            branch.deliveryRadiusKm ?? null,
+            branch.deliveryStaffingMode ?? null,
             branch.branchId
         ]
     );

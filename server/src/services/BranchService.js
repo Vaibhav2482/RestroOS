@@ -39,10 +39,21 @@ export const getBranchById = async (branchId, tenantId) => {
 
 };
 
+const DELIVERY_STAFFING_MODES = new Set(["branch_staff", "dedicated_riders"]);
+
+// Blank/undefined is valid (falls back to the tenant's default) - only an
+// actual, wrong value is rejected.
+const invalidDeliveryStaffingMode = (branch) =>
+    branch.deliveryStaffingMode && !DELIVERY_STAFFING_MODES.has(branch.deliveryStaffingMode);
+
 export const createBranch = async (branch, tenantId, actorAdminId) => {
 
     if (!branch.branchName || branch.branchName.trim() === "") {
         return { success: false, message: "Branch Name is required." };
+    }
+
+    if (invalidDeliveryStaffingMode(branch)) {
+        return { success: false, message: "Delivery staffing mode must be 'branch_staff' or 'dedicated_riders'." };
     }
 
     const createdBranch = await BranchRepository.createBranch({ ...branch, tenantId });
@@ -70,6 +81,10 @@ export const updateBranch = async (branchId, branch, tenantId, actorAdminId) => 
 
     if (!branch.branchName || branch.branchName.trim() === "") {
         return { success: false, message: "Branch Name is required." };
+    }
+
+    if (invalidDeliveryStaffingMode(branch)) {
+        return { success: false, message: "Delivery staffing mode must be 'branch_staff' or 'dedicated_riders'." };
     }
 
     const updatedBranch = await BranchRepository.updateBranch({ ...branch, branchId: Number(branchId) });

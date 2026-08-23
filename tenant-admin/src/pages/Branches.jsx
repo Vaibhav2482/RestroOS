@@ -8,9 +8,13 @@ import {
     DialogActions,
     DialogContent,
     DialogTitle,
+    FormControl,
     Grid,
     IconButton,
+    InputLabel,
+    MenuItem,
     Paper,
+    Select,
     Table,
     TableBody,
     TableCell,
@@ -28,6 +32,7 @@ import toast from "react-hot-toast";
 
 import * as branchService from "../services/branchService";
 import EmptyState from "../components/EmptyState";
+import MapLocationPicker from "../components/MapLocationPicker";
 
 const emptyForm = {
     branchName: "",
@@ -35,7 +40,11 @@ const emptyForm = {
     city: "",
     state: "",
     pincode: "",
-    phone: ""
+    phone: "",
+    latitude: null,
+    longitude: null,
+    deliveryRadiusKm: "",
+    deliveryStaffingMode: ""
 };
 
 function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
@@ -55,7 +64,11 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
                 city: editingBranch.City ?? "",
                 state: editingBranch.State ?? "",
                 pincode: editingBranch.Pincode ?? "",
-                phone: editingBranch.Phone ?? ""
+                phone: editingBranch.Phone ?? "",
+                latitude: editingBranch.Latitude ?? null,
+                longitude: editingBranch.Longitude ?? null,
+                deliveryRadiusKm: editingBranch.DeliveryRadiusKm ?? "",
+                deliveryStaffingMode: editingBranch.DeliveryStaffingMode ?? ""
             });
 
         } else if (open) {
@@ -72,6 +85,10 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
     };
 
+    const handlePick = ({ latitude, longitude }) => {
+        setFormData((prev) => ({ ...prev, latitude, longitude }));
+    };
+
     const handleSubmit = () => {
 
         if (!formData.branchName.trim()) {
@@ -79,7 +96,11 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
             return;
         }
 
-        onSave(formData);
+        onSave({
+            ...formData,
+            deliveryRadiusKm: formData.deliveryRadiusKm === "" ? null : Number(formData.deliveryRadiusKm),
+            deliveryStaffingMode: formData.deliveryStaffingMode || null
+        });
 
     };
 
@@ -94,6 +115,14 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
             <DialogContent>
 
                 <Grid container spacing={2} sx={{ mt: 0.5 }}>
+
+                    <Grid size={12}>
+                        <MapLocationPicker
+                            latitude={formData.latitude}
+                            longitude={formData.longitude}
+                            onPick={handlePick}
+                        />
+                    </Grid>
 
                     <Grid size={12}>
                         <TextField
@@ -150,7 +179,7 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
                         />
                     </Grid>
 
-                    <Grid size={12}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                         <TextField
                             fullWidth
                             label="Phone"
@@ -158,6 +187,37 @@ function BranchDialog({ open, onClose, onSave, editingBranch, saving }) {
                             value={formData.phone}
                             onChange={handleChange}
                         />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField
+                            fullWidth
+                            type="number"
+                            label="Delivery Radius (km)"
+                            name="deliveryRadiusKm"
+                            placeholder="Unlimited"
+                            value={formData.deliveryRadiusKm}
+                            onChange={handleChange}
+                            slotProps={{ htmlInput: { min: 0, step: 0.5 } }}
+                            helperText="Orders outside this distance are rejected at checkout. Leave blank for no limit."
+                        />
+                    </Grid>
+
+                    <Grid size={12}>
+                        <FormControl fullWidth>
+                            <InputLabel id="branch-delivery-staffing-mode-label">Delivery Staffing (this branch)</InputLabel>
+                            <Select
+                                labelId="branch-delivery-staffing-mode-label"
+                                label="Delivery Staffing (this branch)"
+                                name="deliveryStaffingMode"
+                                value={formData.deliveryStaffingMode}
+                                onChange={handleChange}
+                            >
+                                <MenuItem value="">Use restaurant default</MenuItem>
+                                <MenuItem value="branch_staff">Branch staff deliver</MenuItem>
+                                <MenuItem value="dedicated_riders">Dedicated delivery riders</MenuItem>
+                            </Select>
+                        </FormControl>
                     </Grid>
 
                 </Grid>
