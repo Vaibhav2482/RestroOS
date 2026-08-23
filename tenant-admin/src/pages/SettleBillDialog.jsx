@@ -128,11 +128,6 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
                 <DialogTitle>
                     Settle Bill &mdash; Table {table?.TableName}
-                    {visit?.GuestCount && (
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ ml: 1 }}>
-                            &middot; {visit.GuestCount} guest{visit.GuestCount === 1 ? "" : "s"}
-                        </Typography>
-                    )}
                 </DialogTitle>
 
                 <DialogContent>

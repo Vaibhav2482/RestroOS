@@ -15,7 +15,7 @@ vi.mock("../config/db.js", () => ({
     }
 }));
 
-const { resolveOpenVisitId, getOpenVisitForTable, settleVisit, getVisitConsolidatedItems, updateGuestCount } = await import("./TableVisitRepository.js");
+const { resolveOpenVisitId, getOpenVisitForTable, settleVisit, getVisitConsolidatedItems } = await import("./TableVisitRepository.js");
 
 beforeEach(() => {
     poolQueryMock.mockReset();
@@ -76,57 +76,6 @@ describe("resolveOpenVisitId - attaching a Dine In order to its table's visit", 
         client.query.mockRejectedValueOnce(Object.assign(new Error("connection reset"), { code: "08006" }));
 
         await expect(resolveOpenVisitId(client, 1, "B3")).rejects.toThrow("connection reset");
-
-    });
-
-    it("passes guestCount through on a new visit's INSERT", async () => {
-
-        const client = { query: vi.fn() };
-        client.query.mockResolvedValueOnce({ rows: [] }); // SELECT ... FOR UPDATE -> none
-        client.query.mockResolvedValueOnce({ rows: [{ VisitId: 42 }] }); // INSERT ... RETURNING
-
-        await resolveOpenVisitId(client, 1, "B3", 4);
-
-        expect(client.query.mock.calls[1][1]).toEqual([1, "B3", 4]);
-
-    });
-
-    it("never applies guestCount to an already-open visit - the existing SELECT branch ignores it entirely", async () => {
-
-        const client = { query: vi.fn().mockResolvedValue({ rows: [{ VisitId: 7 }] }) };
-
-        const visitId = await resolveOpenVisitId(client, 1, "A1", 6);
-
-        expect(visitId).toBe(7);
-        expect(client.query).toHaveBeenCalledTimes(1); // only the SELECT - no UPDATE attempted
-
-    });
-
-});
-
-describe("updateGuestCount - adjusting an already-open visit", () => {
-
-    it("updates and returns the visit when it's still Open", async () => {
-
-        poolQueryMock.mockResolvedValue({ rows: [{ VisitId: 5 }] });
-
-        const result = await updateGuestCount(5, 6);
-
-        expect(result).toEqual({ VisitId: 5 });
-
-        const [sql, params] = poolQueryMock.mock.calls[0];
-        expect(sql).toMatch(/WHERE "VisitId" = \$1 AND "Status" = 'Open'/);
-        expect(params).toEqual([5, 6]);
-
-    });
-
-    it("returns null (not found/already settled) rather than throwing when the visit isn't Open", async () => {
-
-        poolQueryMock.mockResolvedValue({ rows: [] });
-
-        const result = await updateGuestCount(5, 6);
-
-        expect(result).toBeNull();
 
     });
 

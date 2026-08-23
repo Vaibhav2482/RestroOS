@@ -500,5 +500,18 @@ export const MIGRATIONS = [
             ALTER TABLE "TableVisits" ADD COLUMN "GuestCount" INT NULL;
             ALTER TABLE "TableVisits" ADD CONSTRAINT "CHK_TableVisits_GuestCount" CHECK ("GuestCount" IS NULL OR "GuestCount" > 0);
         `
+    },
+    {
+        // Guest count is removed - captured but never actually visible
+        // anywhere staff would see it during service (not the floor grid),
+        // and never fed into anything (no report used it), so it was just
+        // a field nobody could rely on being filled in for no payoff.
+        // Migrations are never edited after the fact (0025 stays, as the
+        // historical record of what ran), this is the migration that
+        // undoes its effect instead.
+        id: "0026_drop_table_visit_guest_count",
+        sql: `
+            ALTER TABLE "TableVisits" DROP COLUMN "GuestCount";
+        `
     }
 ];

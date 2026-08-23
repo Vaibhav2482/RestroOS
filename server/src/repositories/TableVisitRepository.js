@@ -15,12 +15,7 @@ import pool from "../config/db.js";
 // unique index (one Open visit per table) is the backstop if they still
 // race past that, handled below by catching the constraint violation and
 // re-reading rather than failing the order.
-// guestCount is only ever applied on the INSERT branch below - once a
-// visit already exists, its guest count was already set on the table's
-// first round and later rounds don't get to silently change it (adjusting
-// it, if ever needed, is a deliberate action on the visit itself, not a
-// side effect of ordering more food).
-export const resolveOpenVisitId = async (client, branchId, tableNumber, guestCount = null) => {
+export const resolveOpenVisitId = async (client, branchId, tableNumber) => {
 
     const existing = await client.query(
         `SELECT "VisitId" FROM "TableVisits" WHERE "BranchId" = $1 AND "TableNumber" = $2 AND "Status" = 'Open' FOR UPDATE`,
@@ -34,8 +29,8 @@ export const resolveOpenVisitId = async (client, branchId, tableNumber, guestCou
     try {
 
         const created = await client.query(
-            `INSERT INTO "TableVisits" ("BranchId", "TableNumber", "Status", "GuestCount") VALUES ($1, $2, 'Open', $3) RETURNING "VisitId"`,
-            [branchId, tableNumber, guestCount]
+            `INSERT INTO "TableVisits" ("BranchId", "TableNumber", "Status") VALUES ($1, $2, 'Open') RETURNING "VisitId"`,
+            [branchId, tableNumber]
         );
 
         return created.rows[0].VisitId;
@@ -62,7 +57,7 @@ export const resolveOpenVisitId = async (client, branchId, tableNumber, guestCou
 export const getOpenVisitForTable = async (branchId, tableNumber) => {
 
     const result = await pool.query(
-        `SELECT "VisitId", "BranchId", "TableNumber", "Status", "OpenedAt", "GuestCount"
+        `SELECT "VisitId", "BranchId", "TableNumber", "Status", "OpenedAt"
          FROM "TableVisits"
          WHERE "BranchId" = $1 AND "TableNumber" = $2 AND "Status" = 'Open'`,
         [branchId, tableNumber]
@@ -81,7 +76,7 @@ export const getOpenVisitForTable = async (branchId, tableNumber) => {
 export const getVisitHeader = async (visitId) => {
 
     const result = await pool.query(
-        `SELECT V."VisitId", V."BranchId", V."TableNumber", V."Status", V."OpenedAt", V."ClosedAt", V."PaymentMethod", V."GuestCount",
+        `SELECT V."VisitId", V."BranchId", V."TableNumber", V."Status", V."OpenedAt", V."ClosedAt", V."PaymentMethod",
                 B."BranchName", B."TenantId",
                 COALESCE(SUM(O."SubTotal"), 0) AS "SubTotal",
                 COALESCE(SUM(O."CgstAmount"), 0) AS "CgstAmount",
@@ -144,21 +139,6 @@ export const getVisitOrders = async (visitId) => {
     );
 
     return result.rows;
-
-};
-
-// Lets staff set/correct the guest count on an already-open visit (e.g. it
-// was skipped when the table was first seated, or two more guests joined
-// mid-meal) - deliberately its own explicit action rather than something
-// that happens implicitly off a later round's order.
-export const updateGuestCount = async (visitId, guestCount) => {
-
-    const result = await pool.query(
-        `UPDATE "TableVisits" SET "GuestCount" = $2 WHERE "VisitId" = $1 AND "Status" = 'Open' RETURNING "VisitId"`,
-        [visitId, guestCount]
-    );
-
-    return result.rows[0] ?? null;
 
 };
 

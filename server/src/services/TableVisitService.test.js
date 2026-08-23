@@ -7,7 +7,7 @@ vi.mock("./AuditService.js");
 const TableVisitRepository = await import("../repositories/TableVisitRepository.js");
 const RealtimeService = await import("./RealtimeService.js");
 const AuditService = await import("./AuditService.js");
-const { getVisitDetails, settleVisit, updateGuestCount } = await import("./TableVisitService.js");
+const { getVisitDetails, settleVisit } = await import("./TableVisitService.js");
 
 beforeEach(() => {
     vi.clearAllMocks();
@@ -42,40 +42,6 @@ describe("TableVisitService.getVisitDetails", () => {
             Items: [{ ItemName: "Tea", Quantity: 2 }],
             Orders: [{ OrderId: 301 }, { OrderId: 302 }]
         });
-
-    });
-
-});
-
-describe("TableVisitService.updateGuestCount", () => {
-
-    it("rejects a non-positive or non-integer count before touching the repository", async () => {
-
-        expect(await updateGuestCount(5, 0)).toEqual({ success: false, message: "Guest count must be a positive whole number." });
-        expect(await updateGuestCount(5, -2)).toEqual({ success: false, message: "Guest count must be a positive whole number." });
-        expect(await updateGuestCount(5, 2.5)).toEqual({ success: false, message: "Guest count must be a positive whole number." });
-        expect(TableVisitRepository.updateGuestCount).not.toHaveBeenCalled();
-
-    });
-
-    it("reports failure when the visit is already settled or missing (repository returns null)", async () => {
-
-        TableVisitRepository.updateGuestCount.mockResolvedValue(null);
-
-        const result = await updateGuestCount(5, 4);
-
-        expect(result.success).toBe(false);
-
-    });
-
-    it("updates and returns success on a valid count against an Open visit", async () => {
-
-        TableVisitRepository.updateGuestCount.mockResolvedValue({ VisitId: 5 });
-
-        const result = await updateGuestCount(5, 4);
-
-        expect(result).toEqual({ success: true, message: "Guest count updated.", data: { VisitId: 5 } });
-        expect(TableVisitRepository.updateGuestCount).toHaveBeenCalledWith(5, 4);
 
     });
 

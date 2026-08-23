@@ -45,22 +45,6 @@ export const getVisitDetails = async (visitId) => {
 
 };
 
-export const updateGuestCount = async (visitId, guestCount) => {
-
-    if (!Number.isInteger(guestCount) || guestCount <= 0) {
-        return { success: false, message: "Guest count must be a positive whole number." };
-    }
-
-    const updated = await TableVisitRepository.updateGuestCount(visitId, guestCount);
-
-    if (!updated) {
-        return { success: false, message: "This table's bill has already been settled, or the visit was not found." };
-    }
-
-    return { success: true, message: "Guest count updated.", data: updated };
-
-};
-
 // Consolidates every non-cancelled order under the visit into one bill,
 // records the single payment that settles the whole table, and closes the
 // visit - which is what actually frees the table on the floor grid (see

@@ -70,18 +70,6 @@ export const createOrder = async (order) => {
         return { success: false, message: "A valid payment method is required." };
     }
 
-    // Optional everywhere it's accepted (nothing before this collected it,
-    // and it's reporting/context, never something business logic branches
-    // on) - but if a value IS sent, it has to actually be a guest count,
-    // not e.g. a stray 0 or a negative number slipping through.
-    if (order.guestCount !== undefined && order.guestCount !== null) {
-
-        if (!Number.isInteger(order.guestCount) || order.guestCount <= 0) {
-            return { success: false, message: "Guest count must be a positive whole number." };
-        }
-
-    }
-
     try {
 
         const createdOrder = await OrderRepository.createOrder(order);

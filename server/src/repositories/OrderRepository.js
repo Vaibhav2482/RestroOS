@@ -172,7 +172,7 @@ export const createOrder = async (order) => {
         // orders have no table to attach to and keep VisitId null, exactly
         // as they always have (each is its own self-contained order).
         const visitId = deliveryType === "Dine In" && order.tableNumber
-            ? await resolveOpenVisitId(client, branchId, order.tableNumber, order.guestCount ?? null)
+            ? await resolveOpenVisitId(client, branchId, order.tableNumber)
             : null;
 
         const orderInsert = await client.query(
