@@ -487,5 +487,18 @@ export const MIGRATIONS = [
             WHERE O."BranchId" = V."BranchId" AND O."TableNumber" = V."TableNumber" AND V."Status" = 'Open'
               AND O."DeliveryType" = 'Dine In' AND O."OrderStatus" NOT IN ('Delivered', 'Cancelled');
         `
+    },
+    {
+        // Guest count belongs to the visit (the whole sitting), not any one
+        // round - a table seated for 4 doesn't become a table of 4 again on
+        // every later round, it's captured once when the visit opens.
+        // Nullable and optional throughout: nothing before this migration
+        // ever collected it, and it's informational (reporting/context),
+        // never a value business logic branches on.
+        id: "0025_table_visit_guest_count",
+        sql: `
+            ALTER TABLE "TableVisits" ADD COLUMN "GuestCount" INT NULL;
+            ALTER TABLE "TableVisits" ADD CONSTRAINT "CHK_TableVisits_GuestCount" CHECK ("GuestCount" IS NULL OR "GuestCount" > 0);
+        `
     }
 ];

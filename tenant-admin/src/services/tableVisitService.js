@@ -19,3 +19,8 @@ export const settleVisit = async (visitId, paymentMethod) => {
     const response = await axiosClient.post(`/table-visits/${visitId}/settle`, { paymentMethod });
     return response.data;
 };
+
+export const updateGuestCount = async (visitId, guestCount) => {
+    const response = await axiosClient.put(`/table-visits/${visitId}/guest-count`, { guestCount });
+    return response.data;
+};

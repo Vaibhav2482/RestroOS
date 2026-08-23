@@ -24,6 +24,8 @@ import RestaurantOutlinedIcon from "@mui/icons-material/RestaurantOutlined";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import StarRoundedIcon from "@mui/icons-material/StarRounded";
 import PersonRoundedIcon from "@mui/icons-material/PersonRounded";
+import GroupsRoundedIcon from "@mui/icons-material/GroupsRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
 import toast from "react-hot-toast";
 
 import * as menuService from "../services/menuService";
@@ -209,6 +211,15 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     // 0024_table_visits). null the rest of the time, including for this
     // table's very first round, when there's nothing prior to show.
     const [existingVisitSummary, setExistingVisitSummary] = useState(null);
+
+    // Only meaningful on a table's first round - the server only ever
+    // applies this to a NEW visit (see resolveOpenVisitId), so once
+    // existingVisitSummary is set there's no point asking for it again
+    // here; editing an already-open visit's count happens inline on the
+    // banner instead (guestCountEdit below).
+    const [guestCount, setGuestCount] = useState("");
+    const [guestCountEdit, setGuestCountEdit] = useState(null);
+    const [savingGuestCount, setSavingGuestCount] = useState(false);
 
     const searchInputRef = useRef(null);
 
@@ -666,12 +677,20 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
             setSubmitting(true);
 
+            // Only meaningful (and only applied server-side) on the table's
+            // first round - see resolveOpenVisitId. Harmless to send on a
+            // later round too, the server just ignores it there.
+            const parsedGuestCount = deliveryType === "Dine In" && guestCount.trim()
+                ? Number(guestCount)
+                : undefined;
+
             const response = await orderService.createOrder({
                 customerId: resolvedCustomer.CustomerId,
                 deliveryType,
                 tableNumber: deliveryType === "Dine In" ? tableNumber : undefined,
                 paymentMethod,
                 notes: notes.trim() || undefined,
+                guestCount: parsedGuestCount,
                 items: cartLines.map((line) => ({
                     menuItemId: line.menuItemId,
                     quantity: line.quantity,
@@ -711,6 +730,44 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
         } finally {
 
             setSubmitting(false);
+
+        }
+
+    };
+
+    // Corrects the guest count on an already-open visit (skipped on the
+    // first round, or two more guests joined mid-meal) - a deliberate
+    // action from the banner, not a side effect of ordering more food.
+    const handleSaveGuestCountEdit = async () => {
+
+        const value = Number(guestCountEdit);
+
+        if (!Number.isInteger(value) || value <= 0) {
+            toast.error("Guest count must be a positive whole number.");
+            return;
+        }
+
+        setSavingGuestCount(true);
+
+        try {
+
+            const response = await tableVisitService.updateGuestCount(existingVisitSummary.VisitId, value);
+
+            if (!response.success) {
+                toast.error(response.message);
+                return;
+            }
+
+            setExistingVisitSummary((prev) => ({ ...prev, GuestCount: value }));
+            setGuestCountEdit(null);
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to update guest count.");
+
+        } finally {
+
+            setSavingGuestCount(false);
 
         }
 
@@ -1211,9 +1268,54 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
 
                 {existingVisitSummary && (
 
-                    <Alert severity="info" sx={{ mb: 1, py: 0.25, flexShrink: 0, "& .MuiAlert-message": { fontSize: "0.78rem" } }}>
-                        Table already has {existingVisitSummary.OrderCount} order{existingVisitSummary.OrderCount === 1 ? "" : "s"} this
-                        visit &middot; ₹{Number(existingVisitSummary.TotalAmount).toFixed(2)} so far
+                    <Alert severity="info" sx={{ mb: 1, py: 0.25, flexShrink: 0, "& .MuiAlert-message": { fontSize: "0.78rem", width: "100%" } }}>
+
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+
+                            <Box component="span">
+                                Table already has {existingVisitSummary.OrderCount} order{existingVisitSummary.OrderCount === 1 ? "" : "s"} this
+                                visit &middot; ₹{Number(existingVisitSummary.TotalAmount).toFixed(2)} so far
+                            </Box>
+
+                            {/* The guest count captured (or not) on the
+                                table's first round, editable inline here
+                                since this is the one place a later round
+                                actually sees that context again. */}
+                            {guestCountEdit === null ? (
+
+                                <Box
+                                    component="button"
+                                    type="button"
+                                    onClick={() => setGuestCountEdit(String(existingVisitSummary.GuestCount || ""))}
+                                    sx={{ border: "none", background: "none", p: 0, cursor: "pointer", color: "inherit", textDecoration: "underline", font: "inherit", flexShrink: 0 }}
+                                >
+                                    {existingVisitSummary.GuestCount ? `${existingVisitSummary.GuestCount} guests` : "+ Add guest count"}
+                                </Box>
+
+                            ) : (
+
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, flexShrink: 0 }}>
+
+                                    <TextField
+                                        size="small"
+                                        type="number"
+                                        autoFocus
+                                        value={guestCountEdit}
+                                        onChange={(event) => setGuestCountEdit(event.target.value)}
+                                        slotProps={{ input: { min: 1 } }}
+                                        sx={{ width: 64, "& .MuiOutlinedInput-input": { py: 0.5 } }}
+                                    />
+
+                                    <IconButton size="small" disabled={savingGuestCount} onClick={handleSaveGuestCountEdit}>
+                                        <CheckRoundedIcon fontSize="small" />
+                                    </IconButton>
+
+                                </Box>
+
+                            )}
+
+                        </Box>
+
                     </Alert>
 
                 )}
@@ -1221,6 +1323,29 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
                 <Card variant="outlined" sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, p: 0, overflow: "hidden" }}>
 
                     <Box sx={{ p: 1.5, pb: 1.25, flexShrink: 0 }}>
+
+                        {deliveryType === "Dine In" && !existingVisitSummary && (
+
+                            <TextField
+                                size="small"
+                                type="number"
+                                placeholder="Guests (optional)"
+                                value={guestCount}
+                                onChange={(event) => setGuestCount(event.target.value)}
+                                slotProps={{
+                                    input: {
+                                        min: 1,
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <GroupsRoundedIcon sx={{ fontSize: 18, color: "text.secondary" }} />
+                                            </InputAdornment>
+                                        )
+                                    }
+                                }}
+                                sx={{ width: 160, mb: 1, "& .MuiOutlinedInput-root": { height: 36 } }}
+                            />
+
+                        )}
 
                         {resolvedCustomer ? (
 

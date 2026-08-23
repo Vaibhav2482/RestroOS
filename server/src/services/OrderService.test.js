@@ -110,6 +110,47 @@ describe("OrderService - notifications never block the response", () => {
 
 });
 
+describe("OrderService.createOrder - guestCount is optional and, when present, validated", () => {
+
+    const validOrder = { customerId: 1, items: [{ menuItemId: 1 }], deliveryType: "Dine In", tableNumber: "A1", paymentMethod: "Cash" };
+
+    it("accepts an order with no guestCount at all - nothing before this ever collected it", async () => {
+
+        OrderRepository.createOrder.mockResolvedValue(order);
+
+        const result = await OrderService.createOrder(validOrder);
+
+        expect(result.success).toBe(true);
+
+    });
+
+    it("accepts a valid positive integer guestCount", async () => {
+
+        OrderRepository.createOrder.mockResolvedValue(order);
+
+        const result = await OrderService.createOrder({ ...validOrder, guestCount: 4 });
+
+        expect(result.success).toBe(true);
+        expect(OrderRepository.createOrder).toHaveBeenCalledWith(expect.objectContaining({ guestCount: 4 }));
+
+    });
+
+    it("rejects a zero, negative, or non-integer guestCount before touching the repository", async () => {
+
+        for (const bad of [0, -1, 2.5]) {
+
+            const result = await OrderService.createOrder({ ...validOrder, guestCount: bad });
+
+            expect(result).toEqual({ success: false, message: "Guest count must be a positive whole number." });
+
+        }
+
+        expect(OrderRepository.createOrder).not.toHaveBeenCalled();
+
+    });
+
+});
+
 // A customer cancelling their own order is expected self-service, not the
 // "who did this" question an audit trail exists for - only a staff-
 // initiated cancellation (role "admin") should ever produce an audit

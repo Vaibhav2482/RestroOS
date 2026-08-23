@@ -318,6 +318,83 @@ describe("PosOrderBuilder - category counts and the customer chip", () => {
 
 });
 
+describe("PosOrderBuilder - guest count", () => {
+
+    it("shows the guest-count field on a Dine In table's first round, and includes it when placing the order", async () => {
+
+        const user = userEvent.setup();
+        orderService.createOrder.mockResolvedValue({ success: true, data: { OrderId: 501, TotalAmount: 30 } });
+
+        renderBuilder();
+
+        await screen.findByText("Ginger Chai");
+
+        const guestField = screen.getByPlaceholderText(/guests \(optional\)/i);
+        await user.type(guestField, "4");
+
+        await addFromMenu(user, "Ginger Chai");
+        await user.click(screen.getByRole("button", { name: /place order/i }));
+
+        await waitFor(() => expect(orderService.createOrder).toHaveBeenCalledWith(
+            expect.objectContaining({ guestCount: 4 })
+        ));
+
+    });
+
+    it("does not show the guest-count field for Takeaway - there's no table/visit to attach it to", async () => {
+
+        renderBuilder({ deliveryType: "Takeaway", tableNumber: undefined });
+
+        await screen.findByText("Ginger Chai");
+
+        expect(screen.queryByPlaceholderText(/guests \(optional\)/i)).not.toBeInTheDocument();
+
+    });
+
+    it("hides the guest-count field once this table already has an open visit, showing the banner instead", async () => {
+
+        tableVisitService.getOpenVisitForTable.mockResolvedValue({ success: true, data: { VisitId: 9 } });
+        tableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: { VisitId: 9, OrderCount: 1, TotalAmount: 208.95, GuestCount: null, Items: [], Orders: [] }
+        });
+
+        renderBuilder();
+
+        await screen.findByText(/already has 1 order this visit/i);
+
+        expect(screen.queryByPlaceholderText(/guests \(optional\)/i)).not.toBeInTheDocument();
+        expect(screen.getByText("+ Add guest count")).toBeInTheDocument();
+
+    });
+
+    it("lets staff add/correct the guest count inline on an already-open visit's banner", async () => {
+
+        const user = userEvent.setup();
+
+        tableVisitService.getOpenVisitForTable.mockResolvedValue({ success: true, data: { VisitId: 9 } });
+        tableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: { VisitId: 9, OrderCount: 1, TotalAmount: 208.95, GuestCount: null, Items: [], Orders: [] }
+        });
+        tableVisitService.updateGuestCount.mockResolvedValue({ success: true, data: { VisitId: 9 } });
+
+        renderBuilder();
+
+        await screen.findByText("+ Add guest count");
+        await user.click(screen.getByText("+ Add guest count"));
+
+        const editField = screen.getByRole("spinbutton");
+        await user.type(editField, "3");
+        await user.click(screen.getByTestId("CheckRoundedIcon").closest("button"));
+
+        await waitFor(() => expect(tableVisitService.updateGuestCount).toHaveBeenCalledWith(9, 3));
+        await screen.findByText("3 guests");
+
+    });
+
+});
+
 describe("PosOrderBuilder - keyboard shortcuts", () => {
 
     beforeEach(() => {

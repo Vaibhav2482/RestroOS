@@ -54,6 +54,31 @@ export const getVisitDetails = asyncHandler(async (req, res) => {
 
 });
 
+export const updateGuestCount = asyncHandler(async (req, res) => {
+
+    const { visitId } = req.params;
+    const { guestCount } = req.body;
+
+    const existing = await TableVisitService.getVisitDetails(visitId);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessVisit(req, existing.data)) {
+        return errorResponse(res, "Table visit not found.", 404);
+    }
+
+    const result = await TableVisitService.updateGuestCount(visitId, guestCount);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const settleVisit = asyncHandler(async (req, res) => {
 
     const { visitId } = req.params;
