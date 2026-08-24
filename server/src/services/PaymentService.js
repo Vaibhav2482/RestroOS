@@ -53,9 +53,12 @@ export const getPaymentsByCustomer = async (customerId) => {
 };
 
 // Demo/test-mode Razorpay flow: create a Razorpay order for the amount already
-// committed on the RestroOS order, then verify the signature Razorpay returns
-// before recording a Payment - the Payments row is only ever written after
-// signature verification succeeds, so an unpaid checkout can't be recorded as Paid.
+// committed on the RestroOS order, then verify the signature Razorpay returns.
+// A "Pending" Payments row is written the moment the Razorpay order exists -
+// not just on a successful verify - so there's a real record of every
+// attempt (including one that's abandoned or declined) from the start. The
+// verify/webhook paths below update this same row rather than inserting a
+// fresh one for every state a single attempt passes through.
 export const createRazorpayOrder = async (orderId) => {
 
     const razorpay = getRazorpayClient();
@@ -78,6 +81,14 @@ export const createRazorpayOrder = async (orderId) => {
         receipt: `restroos_order_${orderId}`
     });
 
+    await PaymentRepository.createPayment({
+        orderId,
+        paymentMethod: order[0].PaymentMethod,
+        amount,
+        paymentStatus: "Pending",
+        razorpayOrderId: razorpayOrder.id
+    });
+
     return {
         success: true,
         message: "Razorpay order created successfully.",
@@ -88,6 +99,29 @@ export const createRazorpayOrder = async (orderId) => {
             keyId: process.env.RAZORPAY_KEY_ID
         }
     };
+
+};
+
+// Called when the checkout widget reports payment.failed, or the customer
+// dismisses it without paying - the client-side, immediate counterpart to
+// recordFailedRazorpayWebhookPayment below (which is the async backstop for
+// when the browser closes before either handler fires). orderId is passed
+// so a caller can't mark an arbitrary razorpayOrderId's payment failed -
+// the row must actually belong to the order they're allowed to act on
+// (checked by the controller's canAccessOrderPayment before this is called).
+export const recordFailedRazorpayAttempt = async (orderId, razorpayOrderId) => {
+
+    const payment = await PaymentRepository.getPaymentByRazorpayOrderId(razorpayOrderId);
+
+    if (!payment || String(payment.OrderId) !== String(orderId)) {
+        return { success: false, message: "No matching payment attempt found for this order." };
+    }
+
+    const updated = await PaymentRepository.markPaymentFailedIfPending(razorpayOrderId);
+
+    // Already Paid (e.g. a retry succeeded moments earlier) or already
+    // Failed - either way, not an error, just nothing left to do.
+    return { success: true, message: "Payment attempt recorded.", data: updated ?? payment };
 
 };
 
@@ -146,13 +180,17 @@ export const refundPaymentForOrder = async (orderId, amount, resultingStatus = "
 
 // Called from the Razorpay webhook (razorpayWebhook in PaymentController.js),
 // never directly from a client request. This exists because
-// verifyRazorpayPayment above is only ever reached if the customer's
+// verifyRazorpayPayment below is only ever reached if the customer's
 // browser stays online long enough to call it after paying - a dropped
 // connection, closed tab, or crashed app right after a successful payment
 // would otherwise leave a paid order with no Payments row at all. The
 // webhook is Razorpay's own server telling us payment succeeded, independent
-// of whether the client ever calls back.
-export const recordRazorpayWebhookPayment = async ({ orderId, transactionId, amount }) => {
+// of whether the client ever calls back. Updates the same Pending row
+// createRazorpayOrder wrote - an UPDATE is naturally idempotent against
+// Razorpay's own retry-until-2xx behavior and against racing the
+// client-side verify path, so no duplicate-check/unique-violation dance is
+// needed here anymore.
+export const recordRazorpayWebhookPayment = async ({ orderId, razorpayOrderId, transactionId, amount }) => {
 
     const order = await OrderRepository.getOrderById(orderId);
 
@@ -161,38 +199,37 @@ export const recordRazorpayWebhookPayment = async ({ orderId, transactionId, amo
         return;
     }
 
-    const existingPayments = await PaymentRepository.getPaymentByOrderId(orderId);
+    const updated = await PaymentRepository.updatePaymentByRazorpayOrderId(razorpayOrderId, {
+        paymentStatus: "Paid",
+        transactionId
+    });
 
-    // Idempotent - Razorpay retries a webhook delivery until it gets a 2xx,
-    // and this same payment may also already have been recorded by the
-    // client-side verifyRazorpayPayment path racing this one.
-    if (existingPayments.some((existing) => existing.TransactionId === transactionId)) {
-        return;
-    }
-
-    try {
+    // No Pending row found (shouldn't happen via the normal flow, since
+    // createRazorpayOrder always writes one first) - fall back to inserting
+    // one directly rather than silently dropping a real payment.
+    if (!updated) {
 
         await PaymentRepository.createPayment({
             orderId,
-            paymentMethod: "Razorpay",
+            paymentMethod: order[0].PaymentMethod,
             amount,
             paymentStatus: "Paid",
-            transactionId
+            transactionId,
+            razorpayOrderId
         });
-
-    } catch (error) {
-
-        // 23505 = unique_violation on Payments.TransactionId (migration
-        // 0005_payment_idempotency) - the client-side verify path won this
-        // exact race between the existingPayments check above and this
-        // insert. Either way the payment is now recorded, which is all this
-        // function promises.
-        if (error.code !== "23505") {
-            throw error;
-        }
 
     }
 
+};
+
+// Webhook counterpart to recordFailedRazorpayAttempt above - the async
+// backstop for when the customer's browser closes before either the
+// payment.failed or modal-dismiss client handler fires. Razorpay's
+// payment.failed payload only carries its own order id (payload.payment.entity.order_id),
+// not our receipt, which is exactly why this is keyed by razorpayOrderId
+// rather than reusing the receipt-matching path order.paid uses.
+export const recordFailedRazorpayWebhookPayment = async (razorpayOrderId) => {
+    await PaymentRepository.markPaymentFailedIfPending(razorpayOrderId);
 };
 
 export const verifyRazorpayPayment = async (payment) => {
@@ -222,14 +259,23 @@ export const verifyRazorpayPayment = async (payment) => {
         return { success: false, message: "Order not found." };
     }
 
-    const createdPayment = await PaymentRepository.createPayment({
-        orderId,
-        paymentMethod: paymentMethod || "Razorpay",
-        amount: Number(order[0].TotalAmount),
+    const updated = await PaymentRepository.updatePaymentByRazorpayOrderId(razorpayOrderId, {
         paymentStatus: "Paid",
         transactionId: razorpayPaymentId
     });
 
-    return { success: true, message: "Payment verified and recorded successfully.", data: createdPayment };
+    // No Pending row found (shouldn't happen - createRazorpayOrder always
+    // writes one first) - fall back to inserting directly rather than
+    // failing a payment that already passed signature verification.
+    const recordedPayment = updated ?? await PaymentRepository.createPayment({
+        orderId,
+        paymentMethod: paymentMethod || "Razorpay",
+        amount: Number(order[0].TotalAmount),
+        paymentStatus: "Paid",
+        transactionId: razorpayPaymentId,
+        razorpayOrderId
+    });
+
+    return { success: true, message: "Payment verified and recorded successfully.", data: recordedPayment };
 
 };

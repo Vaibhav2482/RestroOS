@@ -20,3 +20,16 @@ export const verifyRazorpayPayment = async (payload) => {
     const response = await axiosClient.post("/payments/razorpay/verify", payload);
     return response.data;
 };
+
+// Called when the checkout widget reports payment.failed or the customer
+// dismisses it without paying - marks that specific attempt Failed so the
+// order isn't left silently indistinguishable from "never attempted".
+export const recordFailedPayment = async (orderId, razorpayOrderId) => {
+    const response = await axiosClient.post("/payments/razorpay/failed", { orderId, razorpayOrderId });
+    return response.data;
+};
+
+export const getPaymentByOrderId = async (orderId) => {
+    const response = await axiosClient.get(`/payments/order/${orderId}`);
+    return response.data;
+};

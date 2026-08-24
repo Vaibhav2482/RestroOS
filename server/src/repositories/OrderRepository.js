@@ -324,7 +324,8 @@ export const getAllOrders = async (tenantId, branchId, customerId, pagination = 
             `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", C."FullName" AS "CustomerName",
                     C."Phone" AS "CustomerPhone",
                     O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
-                    O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName"
+                    O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName",
+                    (SELECT "PaymentStatus" FROM "Payments" WHERE "OrderId" = O."OrderId" ORDER BY "PaymentDate" DESC LIMIT 1) AS "LatestPaymentStatus"
              FROM "Orders" O
              INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
              INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
@@ -364,6 +365,7 @@ export const getAllOrders = async (tenantId, branchId, customerId, pagination = 
                 C."Phone" AS "CustomerPhone",
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus",
                 O."OrderNotes", O."OrderDate", O."TableNumber", O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName",
+                (SELECT "PaymentStatus" FROM "Payments" WHERE "OrderId" = O."OrderId" ORDER BY "PaymentDate" DESC LIMIT 1) AS "LatestPaymentStatus",
                 COUNT(*) OVER() AS "TotalCount"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
@@ -478,6 +480,7 @@ export const getOrderById = async (orderId) => {
                 O."AddressId", O."DeliveryType", O."PaymentMethod", O."SubTotal", O."CgstAmount", O."SgstAmount",
                 O."TotalAmount", O."DiscountAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
                 O."CreatedByAdminId", A."FullName" AS "CreatedByAdminName",
+                (SELECT "PaymentStatus" FROM "Payments" WHERE "OrderId" = O."OrderId" ORDER BY "PaymentDate" DESC LIMIT 1) AS "LatestPaymentStatus",
                 OI."OrderItemId", OI."MenuItemId", OI."ItemName", OI."Price", OI."Quantity", OI."TotalPrice", OI."SelectedOptions"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"

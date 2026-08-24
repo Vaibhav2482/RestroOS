@@ -11,11 +11,21 @@ const WEBHOOK_SECRET = "test-webhook-secret";
 
 const sign = (body) => crypto.createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex");
 
-const orderPaidPayload = (receipt, transactionId = "pay_ABC123", amountPaise = 25000) => JSON.stringify({
+const orderPaidPayload = (receipt, transactionId = "pay_ABC123", amountPaise = 25000, razorpayOrderId = "order_XYZ789") => JSON.stringify({
     event: "order.paid",
     payload: {
-        order: { entity: { receipt } },
+        order: { entity: { id: razorpayOrderId, receipt } },
         payment: { entity: { id: transactionId, amount: amountPaise } }
+    }
+});
+
+// Unlike order.paid, payment.failed's real payload has no order entity/
+// receipt at all - only payload.payment.entity.order_id, matching Razorpay's
+// documented shape for this event.
+const paymentFailedPayload = (razorpayOrderId = "order_XYZ789") => JSON.stringify({
+    event: "payment.failed",
+    payload: {
+        payment: { entity: { order_id: razorpayOrderId, error_code: "BAD_REQUEST_ERROR" } }
     }
 });
 
@@ -82,9 +92,9 @@ describe("POST /api/v1/payments/webhook", () => {
 
     });
 
-    it("ignores a correctly-signed event that isn't order.paid", async () => {
+    it("ignores a correctly-signed event that's neither order.paid nor payment.failed", async () => {
 
-        const body = JSON.stringify({ event: "payment.failed", payload: {} });
+        const body = JSON.stringify({ event: "payment.authorized", payload: {} });
 
         const response = await request(app)
             .post("/api/v1/payments/webhook")
@@ -94,12 +104,13 @@ describe("POST /api/v1/payments/webhook", () => {
 
         expect(response.status).toBe(200);
         expect(PaymentService.recordRazorpayWebhookPayment).not.toHaveBeenCalled();
+        expect(PaymentService.recordFailedRazorpayWebhookPayment).not.toHaveBeenCalled();
 
     });
 
     it("records the payment for a correctly-signed order.paid event with a matching receipt", async () => {
 
-        const body = orderPaidPayload("restroos_order_42", "pay_XYZ789", 25000);
+        const body = orderPaidPayload("restroos_order_42", "pay_XYZ789", 25000, "order_XYZ789");
 
         const response = await request(app)
             .post("/api/v1/payments/webhook")
@@ -110,6 +121,7 @@ describe("POST /api/v1/payments/webhook", () => {
         expect(response.status).toBe(200);
         expect(PaymentService.recordRazorpayWebhookPayment).toHaveBeenCalledWith({
             orderId: 42,
+            razorpayOrderId: "order_XYZ789",
             transactionId: "pay_XYZ789",
             amount: 250
         });
@@ -128,6 +140,36 @@ describe("POST /api/v1/payments/webhook", () => {
 
         expect(response.status).toBe(200);
         expect(PaymentService.recordRazorpayWebhookPayment).not.toHaveBeenCalled();
+
+    });
+
+    it("records a failed attempt for a correctly-signed payment.failed event", async () => {
+
+        const body = paymentFailedPayload("order_XYZ789");
+
+        const response = await request(app)
+            .post("/api/v1/payments/webhook")
+            .set("Content-Type", "application/json")
+            .set("x-razorpay-signature", sign(body))
+            .send(body);
+
+        expect(response.status).toBe(200);
+        expect(PaymentService.recordFailedRazorpayWebhookPayment).toHaveBeenCalledWith("order_XYZ789");
+
+    });
+
+    it("does nothing for a payment.failed event with no order id on the payment entity", async () => {
+
+        const body = JSON.stringify({ event: "payment.failed", payload: { payment: { entity: {} } } });
+
+        const response = await request(app)
+            .post("/api/v1/payments/webhook")
+            .set("Content-Type", "application/json")
+            .set("x-razorpay-signature", sign(body))
+            .send(body);
+
+        expect(response.status).toBe(200);
+        expect(PaymentService.recordFailedRazorpayWebhookPayment).not.toHaveBeenCalled();
 
     });
 

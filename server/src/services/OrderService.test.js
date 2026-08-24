@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as OrderService from "./OrderService.js";
 import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as OrderAdjustmentRepository from "../repositories/OrderAdjustmentRepository.js";
+import * as PaymentRepository from "../repositories/PaymentRepository.js";
+import * as InventoryService from "./InventoryService.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
@@ -12,6 +14,8 @@ import { waitUntil } from "@vercel/functions";
 
 vi.mock("../repositories/OrderRepository.js");
 vi.mock("../repositories/OrderAdjustmentRepository.js");
+vi.mock("../repositories/PaymentRepository.js");
+vi.mock("./InventoryService.js");
 vi.mock("./RealtimeService.js");
 vi.mock("./PaymentService.js");
 vi.mock("./NotificationService.js");
@@ -115,6 +119,97 @@ describe("OrderService - notifications never block the response", () => {
 // initiated cancellation (role "admin") should ever produce an audit
 // entry. Getting this boolean backwards would either spam the audit log
 // with every customer cancellation or silently drop staff cancellations.
+// The callback OrderService passes to OrderRepository.updateOrderStatus is
+// where the actual gate lives, transactionally alongside stock consumption -
+// OrderRepository itself is mocked in this file, so these tests simulate it
+// invoking the callback the same way the real transactional function does
+// (see OrderRepository.updateOrderStatus:569-571), rather than relying on
+// the real DB transaction.
+describe("OrderService.updateOrderStatus - payment gate for Card/UPI orders", () => {
+
+    beforeEach(() => {
+        NotificationService.notifyOrderStatusChanged.mockReturnValue(Promise.resolve());
+        OrderRepository.hasStartedPreparing.mockReturnValue(true);
+    });
+
+    const simulateTransition = (orderRow, targetStatus, client = {}) => {
+
+        OrderRepository.updateOrderStatus.mockImplementation(async (id, status, callback) => {
+            await callback(client, orderRow);
+            return orderRow;
+        });
+
+        return OrderService.updateOrderStatus(orderRow.OrderId, targetStatus);
+
+    };
+
+    it("blocks a Card order from starting preparation without a Paid payment", async () => {
+
+        const orderRow = { OrderId: 62, BranchId: 5, DeliveryType: "Delivery", PaymentMethod: "Card" };
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([{ PaymentStatus: "Pending" }]);
+
+        const result = await simulateTransition(orderRow, "Preparing");
+
+        expect(result.success).toBe(false);
+        expect(result.message).toMatch(/Payment not yet confirmed/);
+        expect(InventoryService.consumeForOrder).not.toHaveBeenCalled();
+
+    });
+
+    it("blocks a UPI order the same way as Card", async () => {
+
+        const orderRow = { OrderId: 62, BranchId: 5, DeliveryType: "Delivery", PaymentMethod: "UPI" };
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([]);
+
+        const result = await simulateTransition(orderRow, "Preparing");
+
+        expect(result.success).toBe(false);
+        expect(InventoryService.consumeForOrder).not.toHaveBeenCalled();
+
+    });
+
+    it("allows a Card order to start preparing once a Paid payment exists, ignoring earlier Failed attempts", async () => {
+
+        const orderRow = { OrderId: 62, BranchId: 5, DeliveryType: "Delivery", PaymentMethod: "Card" };
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentStatus: "Failed" },
+            { PaymentStatus: "Paid" }
+        ]);
+
+        const result = await simulateTransition(orderRow, "Preparing");
+
+        expect(result.success).toBe(true);
+        expect(InventoryService.consumeForOrder).toHaveBeenCalled();
+
+    });
+
+    it("never gates a Cash order - stock consumption proceeds without even checking Payments", async () => {
+
+        const orderRow = { OrderId: 62, BranchId: 5, DeliveryType: "Delivery", PaymentMethod: "Cash" };
+
+        const result = await simulateTransition(orderRow, "Preparing");
+
+        expect(result.success).toBe(true);
+        expect(PaymentRepository.getPaymentByOrderId).not.toHaveBeenCalled();
+        expect(InventoryService.consumeForOrder).toHaveBeenCalled();
+
+    });
+
+    it("checks payment status under the same transactional client used for stock consumption", async () => {
+
+        const orderRow = { OrderId: 62, BranchId: 5, DeliveryType: "Delivery", PaymentMethod: "Card" };
+        const fakeClient = { marker: "tx-client" };
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([{ PaymentStatus: "Paid" }]);
+
+        await simulateTransition(orderRow, "Preparing", fakeClient);
+
+        expect(PaymentRepository.getPaymentByOrderId).toHaveBeenCalledWith(orderRow.OrderId, fakeClient);
+        expect(InventoryService.consumeForOrder).toHaveBeenCalledWith(fakeClient, orderRow.OrderId, orderRow.BranchId);
+
+    });
+
+});
+
 describe("OrderService - cancelOrder audits staff action, not customer self-service", () => {
 
     it("records an audit entry and a VOID ledger row when a staff member (admin role) cancels with a reason", async () => {

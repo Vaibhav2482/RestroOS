@@ -24,7 +24,10 @@ describe("OrderRepository.getAllOrders - pagination is opt-in", () => {
         expect(queryMock).toHaveBeenCalledTimes(1);
 
         const [sql, params] = queryMock.mock.calls[0];
-        expect(sql).not.toMatch(/LIMIT/);
+        // A parameterized pagination LIMIT specifically - not a bare /LIMIT/
+        // check, which the LatestPaymentStatus subquery's own "LIMIT 1"
+        // (picking the most recent Payments row) would also match.
+        expect(sql).not.toMatch(/LIMIT \$/);
         expect(params).toEqual([3, null, null]);
 
     });

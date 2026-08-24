@@ -35,6 +35,7 @@ import * as paymentService from "../services/paymentService";
 import * as couponService from "../services/couponService";
 import { useStorefront } from "../context/StorefrontContext";
 import { computeCheckoutEstimate } from "../utils/checkoutTax";
+import { openRazorpayCheckout } from "../utils/razorpayCheckout";
 
 const PAYMENT_METHODS = [
     { value: "Cash", label: "Cash", icon: <PaymentsOutlinedIcon fontSize="small" /> },
@@ -46,35 +47,6 @@ function formatCurrency(value) {
     return `₹${Number(value ?? 0).toFixed(2)}`;
 }
 
-const RAZORPAY_SCRIPT_SRC = "https://checkout.razorpay.com/v1/checkout.js";
-
-// Loaded lazily, only when a Card/UPI order actually needs the widget.
-function loadRazorpayScript() {
-
-    return new Promise((resolve) => {
-
-        if (window.Razorpay) {
-            resolve(true);
-            return;
-        }
-
-        const existingScript = document.querySelector(`script[src="${RAZORPAY_SCRIPT_SRC}"]`);
-
-        if (existingScript) {
-            existingScript.addEventListener("load", () => resolve(true));
-            existingScript.addEventListener("error", () => resolve(false));
-            return;
-        }
-
-        const script = document.createElement("script");
-        script.src = RAZORPAY_SCRIPT_SRC;
-        script.onload = () => resolve(true);
-        script.onerror = () => resolve(false);
-        document.body.appendChild(script);
-
-    });
-
-}
 
 function SectionCard({ title, children }) {
 
@@ -300,79 +272,54 @@ function Checkout() {
             // Card / UPI: collect payment through Razorpay's test-mode Checkout widget.
             const goToOrder = () => navigate(`/${tenantSlug}/orders/${order.OrderId}`);
 
-            const scriptLoaded = await loadRazorpayScript();
-
-            if (!scriptLoaded) {
-                toast.error("Could not load the payment widget. Order placed - you can retry payment from Order Details.");
-                goToOrder();
-                return;
-            }
-
-            const razorpayOrderResponse = await paymentService.createRazorpayOrder(order.OrderId);
-
-            if (!razorpayOrderResponse.success) {
-                toast.error(razorpayOrderResponse.message);
-                goToOrder();
-                return;
-            }
-
-            const { razorpayOrderId, amount, currency, keyId } = razorpayOrderResponse.data;
-
-            const razorpayCheckout = new window.Razorpay({
-                key: keyId,
-                amount,
-                currency,
-                order_id: razorpayOrderId,
-                name: "RestroOS",
-                description: `Order #${order.OrderId}`,
-                prefill: {
-                    name: customer.FullName,
-                    email: customer.Email,
-                    contact: customer.Phone
+            await openRazorpayCheckout({
+                order,
+                customer,
+                paymentMethod,
+                themeColor: theme.palette.primary.main,
+                onSuccess: () => {
+                    toast.success("Payment successful! Order placed.");
+                    goToOrder();
                 },
-                theme: { color: theme.palette.primary.main },
-                handler: async (response) => {
+                onFailure: ({ reason, message }) => {
 
-                    try {
-
-                        const verifyResponse = await paymentService.verifyRazorpayPayment({
-                            orderId: order.OrderId,
-                            paymentMethod,
-                            razorpayOrderId: response.razorpay_order_id,
-                            razorpayPaymentId: response.razorpay_payment_id,
-                            razorpaySignature: response.razorpay_signature
-                        });
-
-                        if (!verifyResponse.success) {
-                            toast.error(verifyResponse.message);
-                        } else {
-                            toast.success("Payment successful! Order placed.");
-                        }
-
-                    } catch (verifyError) {
-
-                        toast.error(verifyError.response?.data?.message || "Payment succeeded, but verification failed.");
-
-                    } finally {
-
+                    if (reason === "script-load-failed") {
+                        toast.error("Could not load the payment widget. Order placed - you can retry payment from Order Details.");
                         goToOrder();
-
+                        return;
                     }
 
-                },
-                modal: {
-                    ondismiss: () => {
+                    if (reason === "create-order-failed") {
+                        toast.error(message);
+                        goToOrder();
+                        return;
+                    }
+
+                    if (reason === "verify-failed") {
+                        toast.error(message);
+                        goToOrder();
+                        return;
+                    }
+
+                    if (reason === "verify-error") {
+                        toast.error(message || "Payment succeeded, but verification failed.");
+                        goToOrder();
+                        return;
+                    }
+
+                    if (reason === "dismissed") {
                         toast.error("Order placed - payment was not completed.");
                         goToOrder();
+                        return;
                     }
+
+                    // "payment-failed" - Razorpay's own widget shows a
+                    // retry screen and stays open, so this deliberately
+                    // doesn't navigate away, unlike every other reason above.
+                    toast.error(message || "Payment failed.");
+
                 }
             });
-
-            razorpayCheckout.on("payment.failed", (response) => {
-                toast.error(response.error?.description || "Payment failed.");
-            });
-
-            razorpayCheckout.open();
 
         } catch (error) {
 

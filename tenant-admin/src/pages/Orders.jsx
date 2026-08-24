@@ -635,6 +635,18 @@ function Orders() {
 
                                                 <TableCell>
                                                     <StatusPill status={order.OrderStatus} />
+                                                    {/* Only flagged when it's NOT Paid - the common
+                                                        case (already paid, or Cash) needs no badge
+                                                        here, this is specifically to catch the
+                                                        Card/UPI orders staff shouldn't be preparing yet. */}
+                                                    {["Card", "UPI"].includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
+                                                        <Chip
+                                                            label={`Payment ${order.LatestPaymentStatus}`}
+                                                            size="small"
+                                                            color={order.LatestPaymentStatus === "Failed" ? "error" : "warning"}
+                                                            sx={{ ml: 0.5 }}
+                                                        />
+                                                    )}
                                                 </TableCell>
 
                                                 <TableCell sx={{ color: "text.secondary", whiteSpace: "nowrap" }}>

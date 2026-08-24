@@ -104,6 +104,30 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
 
 });
 
+export const recordFailedPayment = asyncHandler(async (req, res) => {
+
+    const { orderId, razorpayOrderId } = req.body;
+
+    const order = await OrderRepository.getOrderById(orderId);
+
+    if (!order || order.length === 0) {
+        return errorResponse(res, "Order not found.", 404);
+    }
+
+    if (!canAccessOrderPayment(req, order[0])) {
+        return errorResponse(res, "You are not authorized to update this order's payment.", 403);
+    }
+
+    const result = await PaymentService.recordFailedRazorpayAttempt(orderId, razorpayOrderId);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getPaymentByOrderId = asyncHandler(async (req, res) => {
 
     const { orderId } = req.params;
@@ -163,25 +187,47 @@ export const razorpayWebhook = asyncHandler(async (req, res) => {
     // is the one event that carries both the order (with our receipt) and
     // the payment together - payment.captured alone only carries Razorpay's
     // own order id, not our receipt.
-    if (event.event !== "order.paid") {
-        return res.status(200).send("Ignored.");
+    if (event.event === "order.paid") {
+
+        const orderEntity = event.payload?.order?.entity;
+        const paymentEntity = event.payload?.payment?.entity;
+        const receiptMatch = orderEntity?.receipt?.match(RECEIPT_PATTERN);
+
+        if (!receiptMatch || !paymentEntity || !orderEntity?.id) {
+            return res.status(200).send("No matching order.");
+        }
+
+        await PaymentService.recordRazorpayWebhookPayment({
+            orderId: Number(receiptMatch[1]),
+            razorpayOrderId: orderEntity.id,
+            transactionId: paymentEntity.id,
+            amount: paymentEntity.amount / 100
+        });
+
+        return res.status(200).send("ok");
+
     }
 
-    const orderEntity = event.payload?.order?.entity;
-    const paymentEntity = event.payload?.payment?.entity;
-    const receiptMatch = orderEntity?.receipt?.match(RECEIPT_PATTERN);
+    // payment.failed's payload only carries payload.payment.entity - unlike
+    // order.paid there's no order entity/receipt on this event at all, so
+    // this is matched by Razorpay's own order id (already stored on the
+    // Payments row createRazorpayOrder wrote) rather than the receipt regex
+    // the branch above uses.
+    if (event.event === "payment.failed") {
 
-    if (!receiptMatch || !paymentEntity) {
-        return res.status(200).send("No matching order.");
+        const razorpayOrderId = event.payload?.payment?.entity?.order_id;
+
+        if (!razorpayOrderId) {
+            return res.status(200).send("No matching payment.");
+        }
+
+        await PaymentService.recordFailedRazorpayWebhookPayment(razorpayOrderId);
+
+        return res.status(200).send("ok");
+
     }
 
-    await PaymentService.recordRazorpayWebhookPayment({
-        orderId: Number(receiptMatch[1]),
-        transactionId: paymentEntity.id,
-        amount: paymentEntity.amount / 100
-    });
-
-    return res.status(200).send("ok");
+    return res.status(200).send("Ignored.");
 
 });
 

@@ -4,6 +4,7 @@ import {
     createPayment,
     createRazorpayOrder,
     verifyRazorpayPayment,
+    recordFailedPayment,
     getPaymentByOrderId,
     getPaymentsByCustomer
 } from "./PaymentController.js";
@@ -43,17 +44,19 @@ beforeEach(() => {
     PaymentService.verifyRazorpayPayment.mockResolvedValue({ success: true, message: "Payment verified.", data: { PaymentId: 1 } });
     PaymentService.getPaymentByOrderId.mockResolvedValue({ success: true, message: "Payment fetched.", data: [{ PaymentId: 1 }] });
     PaymentService.getPaymentsByCustomer.mockResolvedValue({ success: true, message: "Payments fetched.", data: [] });
+    PaymentService.recordFailedRazorpayAttempt.mockResolvedValue({ success: true, message: "Payment attempt recorded.", data: { PaymentId: 1 } });
 
 });
 
 // The same canAccessOrderPayment guard fronts createPayment, createRazorpayOrder,
-// and verifyRazorpayPayment - table-driven over the three so the tenant/role
-// boundary is proven for each real route, not just asserted once and assumed
-// to generalize.
+// verifyRazorpayPayment, and recordFailedPayment - table-driven over all four
+// so the tenant/role boundary is proven for each real route, not just
+// asserted once and assumed to generalize.
 describe.each([
     ["createPayment", createPayment, PaymentService.createPayment],
     ["createRazorpayOrder", createRazorpayOrder, PaymentService.createRazorpayOrder],
-    ["verifyRazorpayPayment", verifyRazorpayPayment, PaymentService.verifyRazorpayPayment]
+    ["verifyRazorpayPayment", verifyRazorpayPayment, PaymentService.verifyRazorpayPayment],
+    ["recordFailedPayment", recordFailedPayment, PaymentService.recordFailedRazorpayAttempt]
 ])("PaymentController.%s - canAccessOrderPayment guard", (name, handler, serviceFn) => {
 
     it("allows an admin from the order's own tenant, same branch", async () => {

@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import crypto from "crypto";
 
 import * as PaymentService from "./PaymentService.js";
 import * as PaymentRepository from "../repositories/PaymentRepository.js";
@@ -15,78 +16,171 @@ beforeEach(() => {
     vi.clearAllMocks();
 });
 
+const RAZORPAY_ORDER_ID = "order_XYZ789";
+
+describe("PaymentService.createRazorpayOrder", () => {
+
+    const razorpayOrdersCreate = vi.fn();
+
+    beforeEach(() => {
+        razorpayOrdersCreate.mockReset().mockResolvedValue({ id: RAZORPAY_ORDER_ID, amount: 25000, currency: "INR" });
+        getRazorpayClient.mockReturnValue({ orders: { create: razorpayOrdersCreate } });
+    });
+
+    it("refuses when Razorpay isn't configured, before touching the order or Payments", async () => {
+
+        getRazorpayClient.mockReturnValue(null);
+
+        const result = await PaymentService.createRazorpayOrder(ORDER_ID);
+
+        expect(result).toEqual({ success: false, message: "Razorpay is not configured on this server yet." });
+        expect(OrderRepository.getOrderById).not.toHaveBeenCalled();
+
+    });
+
+    it("fails when the order doesn't exist", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([]);
+
+        const result = await PaymentService.createRazorpayOrder(ORDER_ID);
+
+        expect(result.success).toBe(false);
+        expect(razorpayOrdersCreate).not.toHaveBeenCalled();
+
+    });
+
+    it("writes a Pending Payments row the moment the Razorpay order is created - not just on later success", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250, PaymentMethod: "Card" }]);
+
+        const result = await PaymentService.createRazorpayOrder(ORDER_ID);
+
+        expect(result.success).toBe(true);
+        expect(result.data.razorpayOrderId).toBe(RAZORPAY_ORDER_ID);
+        expect(PaymentRepository.createPayment).toHaveBeenCalledWith({
+            orderId: ORDER_ID,
+            paymentMethod: "Card",
+            amount: 250,
+            paymentStatus: "Pending",
+            razorpayOrderId: RAZORPAY_ORDER_ID
+        });
+
+    });
+
+});
+
+describe("PaymentService.recordFailedRazorpayAttempt", () => {
+
+    it("marks a Pending attempt Failed when it belongs to the given order", async () => {
+
+        PaymentRepository.getPaymentByRazorpayOrderId.mockResolvedValue({ OrderId: ORDER_ID, RazorpayOrderId: RAZORPAY_ORDER_ID });
+        PaymentRepository.markPaymentFailedIfPending.mockResolvedValue({ PaymentId: 1, PaymentStatus: "Failed" });
+
+        const result = await PaymentService.recordFailedRazorpayAttempt(ORDER_ID, RAZORPAY_ORDER_ID);
+
+        expect(result.success).toBe(true);
+        expect(PaymentRepository.markPaymentFailedIfPending).toHaveBeenCalledWith(RAZORPAY_ORDER_ID);
+
+    });
+
+    it("refuses when the Razorpay order id doesn't belong to the given order", async () => {
+
+        PaymentRepository.getPaymentByRazorpayOrderId.mockResolvedValue({ OrderId: 999, RazorpayOrderId: RAZORPAY_ORDER_ID });
+
+        const result = await PaymentService.recordFailedRazorpayAttempt(ORDER_ID, RAZORPAY_ORDER_ID);
+
+        expect(result.success).toBe(false);
+        expect(PaymentRepository.markPaymentFailedIfPending).not.toHaveBeenCalled();
+
+    });
+
+    it("refuses when no payment attempt exists for that Razorpay order id at all", async () => {
+
+        PaymentRepository.getPaymentByRazorpayOrderId.mockResolvedValue(undefined);
+
+        const result = await PaymentService.recordFailedRazorpayAttempt(ORDER_ID, RAZORPAY_ORDER_ID);
+
+        expect(result.success).toBe(false);
+
+    });
+
+    it("still succeeds (no-op) when a retry already paid this attempt - never reported as an error", async () => {
+
+        PaymentRepository.getPaymentByRazorpayOrderId.mockResolvedValue({ OrderId: ORDER_ID, RazorpayOrderId: RAZORPAY_ORDER_ID });
+        // Already Paid - markPaymentFailedIfPending's WHERE clause matches nothing.
+        PaymentRepository.markPaymentFailedIfPending.mockResolvedValue(undefined);
+
+        const result = await PaymentService.recordFailedRazorpayAttempt(ORDER_ID, RAZORPAY_ORDER_ID);
+
+        expect(result.success).toBe(true);
+
+    });
+
+});
+
+describe("PaymentService.recordFailedRazorpayWebhookPayment", () => {
+
+    it("delegates straight to the conditional Pending-only update", async () => {
+
+        await PaymentService.recordFailedRazorpayWebhookPayment(RAZORPAY_ORDER_ID);
+
+        expect(PaymentRepository.markPaymentFailedIfPending).toHaveBeenCalledWith(RAZORPAY_ORDER_ID);
+
+    });
+
+});
+
 describe("PaymentService.recordRazorpayWebhookPayment", () => {
 
-    it("records a new payment when none exists yet for this order", async () => {
+    it("updates the existing Pending row (found by Razorpay order id) to Paid", async () => {
 
-        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
-        PaymentRepository.getPaymentByOrderId.mockResolvedValue([]);
-        PaymentRepository.createPayment.mockResolvedValue({ PaymentId: 1 });
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250, PaymentMethod: "Card" }]);
+        PaymentRepository.updatePaymentByRazorpayOrderId.mockResolvedValue({ PaymentId: 1, PaymentStatus: "Paid" });
 
         await PaymentService.recordRazorpayWebhookPayment({
             orderId: ORDER_ID,
+            razorpayOrderId: RAZORPAY_ORDER_ID,
+            transactionId: "pay_ABC123",
+            amount: 250
+        });
+
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).toHaveBeenCalledWith(
+            RAZORPAY_ORDER_ID,
+            { paymentStatus: "Paid", transactionId: "pay_ABC123" }
+        );
+        expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
+
+    });
+
+    it("is naturally idempotent against Razorpay's own webhook retries - repeated calls just re-run the same UPDATE", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250, PaymentMethod: "Card" }]);
+        PaymentRepository.updatePaymentByRazorpayOrderId.mockResolvedValue({ PaymentId: 1, PaymentStatus: "Paid" });
+
+        const payload = { orderId: ORDER_ID, razorpayOrderId: RAZORPAY_ORDER_ID, transactionId: "pay_ABC123", amount: 250 };
+        await PaymentService.recordRazorpayWebhookPayment(payload);
+        await PaymentService.recordRazorpayWebhookPayment(payload);
+
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).toHaveBeenCalledTimes(2);
+        expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
+
+    });
+
+    it("falls back to inserting a fresh Paid row if no Pending row exists for this Razorpay order id (defensive - shouldn't happen via the normal flow)", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250, PaymentMethod: "Card" }]);
+        PaymentRepository.updatePaymentByRazorpayOrderId.mockResolvedValue(undefined);
+
+        await PaymentService.recordRazorpayWebhookPayment({
+            orderId: ORDER_ID,
+            razorpayOrderId: RAZORPAY_ORDER_ID,
             transactionId: "pay_ABC123",
             amount: 250
         });
 
         expect(PaymentRepository.createPayment).toHaveBeenCalledWith(
-            expect.objectContaining({
-                orderId: ORDER_ID,
-                paymentMethod: "Razorpay",
-                paymentStatus: "Paid",
-                transactionId: "pay_ABC123"
-            })
+            expect.objectContaining({ orderId: ORDER_ID, paymentStatus: "Paid", transactionId: "pay_ABC123" })
         );
-
-    });
-
-    it("is a no-op when this exact payment was already recorded (Razorpay retried the webhook)", async () => {
-
-        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
-        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
-            { PaymentId: 1, TransactionId: "pay_ABC123" }
-        ]);
-
-        await PaymentService.recordRazorpayWebhookPayment({
-            orderId: ORDER_ID,
-            transactionId: "pay_ABC123",
-            amount: 250
-        });
-
-        expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
-
-    });
-
-    it("swallows a unique-violation race against the client-side verify path", async () => {
-
-        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
-        PaymentRepository.getPaymentByOrderId.mockResolvedValue([]);
-
-        const uniqueViolation = new Error("duplicate key value");
-        uniqueViolation.code = "23505";
-        PaymentRepository.createPayment.mockRejectedValue(uniqueViolation);
-
-        await expect(PaymentService.recordRazorpayWebhookPayment({
-            orderId: ORDER_ID,
-            transactionId: "pay_ABC123",
-            amount: 250
-        })).resolves.toBeUndefined();
-
-    });
-
-    it("re-throws an unrelated database error", async () => {
-
-        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
-        PaymentRepository.getPaymentByOrderId.mockResolvedValue([]);
-
-        const connectionError = new Error("connection lost");
-        PaymentRepository.createPayment.mockRejectedValue(connectionError);
-
-        await expect(PaymentService.recordRazorpayWebhookPayment({
-            orderId: ORDER_ID,
-            transactionId: "pay_ABC123",
-            amount: 250
-        })).rejects.toThrow("connection lost");
 
     });
 
@@ -96,12 +190,109 @@ describe("PaymentService.recordRazorpayWebhookPayment", () => {
 
         await PaymentService.recordRazorpayWebhookPayment({
             orderId: 9999,
+            razorpayOrderId: RAZORPAY_ORDER_ID,
             transactionId: "pay_ABC123",
             amount: 250
         });
 
-        expect(PaymentRepository.getPaymentByOrderId).not.toHaveBeenCalled();
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).not.toHaveBeenCalled();
         expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("PaymentService.verifyRazorpayPayment", () => {
+
+    const KEY_SECRET = "test_key_secret";
+    const RAZORPAY_PAYMENT_ID = "pay_ABC123";
+
+    const sign = (razorpayOrderId, razorpayPaymentId) =>
+        crypto.createHmac("sha256", KEY_SECRET).update(`${razorpayOrderId}|${razorpayPaymentId}`).digest("hex");
+
+    const validPayload = () => ({
+        orderId: ORDER_ID,
+        paymentMethod: "Card",
+        razorpayOrderId: RAZORPAY_ORDER_ID,
+        razorpayPaymentId: RAZORPAY_PAYMENT_ID,
+        razorpaySignature: sign(RAZORPAY_ORDER_ID, RAZORPAY_PAYMENT_ID)
+    });
+
+    beforeEach(() => {
+        process.env.RAZORPAY_KEY_SECRET = KEY_SECRET;
+    });
+
+    afterEach(() => {
+        delete process.env.RAZORPAY_KEY_SECRET;
+    });
+
+    it("fails closed when Razorpay isn't configured, before even checking the signature", async () => {
+
+        delete process.env.RAZORPAY_KEY_SECRET;
+
+        const result = await PaymentService.verifyRazorpayPayment(validPayload());
+
+        expect(result.success).toBe(false);
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).not.toHaveBeenCalled();
+
+    });
+
+    it("rejects a signature that doesn't match, without recording anything", async () => {
+
+        const result = await PaymentService.verifyRazorpayPayment({ ...validPayload(), razorpaySignature: "tampered" });
+
+        expect(result).toEqual({ success: false, message: "Payment verification failed." });
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).not.toHaveBeenCalled();
+
+    });
+
+    it("rejects when required fields are missing", async () => {
+
+        const result = await PaymentService.verifyRazorpayPayment({ orderId: ORDER_ID });
+
+        expect(result.success).toBe(false);
+
+    });
+
+    it("on a valid signature, updates the existing Pending row to Paid rather than inserting a new one", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
+        PaymentRepository.updatePaymentByRazorpayOrderId.mockResolvedValue({ PaymentId: 1, PaymentStatus: "Paid" });
+
+        const result = await PaymentService.verifyRazorpayPayment(validPayload());
+
+        expect(result.success).toBe(true);
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).toHaveBeenCalledWith(
+            RAZORPAY_ORDER_ID,
+            { paymentStatus: "Paid", transactionId: RAZORPAY_PAYMENT_ID }
+        );
+        expect(PaymentRepository.createPayment).not.toHaveBeenCalled();
+
+    });
+
+    it("falls back to inserting when no Pending row exists for this Razorpay order id (defensive)", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([{ OrderId: ORDER_ID, TotalAmount: 250 }]);
+        PaymentRepository.updatePaymentByRazorpayOrderId.mockResolvedValue(undefined);
+        PaymentRepository.createPayment.mockResolvedValue({ PaymentId: 1, PaymentStatus: "Paid" });
+
+        const result = await PaymentService.verifyRazorpayPayment(validPayload());
+
+        expect(result.success).toBe(true);
+        expect(PaymentRepository.createPayment).toHaveBeenCalledWith(
+            expect.objectContaining({ orderId: ORDER_ID, paymentStatus: "Paid", transactionId: RAZORPAY_PAYMENT_ID })
+        );
+
+    });
+
+    it("fails when the order doesn't exist, even with a valid signature", async () => {
+
+        OrderRepository.getOrderById.mockResolvedValue([]);
+
+        const result = await PaymentService.verifyRazorpayPayment(validPayload());
+
+        expect(result.success).toBe(false);
+        expect(PaymentRepository.updatePaymentByRazorpayOrderId).not.toHaveBeenCalled();
 
     });
 

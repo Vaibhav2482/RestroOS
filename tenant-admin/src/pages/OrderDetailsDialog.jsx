@@ -50,6 +50,14 @@ import {
     isTerminalStatus
 } from "./orderStatusUtils";
 
+const ONLINE_PAYMENT_METHODS = ["Card", "UPI"];
+
+const PAYMENT_STATUS_CHIP_COLOR = {
+    Paid: "success",
+    Failed: "error",
+    Pending: "warning"
+};
+
 // Builds the same lineKey shape createOrder/PosOrderBuilder use - a menu
 // item plus its sorted option-id set - so adding an item that matches an
 // existing line (via the picker below) merges quantity instead of creating
@@ -553,7 +561,16 @@ function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
                             <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="caption" color="text.secondary">Payment Method</Typography>
-                                <Typography fontWeight={600}>{order.PaymentMethod || "-"}</Typography>
+                                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                    <Typography fontWeight={600}>{order.PaymentMethod || "-"}</Typography>
+                                    {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && (
+                                        <Chip
+                                            label={order.LatestPaymentStatus}
+                                            size="small"
+                                            color={PAYMENT_STATUS_CHIP_COLOR[order.LatestPaymentStatus] || "default"}
+                                        />
+                                    )}
+                                </Box>
                             </Grid>
 
                             <Grid size={{ xs: 12, sm: 6 }}>

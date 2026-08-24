@@ -2,6 +2,7 @@ import { waitUntil } from "@vercel/functions";
 
 import * as OrderRepository from "../repositories/OrderRepository.js";
 import * as OrderAdjustmentRepository from "../repositories/OrderAdjustmentRepository.js";
+import * as PaymentRepository from "../repositories/PaymentRepository.js";
 import * as RealtimeService from "./RealtimeService.js";
 import * as PaymentService from "./PaymentService.js";
 import * as NotificationService from "./NotificationService.js";
@@ -255,7 +256,25 @@ export const updateOrderStatus = async (id, orderStatus) => {
         const updatedOrder = await OrderRepository.updateOrderStatus(id, orderStatus, async (client, order) => {
 
             if (OrderRepository.hasStartedPreparing(order.OrderStatus, order.DeliveryType)) {
+
+                // Cash is collected in person (on delivery/pickup), so it's
+                // never gated here - only Card/UPI orders, which are
+                // supposed to already be paid online before the kitchen
+                // touches them. Read under the same client/row lock as the
+                // stock consumption below, so this can't race a payment
+                // that's confirmed at the exact same moment.
+                if (["Card", "UPI"].includes(order.PaymentMethod)) {
+
+                    const payments = await PaymentRepository.getPaymentByOrderId(order.OrderId, client);
+
+                    if (!payments.some((payment) => payment.PaymentStatus === "Paid")) {
+                        throw new Error("Payment not yet confirmed for this order - cannot start preparing.");
+                    }
+
+                }
+
                 await InventoryService.consumeForOrder(client, order.OrderId, order.BranchId);
+
             }
 
         });

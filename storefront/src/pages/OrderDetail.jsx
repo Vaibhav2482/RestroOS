@@ -3,6 +3,7 @@ import {
     Alert,
     Box,
     Button,
+    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -21,7 +22,8 @@ import {
     TableContainer,
     TableHead,
     TableRow,
-    Typography
+    Typography,
+    useTheme
 } from "@mui/material";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
@@ -39,6 +41,15 @@ import * as orderService from "../services/orderService";
 import { useStorefront } from "../context/StorefrontContext";
 import { getPusherClient } from "../lib/pusherClient";
 import BillReceipt from "../components/BillReceipt";
+import { openRazorpayCheckout } from "../utils/razorpayCheckout";
+
+const ONLINE_PAYMENT_METHODS = ["Card", "UPI"];
+
+const PAYMENT_STATUS_COLOR = {
+    Paid: "success",
+    Failed: "error",
+    Pending: "warning"
+};
 
 const DELIVERY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
 const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
@@ -91,12 +102,14 @@ function OrderDetail() {
     const { tenantSlug, tenant, customer } = useStorefront();
     const { orderId } = useParams();
     const navigate = useNavigate();
+    const theme = useTheme();
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [emailingBill, setEmailingBill] = useState(false);
     const [reordering, setReordering] = useState(false);
+    const [retryingPayment, setRetryingPayment] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [billOpen, setBillOpen] = useState(false);
 
@@ -281,6 +294,42 @@ function OrderDetail() {
             setReordering(false);
 
         }
+
+    };
+
+    const handleRetryPayment = async () => {
+
+        if (retryingPayment) {
+            return;
+        }
+
+        setRetryingPayment(true);
+
+        await openRazorpayCheckout({
+            order,
+            customer,
+            paymentMethod: order.PaymentMethod,
+            themeColor: theme.palette.primary.main,
+            onSuccess: () => {
+                toast.success("Payment successful!");
+                setRetryingPayment(false);
+                fetchOrder();
+            },
+            onFailure: ({ reason, message }) => {
+
+                setRetryingPayment(false);
+
+                // Razorpay's own widget shows a retry screen and stays open
+                // on a bare decline - only reflect the other reasons as a
+                // toast here (the widget itself already told the customer).
+                if (reason !== "payment-failed") {
+                    toast.error(message || "Payment wasn't completed.");
+                }
+
+                fetchOrder(true);
+
+            }
+        });
 
     };
 
@@ -559,7 +608,16 @@ function OrderDetail() {
                                 <PaymentOutlinedIcon sx={{ color: "text.secondary", fontSize: 20, mt: 0.25 }} />
                                 <Box>
                                     <Typography variant="caption" color="text.secondary" display="block">Payment Method</Typography>
-                                    <Typography variant="body2" fontWeight={600}>{order.PaymentMethod}</Typography>
+                                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                        <Typography variant="body2" fontWeight={600}>{order.PaymentMethod}</Typography>
+                                        {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && (
+                                            <Chip
+                                                label={order.LatestPaymentStatus}
+                                                size="small"
+                                                color={PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default"}
+                                            />
+                                        )}
+                                    </Box>
                                 </Box>
                             </Box>
 
@@ -592,6 +650,18 @@ function OrderDetail() {
                         </Box>
 
                     </Paper>
+
+                    {!isCancelled && ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus !== "Paid" && (
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            disabled={retryingPayment}
+                            onClick={handleRetryPayment}
+                            sx={{ height: 48, mb: canCancel ? 1.5 : 0 }}
+                        >
+                            {retryingPayment ? "Opening payment..." : "Retry Payment"}
+                        </Button>
+                    )}
 
                     {canCancel && (
                         <Button

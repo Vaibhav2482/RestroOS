@@ -586,5 +586,19 @@ export const MIGRATIONS = [
             ALTER TABLE "CustomerAddresses"
             ADD COLUMN "AddressType" VARCHAR(10);
         `
+    },
+    {
+        // A Payments row is now written the moment a Razorpay order is
+        // created (status "Pending"), not just on a successful verify - both
+        // the verify-success and payment-failed paths update that same row
+        // (found by RazorpayOrderId) instead of inserting a fresh one. The
+        // unique index mirrors UQ_Payments_TransactionId's shape (0005) -
+        // multiple NULLs allowed, but a given Razorpay order can only ever
+        // back one Payments row.
+        id: "0032_payment_razorpay_order_id",
+        sql: `
+            ALTER TABLE "Payments" ADD COLUMN "RazorpayOrderId" VARCHAR(50);
+            CREATE UNIQUE INDEX "UQ_Payments_RazorpayOrderId" ON "Payments" ("RazorpayOrderId") WHERE "RazorpayOrderId" IS NOT NULL;
+        `
     }
 ];

@@ -4,6 +4,7 @@ import {
     createPayment,
     createRazorpayOrder,
     verifyRazorpayPayment,
+    recordFailedPayment,
     getPaymentByOrderId,
     getPaymentsByCustomer
 } from "../controllers/PaymentController.js";
@@ -18,6 +19,8 @@ router.post("/", createPayment);
 router.post("/razorpay/order", createRazorpayOrder);
 
 router.post("/razorpay/verify", verifyRazorpayPayment);
+
+router.post("/razorpay/failed", recordFailedPayment);
 
 router.get("/order/:orderId", getPaymentByOrderId);
 
