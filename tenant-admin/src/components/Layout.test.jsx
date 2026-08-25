@@ -21,6 +21,12 @@ beforeEach(() => {
     localStorage.setItem("tenantAdmin", JSON.stringify(BRANCH_ADMIN_AUTH));
     tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [] } });
 
+    // jsdom doesn't implement real navigation - stub location so the forced
+    // relogin's `window.location.href = ...` assignment is observable
+    // instead of silently no-op'ing with a "Not implemented" warning.
+    delete window.location;
+    window.location = { href: "" };
+
 });
 
 afterEach(() => {
@@ -29,7 +35,7 @@ afterEach(() => {
 
 describe("Layout - live permission refresh", () => {
 
-    it("does not show a permission-gated nav item until the periodic refresh picks up the grant", async () => {
+    it("forces a re-login when the periodic refresh finds a staff permission changed elsewhere", async () => {
 
         adminService.getOwnProfile.mockResolvedValue({
             success: true,
@@ -42,11 +48,11 @@ describe("Layout - live permission refresh", () => {
             </MemoryRouter>
         );
 
-        expect(screen.queryAllByText("Coupons")).toHaveLength(0);
-
-        // The Owner grants manage_coupons out-of-band (a real scenario:
-        // another browser tab, another device) - this admin's own session
-        // only finds out once the periodic refresh below calls /admins/me.
+        // The Owner grants (or revokes) manage_coupons out-of-band (a real
+        // scenario: another browser tab, another device) - this admin's own
+        // session only finds out once the periodic refresh below calls
+        // /admins/me, and should be dropped back to login rather than just
+        // having its nav quietly rearranged underneath it.
         adminService.getOwnProfile.mockResolvedValue({
             success: true,
             data: { ...BRANCH_ADMIN_AUTH.admin, Permissions: ["manage_coupons"] }
@@ -56,20 +62,21 @@ describe("Layout - live permission refresh", () => {
             await vi.advanceTimersByTimeAsync(60000);
         });
 
-        expect(screen.getAllByText("Coupons").length).toBeGreaterThan(0);
+        expect(localStorage.getItem("tenantAdmin")).toBeNull();
+        expect(window.location.href).toContain("/login?reason=access-changed");
 
     });
 
-    it("hides an owner-only nav item when the tenant disables its feature, even for the Owner", async () => {
+    it("forces a re-login when the tenant's own feature toggle changes, even for the Owner", async () => {
 
         const OWNER_AUTH = {
             token: "test-token",
-            admin: { AdminId: 2, TenantId: 9, BranchId: null, FullName: "Test Owner", Email: "owner@test.com", Permissions: [], tenantDisabledFeatures: [] }
+            admin: { AdminId: 2, TenantId: 9, BranchId: null, FullName: "Test Owner", Email: "owner@test.com", Permissions: [], tenantDisabledFeatures: [], tenantPlatformRestrictedFeatures: [] }
         };
 
         localStorage.setItem("tenantAdmin", JSON.stringify(OWNER_AUTH));
         adminService.getOwnProfile.mockResolvedValue({ success: true, data: OWNER_AUTH.admin });
-        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [] } });
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [], PlatformRestrictedFeatures: [] } });
 
         render(
             <MemoryRouter>
@@ -77,16 +84,45 @@ describe("Layout - live permission refresh", () => {
             </MemoryRouter>
         );
 
-        expect(screen.getAllByText("Branches").length).toBeGreaterThan(0);
-
         // The Owner disabled manage_branches from another device/tab.
-        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: ["manage_branches"] } });
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: ["manage_branches"], PlatformRestrictedFeatures: [] } });
 
         await act(async () => {
             await vi.advanceTimersByTimeAsync(60000);
         });
 
-        expect(screen.queryAllByText("Branches")).toHaveLength(0);
+        expect(localStorage.getItem("tenantAdmin")).toBeNull();
+        expect(window.location.href).toContain("/login?reason=access-changed");
+
+    });
+
+    it("forces a re-login when a platform admin newly restricts a feature mid-session", async () => {
+
+        const OWNER_AUTH = {
+            token: "test-token",
+            admin: { AdminId: 2, TenantId: 9, BranchId: null, FullName: "Test Owner", Email: "owner@test.com", Permissions: [], tenantDisabledFeatures: [], tenantPlatformRestrictedFeatures: [] }
+        };
+
+        localStorage.setItem("tenantAdmin", JSON.stringify(OWNER_AUTH));
+        adminService.getOwnProfile.mockResolvedValue({ success: true, data: OWNER_AUTH.admin });
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [], PlatformRestrictedFeatures: [] } });
+
+        render(
+            <MemoryRouter>
+                <Layout><div>content</div></Layout>
+            </MemoryRouter>
+        );
+
+        // A platform admin restricts manage_delivery for this tenant's plan
+        // while the Owner is already logged in.
+        tenantService.getOwnTenant.mockResolvedValue({ success: true, data: { DisabledFeatures: [], PlatformRestrictedFeatures: ["manage_delivery"] } });
+
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(60000);
+        });
+
+        expect(localStorage.getItem("tenantAdmin")).toBeNull();
+        expect(window.location.href).toContain("/login?reason=access-changed");
 
     });
 

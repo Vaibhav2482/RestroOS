@@ -168,12 +168,19 @@ function Layout({ children }) {
 
     }, []);
 
-    // requirePermission on the backend already enforces a permission change
-    // live on every request (see middleware/Auth.js) - this just keeps the
-    // cached admin object driving what buttons/nav a Branch Admin SEES from
-    // lagging behind that by up to a full login session. Same 60s/
-    // visible-tab-only cadence as Dashboard.jsx's order refresh, so an
-    // Owner's grant/revoke shows up without the Branch Admin re-logging in.
+    // requirePermission/requireFeatureEnabled on the backend already enforce
+    // an access change live on every request (see middleware/Auth.js) - but
+    // that's reactive, only kicking in once this admin happens to click into
+    // something now-blocked. This poll makes it proactive: a Branch Admin
+    // whose Owner just revoked a permission, or a tenant whose plan a
+    // platform admin just restricted, gets force-logged-out within one cycle
+    // instead of continuing to see (and attempt) something dead until they
+    // stumble into it. Same 60s/visible-tab-only cadence as Dashboard.jsx's
+    // order refresh. Purely cosmetic drift (name/avatar/branch reassignment)
+    // still just patches the cache silently - only an actual access change
+    // forces the real-SaaS-app relogin, mirroring axiosClient.js's reactive
+    // "feature_disabled" handling so both paths land the admin in the same
+    // place for the same reason.
     useEffect(() => {
 
         const interval = setInterval(async () => {
@@ -199,9 +206,11 @@ function Layout({ children }) {
                 }
 
                 const fresh = profileResult.value.data;
-                const freshTenantDisabledFeatures = tenantResult.status === "fulfilled" && tenantResult.value.success
-                    ? (tenantResult.value.data.DisabledFeatures || [])
-                    : current.admin?.tenantDisabledFeatures;
+                const tenantFresh = tenantResult.status === "fulfilled" && tenantResult.value.success
+                    ? tenantResult.value.data
+                    : null;
+                const freshTenantDisabledFeatures = tenantFresh?.DisabledFeatures || current.admin?.tenantDisabledFeatures;
+                const freshTenantPlatformRestrictedFeatures = tenantFresh?.PlatformRestrictedFeatures || current.admin?.tenantPlatformRestrictedFeatures;
 
                 const permissionsChanged = JSON.stringify([...(current.admin?.Permissions || [])].sort()) !==
                     JSON.stringify([...(fresh.Permissions || [])].sort());
@@ -209,13 +218,25 @@ function Layout({ children }) {
                 const featuresChanged = JSON.stringify([...(current.admin?.tenantDisabledFeatures || [])].sort()) !==
                     JSON.stringify([...(freshTenantDisabledFeatures || [])].sort());
 
-                const changed = permissionsChanged || featuresChanged ||
+                const platformRestrictionsChanged = JSON.stringify([...(current.admin?.tenantPlatformRestrictedFeatures || [])].sort()) !==
+                    JSON.stringify([...(freshTenantPlatformRestrictedFeatures || [])].sort());
+
+                // A real access change - force the same relogin a blocked
+                // request would've triggered anyway, just before this admin
+                // hits one instead of after.
+                if (permissionsChanged || featuresChanged || platformRestrictionsChanged) {
+                    clearStoredAuth();
+                    window.location.href = "/login?reason=access-changed";
+                    return;
+                }
+
+                const changed =
                     String(current.admin?.BranchId ?? "") !== String(fresh.BranchId ?? "") ||
                     current.admin?.FullName !== fresh.FullName ||
                     current.admin?.AvatarUrl !== fresh.AvatarUrl;
 
                 if (changed) {
-                    setStoredAuth({ ...current, admin: { ...current.admin, ...fresh, tenantDisabledFeatures: freshTenantDisabledFeatures } });
+                    setStoredAuth({ ...current, admin: { ...current.admin, ...fresh } });
                 }
 
             } catch {
