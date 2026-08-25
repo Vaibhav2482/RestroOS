@@ -8,8 +8,10 @@ import {
     FormControlLabel,
     FormGroup,
     Paper,
+    Tooltip,
     Typography
 } from "@mui/material";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import toast from "react-hot-toast";
 
 import * as tenantService from "../services/tenantService";
@@ -28,6 +30,12 @@ function Features() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [enabledFeatures, setEnabledFeatures] = useState(ALL_KEYS);
+    // A plan-tier restriction only a platform admin sets - rendered locked
+    // below, never offered as something this page can toggle at all. Even
+    // if a request were crafted to "enable" one, TenantService.
+    // updateDisabledFeatures force-keeps it disabled server-side; this is
+    // just what makes that not a confusing dead click in the first place.
+    const [restrictedFeatures, setRestrictedFeatures] = useState([]);
 
     useEffect(() => {
 
@@ -39,7 +47,9 @@ function Features() {
 
                 if (response.success) {
                     const disabled = response.data.DisabledFeatures || [];
-                    setEnabledFeatures(ALL_KEYS.filter((key) => !disabled.includes(key)));
+                    const restricted = response.data.PlatformRestrictedFeatures || [];
+                    setEnabledFeatures(ALL_KEYS.filter((key) => !disabled.includes(key) && !restricted.includes(key)));
+                    setRestrictedFeatures(restricted);
                 } else {
                     toast.error(response.message || "Failed to load features.");
                 }
@@ -60,6 +70,10 @@ function Features() {
 
     const handleToggle = (key) => {
 
+        if (restrictedFeatures.includes(key)) {
+            return;
+        }
+
         setEnabledFeatures((prev) =>
             prev.includes(key) ? prev.filter((existing) => existing !== key) : [...prev, key]
         );
@@ -72,6 +86,9 @@ function Features() {
 
             setSaving(true);
 
+            // restrictedFeatures never appear in enabledFeatures (handleToggle
+            // refuses to add them), so this naturally submits them as
+            // disabled - nothing extra to filter out here.
             const disabledFeatures = ALL_KEYS.filter((key) => !enabledFeatures.includes(key));
             const response = await tenantService.updateDisabledFeatures(disabledFeatures);
 
@@ -128,6 +145,13 @@ function Features() {
                 out of it, yourself included, until you re-enable it here.
             </Alert>
 
+            {restrictedFeatures.length > 0 && (
+                <Alert severity="info" icon={<LockOutlinedIcon fontSize="small" />} sx={{ mb: 3, maxWidth: 640 }}>
+                    Anything marked with a lock icon isn't included in your current plan - contact
+                    support to upgrade.
+                </Alert>
+            )}
+
             <Paper elevation={0} sx={{ p: 3, border: "1px solid #E5E7EB", maxWidth: 640 }}>
 
                 {FEATURE_GROUPS.map((group) => (
@@ -140,20 +164,38 @@ function Features() {
 
                         <FormGroup>
 
-                            {TENANT_FEATURES.filter((feature) => feature.group === group).map((feature) => (
+                            {TENANT_FEATURES.filter((feature) => feature.group === group).map((feature) => {
 
-                                <FormControlLabel
-                                    key={feature.key}
-                                    control={
-                                        <Checkbox
-                                            checked={enabledFeatures.includes(feature.key)}
-                                            onChange={() => handleToggle(feature.key)}
-                                        />
-                                    }
-                                    label={feature.label}
-                                />
+                                const isRestricted = restrictedFeatures.includes(feature.key);
 
-                            ))}
+                                const control = (
+                                    <FormControlLabel
+                                        key={feature.key}
+                                        control={
+                                            <Checkbox
+                                                checked={enabledFeatures.includes(feature.key)}
+                                                onChange={() => handleToggle(feature.key)}
+                                                disabled={isRestricted}
+                                            />
+                                        }
+                                        label={
+                                            isRestricted ? (
+                                                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, color: "text.disabled" }}>
+                                                    {feature.label}
+                                                    <LockOutlinedIcon sx={{ fontSize: 14 }} />
+                                                </Box>
+                                            ) : feature.label
+                                        }
+                                    />
+                                );
+
+                                return isRestricted ? (
+                                    <Tooltip key={feature.key} title="Not included in your plan - contact support to upgrade." placement="right">
+                                        <span>{control}</span>
+                                    </Tooltip>
+                                ) : control;
+
+                            })}
 
                         </FormGroup>
 

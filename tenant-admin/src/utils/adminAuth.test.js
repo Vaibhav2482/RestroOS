@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { hasPermission, isOwner } from "./adminAuth";
+import { hasPermission, isFeatureEnabled, isOwner } from "./adminAuth";
 
 describe("isOwner", () => {
 
@@ -33,6 +33,30 @@ describe("hasPermission", () => {
 
     it("returns false when there's no admin at all", () => {
         expect(hasPermission(null, "manage_ingredients")).toBe(false);
+    });
+
+});
+
+describe("isFeatureEnabled", () => {
+
+    it("returns true when neither list mentions the key", () => {
+        expect(isFeatureEnabled({ tenantDisabledFeatures: [], tenantPlatformRestrictedFeatures: [] }, "manage_delivery")).toBe(true);
+    });
+
+    it("returns false when the Owner's own toggle has disabled it", () => {
+        expect(isFeatureEnabled({ tenantDisabledFeatures: ["manage_delivery"], tenantPlatformRestrictedFeatures: [] }, "manage_delivery")).toBe(false);
+    });
+
+    // The case this whole fix is about - a plan-tier restriction blocks
+    // just as hard as the Owner's own toggle, even though it's a
+    // completely separate list the Owner never writes to.
+    it("returns false when the platform's plan restricts it, even with the Owner's own list empty", () => {
+        expect(isFeatureEnabled({ tenantDisabledFeatures: [], tenantPlatformRestrictedFeatures: ["manage_delivery"] }, "manage_delivery")).toBe(false);
+    });
+
+    it("returns true when neither field is present at all (no admin, or an old cached session)", () => {
+        expect(isFeatureEnabled({}, "manage_delivery")).toBe(true);
+        expect(isFeatureEnabled(null, "manage_delivery")).toBe(true);
     });
 
 });

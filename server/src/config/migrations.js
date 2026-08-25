@@ -600,5 +600,17 @@ export const MIGRATIONS = [
             ALTER TABLE "Payments" ADD COLUMN "RazorpayOrderId" VARCHAR(50);
             CREATE UNIQUE INDEX "UQ_Payments_RazorpayOrderId" ON "Payments" ("RazorpayOrderId") WHERE "RazorpayOrderId" IS NOT NULL;
         `
+    },
+    {
+        // Distinct from DisabledFeatures (the tenant Owner's own self-service
+        // toggle) - this one is platform-admin-only, a plan-tier restriction
+        // the Owner can never see as a checkbox or override, directly or via
+        // a crafted request. Effective-disabled for enforcement purposes is
+        // the union of both columns - see requirePermission/
+        // requireFeatureEnabled in middleware/Auth.js.
+        id: "0033_tenant_platform_restricted_features",
+        sql: `
+            ALTER TABLE "Tenants" ADD COLUMN "PlatformRestrictedFeatures" TEXT[] NOT NULL DEFAULT '{}';
+        `
     }
 ];

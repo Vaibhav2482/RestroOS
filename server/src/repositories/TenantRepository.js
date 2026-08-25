@@ -3,7 +3,7 @@ import pool from "../config/db.js";
 export const getAll = async () => {
 
     const result = await pool.query(
-        `SELECT "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures"
+        `SELECT "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures", "PlatformRestrictedFeatures"
          FROM "Tenants"
          ORDER BY "CreatedAt" DESC`
     );
@@ -65,8 +65,25 @@ export const updateDisabledFeatures = async (tenantId, disabledFeatures) => {
         `UPDATE "Tenants"
          SET "DisabledFeatures" = $1, "UpdatedAt" = NOW()
          WHERE "TenantId" = $2
-         RETURNING "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures"`,
+         RETURNING "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures", "PlatformRestrictedFeatures"`,
         [disabledFeatures, tenantId]
+    );
+
+    return result.rows[0];
+
+};
+
+// The platform-admin-only counterpart to updateDisabledFeatures above - a
+// plan-tier restriction, not the tenant's own preference. Same full-row
+// shape, same reason (platform-admin's Tenants list cache).
+export const updatePlatformRestrictedFeatures = async (tenantId, platformRestrictedFeatures) => {
+
+    const result = await pool.query(
+        `UPDATE "Tenants"
+         SET "PlatformRestrictedFeatures" = $1, "UpdatedAt" = NOW()
+         WHERE "TenantId" = $2
+         RETURNING "TenantId", "TenantName", "Slug", "OwnerEmail", "OwnerPhone", "PlanType", "IsActive", "CreatedAt", "DisabledFeatures", "PlatformRestrictedFeatures"`,
+        [platformRestrictedFeatures, tenantId]
     );
 
     return result.rows[0];

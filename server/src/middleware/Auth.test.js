@@ -390,6 +390,51 @@ describe("requirePermission", () => {
 
     });
 
+    // platformRestrictedFeatures is the plan-tier restriction only a
+    // platform admin sets - distinct from disabledFeatures (the Owner's own
+    // toggle) checked above, and must block just as hard even with the
+    // permission granted and the tenant's own DisabledFeatures empty.
+    it("blocks an OWNER when the tenant's plan restricts the feature, even with disabledFeatures empty", () => {
+
+        const req = { user: { role: "admin", branchId: null, permissions: [], disabledFeatures: [], platformRestrictedFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("blocks a branch admin even with the permission granted, when the tenant's plan restricts it", () => {
+
+        const req = { user: { role: "admin", branchId: 4, permissions: ["manage_ingredients"], disabledFeatures: [], platformRestrictedFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("tags a plan-restriction rejection with feature_disabled too, and a distinct 'not included in your plan' message", () => {
+
+        const req = { user: { role: "admin", branchId: null, permissions: [], platformRestrictedFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            message: "This feature isn't included in your restaurant's plan.",
+            errors: { code: "feature_disabled" }
+        }));
+
+    });
+
 });
 
 describe("requireFeatureEnabled", () => {
@@ -440,6 +485,22 @@ describe("requireFeatureEnabled", () => {
         requireFeatureEnabled("manage_branches")(req, res, next);
 
         expect(next).toHaveBeenCalled();
+
+    });
+
+    it("blocks even an Owner when the tenant's plan restricts the feature, with a distinct message", () => {
+
+        const req = { user: { role: "admin", branchId: null, disabledFeatures: [], platformRestrictedFeatures: ["manage_branches"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requireFeatureEnabled("manage_branches")(req, res, next);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+            message: "This feature isn't included in your restaurant's plan.",
+            errors: { code: "feature_disabled" }
+        }));
+        expect(next).not.toHaveBeenCalled();
 
     });
 

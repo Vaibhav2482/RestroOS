@@ -44,7 +44,7 @@ const isStillActive = async (user) => {
 const loadAdminState = async (adminId) => {
 
     const result = await pool.query(
-        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions", T."DisabledFeatures", A."TokenVersion"
+        `SELECT A."IsActive" AS "AdminActive", T."IsActive" AS "TenantActive", A."Permissions", T."DisabledFeatures", T."PlatformRestrictedFeatures", A."TokenVersion"
          FROM "Admins" A INNER JOIN "Tenants" T ON A."TenantId" = T."TenantId"
          WHERE A."AdminId" = $1`,
         [adminId]
@@ -90,6 +90,7 @@ export const authenticate = async (req, res, next) => {
 
             user.permissions = state.Permissions || [];
             user.disabledFeatures = state.DisabledFeatures || [];
+            user.platformRestrictedFeatures = state.PlatformRestrictedFeatures || [];
 
         } else if (!(await isStillActive(user))) {
             return errorResponse(res, "This account is no longer active.", 401);
@@ -166,6 +167,10 @@ export const requireOwner = (req, res, next) => {
 // and tenant-admin's axiosClient.js for what actually reacts to the code.
 export const requireFeatureEnabled = (key) => (req, res, next) => {
 
+    if (req.user?.role === "admin" && req.user.platformRestrictedFeatures?.includes(key)) {
+        return errorResponse(res, "This feature isn't included in your restaurant's plan.", 403, { code: "feature_disabled" });
+    }
+
     if (req.user?.role === "admin" && req.user.disabledFeatures?.includes(key)) {
         return errorResponse(res, "This feature isn't enabled for your restaurant.", 403, { code: "feature_disabled" });
     }
@@ -177,11 +182,21 @@ export const requireFeatureEnabled = (key) => (req, res, next) => {
 // Like requireOwner, but delegable per key to a Branch Admin (see
 // config/permissions.js for what's delegable). An Owner always passes -
 // unless the tenant itself has this key disabled, checked first, since
-// that's meant to block the Owner too.
+// that's meant to block the Owner too. Two separate reasons a key can be
+// off - checked in order so the more specific "not on your plan" message
+// wins over the generic "not enabled" one when both happen to be true:
+// platformRestrictedFeatures (a plan-tier restriction only a platform admin
+// sets - the Owner can never override this, see TenantService.
+// updateDisabledFeatures's force-merge) and disabledFeatures (the Owner's
+// own self-service toggle, freely reversible by them).
 export const requirePermission = (key) => (req, res, next) => {
 
     if (!req.user || req.user.role !== "admin") {
         return errorResponse(res, "You are not authorized to perform this action.", 403);
+    }
+
+    if (req.user.platformRestrictedFeatures?.includes(key)) {
+        return errorResponse(res, "This feature isn't included in your restaurant's plan.", 403, { code: "feature_disabled" });
     }
 
     if (req.user.disabledFeatures?.includes(key)) {

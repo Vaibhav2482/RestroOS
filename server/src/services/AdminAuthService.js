@@ -36,7 +36,13 @@ export const login = async (tenantSlug, email, password) => {
     return {
         success: true,
         message: "Login successful.",
-        data: { ...admin, tenantSlug: tenant.Slug, tenantName: tenant.TenantName, tenantDisabledFeatures: tenant.DisabledFeatures || [] }
+        data: {
+            ...admin,
+            tenantSlug: tenant.Slug,
+            tenantName: tenant.TenantName,
+            tenantDisabledFeatures: tenant.DisabledFeatures || [],
+            tenantPlatformRestrictedFeatures: tenant.PlatformRestrictedFeatures || []
+        }
     };
 
 };

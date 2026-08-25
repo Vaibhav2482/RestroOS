@@ -40,9 +40,9 @@ export const reactivateTenant = async (tenantId) => {
 
 };
 
-export const updateTenantFeatures = async (tenantId, disabledFeatures) => {
+export const updateTenantFeatures = async (tenantId, platformRestrictedFeatures) => {
 
-    const response = await axiosClient.put(`/platform-admin/tenants/${tenantId}/features`, { disabledFeatures });
+    const response = await axiosClient.put(`/platform-admin/tenants/${tenantId}/features`, { platformRestrictedFeatures });
 
     return response.data;
 

@@ -65,13 +65,16 @@ export const updateDeliveryStaffingMode = async (tenantId, deliveryStaffingMode)
 
 };
 
-// Reachable two ways: a tenant's own Owner via PUT /tenants/me/features
-// (tenantId always valid there - it's their own JWT's tenantId, and there's
-// no platform admin actor to attribute) and a platform admin via
-// PUT /platform-admin/tenants/:tenantId/features (an arbitrary, typeable id)
-// - the existence check matters for the second path, and only that path
-// passes actorPlatformAdminId.
-export const updateDisabledFeatures = async (tenantId, disabledFeatures, actorPlatformAdminId = null) => {
+// The tenant Owner's own self-service toggle - PUT /tenants/me/features,
+// tenantId always valid here since it's their own JWT's. Distinct from
+// updatePlatformRestrictedFeatures below, which is the platform-admin-only
+// plan-tier restriction the Owner can never touch: whatever's already in
+// PlatformRestrictedFeatures is force-unioned back into whatever the Owner
+// submits, so even a tampered/stale request that tries to "enable" a
+// platform-restricted key just has it silently kept disabled - the real
+// defense is the frontend never rendering it as toggleable at all
+// (tenant-admin's Features.jsx), this is only the backstop.
+export const updateDisabledFeatures = async (tenantId, disabledFeatures, actorAdminId = null) => {
 
     const existing = await TenantRepository.getById(tenantId);
 
@@ -79,17 +82,52 @@ export const updateDisabledFeatures = async (tenantId, disabledFeatures, actorPl
         return { success: false, message: "Restaurant not found." };
     }
 
-    const tenant = await TenantRepository.updateDisabledFeatures(tenantId, sanitizeDisabledFeatures(disabledFeatures));
+    const merged = [...new Set([
+        ...sanitizeDisabledFeatures(disabledFeatures),
+        ...(existing.PlatformRestrictedFeatures || [])
+    ])];
+
+    const tenant = await TenantRepository.updateDisabledFeatures(tenantId, merged);
+
+    if (actorAdminId) {
+        AuditService.record({
+            tenantId,
+            actorAdminId,
+            action: "TENANT_FEATURES_UPDATED",
+            entityType: "Tenant",
+            entityId: Number(tenantId),
+            summary: `Owner updated feature toggles for "${existing.TenantName}"`
+        });
+    }
+
+    return { success: true, message: "Features updated.", data: tenant };
+
+};
+
+// Platform-admin-only, PUT /platform-admin/tenants/:tenantId/features - a
+// plan-tier restriction, not the tenant's own preference. Audited under a
+// distinct action from TENANT_FEATURES_UPDATED so the two are told apart
+// in the audit log (platform changed this tenant's plan, vs. the tenant
+// changed their own preference).
+export const updatePlatformRestrictedFeatures = async (tenantId, platformRestrictedFeatures, actorPlatformAdminId = null) => {
+
+    const existing = await TenantRepository.getById(tenantId);
+
+    if (!existing) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    const tenant = await TenantRepository.updatePlatformRestrictedFeatures(tenantId, sanitizeDisabledFeatures(platformRestrictedFeatures));
 
     if (actorPlatformAdminId) {
         AuditService.record({
             tenantId,
             actorPlatformAdminId,
             actorType: "PlatformAdmin",
-            action: "TENANT_FEATURES_UPDATED",
+            action: "TENANT_PLATFORM_RESTRICTIONS_UPDATED",
             entityType: "Tenant",
             entityId: Number(tenantId),
-            summary: `Platform admin updated feature toggles for "${existing.TenantName}"`
+            summary: `Platform admin updated plan restrictions for "${existing.TenantName}"`
         });
     }
 

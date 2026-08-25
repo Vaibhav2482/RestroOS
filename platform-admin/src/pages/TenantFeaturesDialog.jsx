@@ -19,11 +19,12 @@ import { TENANT_FEATURES, TENANT_FEATURE_GROUPS } from "../utils/tenantFeatures"
 
 const ALL_KEYS = TENANT_FEATURES.map((feature) => feature.key);
 
-// A platform admin's path to the same tenant-wide switches a restaurant's
-// own Owner can set for themselves from tenant-admin (Settings > Features) -
-// same underlying Tenants.DisabledFeatures column, just reachable by tenant
-// id here instead of only "whichever tenant I'm logged into". Useful for
-// configuring what a client's plan includes without needing their login.
+// A plan-tier restriction (Tenants.PlatformRestrictedFeatures) - distinct
+// from, and takes priority over, the tenant's own Owner-facing Features
+// toggle in tenant-admin (Tenants.DisabledFeatures, a different column).
+// Whatever's unchecked here is a hard restriction the Owner can never
+// override from their own side, directly or via a crafted request - see
+// TenantService.updateDisabledFeatures's force-merge on the server.
 function TenantFeaturesDialog({ open, tenant, onClose, onSaved }) {
 
     const [enabledFeatures, setEnabledFeatures] = useState(ALL_KEYS);
@@ -32,8 +33,8 @@ function TenantFeaturesDialog({ open, tenant, onClose, onSaved }) {
     useEffect(() => {
 
         if (open && tenant) {
-            const disabled = tenant.DisabledFeatures || [];
-            setEnabledFeatures(ALL_KEYS.filter((key) => !disabled.includes(key)));
+            const restricted = tenant.PlatformRestrictedFeatures || [];
+            setEnabledFeatures(ALL_KEYS.filter((key) => !restricted.includes(key)));
         }
 
     }, [open, tenant]);
@@ -52,8 +53,8 @@ function TenantFeaturesDialog({ open, tenant, onClose, onSaved }) {
 
             setSaving(true);
 
-            const disabledFeatures = ALL_KEYS.filter((key) => !enabledFeatures.includes(key));
-            const response = await updateTenantFeatures(tenant.TenantId, disabledFeatures);
+            const platformRestrictedFeatures = ALL_KEYS.filter((key) => !enabledFeatures.includes(key));
+            const response = await updateTenantFeatures(tenant.TenantId, platformRestrictedFeatures);
 
             if (!response.success) {
                 toast.error(response.message);
@@ -90,7 +91,8 @@ function TenantFeaturesDialog({ open, tenant, onClose, onSaved }) {
 
                 <Alert severity="warning" sx={{ mb: 2 }}>
                     Unchecking a feature hides it for everyone at this restaurant, including its
-                    Owner - use this to match what a client's plan actually includes.
+                    Owner, and the Owner won't be able to turn it back on themselves - use this to
+                    match what a client's plan actually includes.
                 </Alert>
 
                 {TENANT_FEATURE_GROUPS.map((group) => (

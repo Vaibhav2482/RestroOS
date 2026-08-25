@@ -58,12 +58,13 @@ export const reactivateTenant = asyncHandler(async (req, res) => {
 
 });
 
-// Same TenantService.updateDisabledFeatures a tenant's own Owner uses via
-// PUT /tenants/me/features - this is the platform-admin path to the exact
-// same column, for any tenant by id rather than only the caller's own.
+// A plan-tier restriction (PlatformRestrictedFeatures), distinct from
+// PUT /tenants/me/features (DisabledFeatures, the tenant Owner's own
+// preference) - this one the Owner can never override, see
+// TenantService.updatePlatformRestrictedFeatures.
 export const updateTenantFeatures = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.updateDisabledFeatures(req.params.tenantId, req.body.disabledFeatures, req.user.id);
+    const result = await TenantService.updatePlatformRestrictedFeatures(req.params.tenantId, req.body.platformRestrictedFeatures, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

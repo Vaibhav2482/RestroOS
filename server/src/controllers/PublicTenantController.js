@@ -54,7 +54,7 @@ export const updateDeliveryStaffingMode = asyncHandler(async (req, res) => {
 
 export const updateDisabledFeatures = asyncHandler(async (req, res) => {
 
-    const result = await TenantService.updateDisabledFeatures(req.user.tenantId, req.body.disabledFeatures);
+    const result = await TenantService.updateDisabledFeatures(req.user.tenantId, req.body.disabledFeatures, req.user.id);
 
     if (!result.success) {
         return errorResponse(res, result.message, 404);

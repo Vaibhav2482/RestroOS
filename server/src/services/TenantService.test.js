@@ -234,33 +234,67 @@ describe("TenantService.updateDisabledFeatures", () => {
 
         expect(result.success).toBe(true);
         expect(TenantRepository.updateDisabledFeatures).toHaveBeenCalledWith(TENANT_ID, ["manage_branches"]);
-        // Called with no actorPlatformAdminId - the tenant's own Owner path
-        // (PUT /tenants/me/features) has no platform admin to attribute.
+        // Called with no actorAdminId - nothing attributes the change, so
+        // nothing should be audited.
         expect(AuditService.record).not.toHaveBeenCalled();
 
     });
 
-    it("records an audit entry when a platform admin makes the same change", async () => {
+    it("records an audit entry attributed to the Owner, not a platform admin", async () => {
 
         TenantRepository.getById.mockResolvedValue(activeTenant);
         TenantRepository.updateDisabledFeatures.mockResolvedValue({ ...activeTenant, DisabledFeatures: ["manage_branches"] });
 
-        await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_branches"], PLATFORM_ADMIN_ID);
+        const OWNER_ADMIN_ID = 42;
+
+        await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_branches"], OWNER_ADMIN_ID);
 
         expect(AuditService.record).toHaveBeenCalledWith(
             expect.objectContaining({
                 tenantId: TENANT_ID,
-                actorPlatformAdminId: PLATFORM_ADMIN_ID,
-                actorType: "PlatformAdmin",
+                actorAdminId: OWNER_ADMIN_ID,
                 action: "TENANT_FEATURES_UPDATED"
             })
+        );
+        // No actorType override - this isn't a platform admin action, it
+        // should use AuditRepository's own default ("User"), the same
+        // convention every other admin-attributed audit call in this
+        // codebase (e.g. BranchService.createBranch) already relies on.
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.not.objectContaining({ actorType: expect.anything() })
         );
 
     });
 
-    // The reachable-by-arbitrary-id path (a platform admin typing/passing
-    // any tenantId, not just "me") - this must not silently "succeed" with
-    // undefined data the way it would without this check.
+    // The whole point of this fix - a platform-restricted key must survive
+    // even if the Owner's own submission tries to "enable" it (i.e. leaves
+    // it out of the disabled list they send).
+    it("force-keeps a platform-restricted feature disabled even if the Owner's submission tries to enable it", async () => {
+
+        TenantRepository.getById.mockResolvedValue({ ...activeTenant, PlatformRestrictedFeatures: ["manage_delivery"] });
+        TenantRepository.updateDisabledFeatures.mockResolvedValue({ ...activeTenant });
+
+        // Owner submits a list that does NOT include manage_delivery -
+        // i.e. tries to turn it back on.
+        await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_branches"]);
+
+        const [, savedDisabledFeatures] = TenantRepository.updateDisabledFeatures.mock.calls[0];
+        expect(savedDisabledFeatures).toEqual(expect.arrayContaining(["manage_branches", "manage_delivery"]));
+
+    });
+
+    it("doesn't duplicate a key the Owner also happened to submit that's already platform-restricted", async () => {
+
+        TenantRepository.getById.mockResolvedValue({ ...activeTenant, PlatformRestrictedFeatures: ["manage_delivery"] });
+        TenantRepository.updateDisabledFeatures.mockResolvedValue({ ...activeTenant });
+
+        await TenantService.updateDisabledFeatures(TENANT_ID, ["manage_delivery", "manage_branches"]);
+
+        const [, savedDisabledFeatures] = TenantRepository.updateDisabledFeatures.mock.calls[0];
+        expect(savedDisabledFeatures.filter((key) => key === "manage_delivery")).toHaveLength(1);
+
+    });
+
     it("returns a not-found failure for an unknown tenant, without writing anything", async () => {
 
         TenantRepository.getById.mockResolvedValue(undefined);
@@ -269,6 +303,52 @@ describe("TenantService.updateDisabledFeatures", () => {
 
         expect(result.success).toBe(false);
         expect(TenantRepository.updateDisabledFeatures).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("TenantService.updatePlatformRestrictedFeatures", () => {
+
+    it("sanitizes and saves the plan-tier restriction list", async () => {
+
+        TenantRepository.getById.mockResolvedValue(activeTenant);
+        TenantRepository.updatePlatformRestrictedFeatures.mockResolvedValue({ ...activeTenant, PlatformRestrictedFeatures: ["manage_delivery"] });
+
+        const result = await TenantService.updatePlatformRestrictedFeatures(TENANT_ID, ["manage_delivery", "manage_staff"]);
+
+        expect(result.success).toBe(true);
+        expect(TenantRepository.updatePlatformRestrictedFeatures).toHaveBeenCalledWith(TENANT_ID, ["manage_delivery"]);
+        expect(AuditService.record).not.toHaveBeenCalled();
+
+    });
+
+    it("records an audit entry, attributed to the platform admin, under a distinct action from the Owner's own path", async () => {
+
+        TenantRepository.getById.mockResolvedValue(activeTenant);
+        TenantRepository.updatePlatformRestrictedFeatures.mockResolvedValue({ ...activeTenant, PlatformRestrictedFeatures: ["manage_delivery"] });
+
+        await TenantService.updatePlatformRestrictedFeatures(TENANT_ID, ["manage_delivery"], PLATFORM_ADMIN_ID);
+
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({
+                tenantId: TENANT_ID,
+                actorPlatformAdminId: PLATFORM_ADMIN_ID,
+                actorType: "PlatformAdmin",
+                action: "TENANT_PLATFORM_RESTRICTIONS_UPDATED"
+            })
+        );
+
+    });
+
+    it("returns a not-found failure for an unknown tenant, without writing anything", async () => {
+
+        TenantRepository.getById.mockResolvedValue(undefined);
+
+        const result = await TenantService.updatePlatformRestrictedFeatures(999, ["manage_delivery"]);
+
+        expect(result.success).toBe(false);
+        expect(TenantRepository.updatePlatformRestrictedFeatures).not.toHaveBeenCalled();
 
     });
 

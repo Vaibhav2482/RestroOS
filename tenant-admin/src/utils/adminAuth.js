@@ -30,10 +30,15 @@ export const clearStoredAuth = () => {
 // backend's requireOwner check in middleware/Auth.js.
 export const isOwner = (admin) => Boolean(admin && !admin.BranchId);
 
-// A tenant-wide kill switch, distinct from Permissions above - checked
-// FIRST, before the isOwner bypass, since it's meant to block the Owner
-// too. Mirrors the backend's requireFeatureEnabled.
-export const isFeatureEnabled = (admin, key) => !admin?.tenantDisabledFeatures?.includes(key);
+// Two tenant-wide kill switches, distinct from Permissions above - checked
+// FIRST, before the isOwner bypass, since both are meant to block the Owner
+// too. Mirrors the backend's requireFeatureEnabled/requirePermission:
+// platformRestrictedFeatures is a plan-tier restriction only a platform
+// admin sets (the Owner can never override it - see Features.jsx, which
+// renders these as locked, not just unchecked); tenantDisabledFeatures is
+// the Owner's own freely-reversible self-service toggle.
+export const isFeatureEnabled = (admin, key) =>
+    !admin?.tenantPlatformRestrictedFeatures?.includes(key) && !admin?.tenantDisabledFeatures?.includes(key);
 
 // Mirrors the backend's requirePermission. Reads from the admin cached in
 // localStorage at login, so a newly-granted permission won't show here

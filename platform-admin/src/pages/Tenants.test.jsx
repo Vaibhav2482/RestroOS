@@ -267,18 +267,18 @@ describe("Tenants - suspend and reactivate", () => {
 
 describe("Tenants - manage features", () => {
 
-    it("opens pre-checked from the tenant's current DisabledFeatures, unchecking one saves it", async () => {
+    it("opens pre-checked from the tenant's current PlatformRestrictedFeatures, unchecking one saves it", async () => {
 
         const user = userEvent.setup();
 
         tenantService.getAllTenants.mockResolvedValue({
             success: true,
-            data: [{ ...sampleTenant, DisabledFeatures: ["manage_branches"] }]
+            data: [{ ...sampleTenant, PlatformRestrictedFeatures: ["manage_branches"] }]
         });
         tenantService.updateTenantFeatures.mockResolvedValue({
             success: true,
             message: "Features updated.",
-            data: { ...sampleTenant, DisabledFeatures: ["manage_branches", "manage_coupons"] }
+            data: { ...sampleTenant, PlatformRestrictedFeatures: ["manage_branches", "manage_coupons"] }
         });
 
         renderTenants();
@@ -289,8 +289,8 @@ describe("Tenants - manage features", () => {
 
         expect(await screen.findByText(`Features - ${sampleTenant.TenantName}`)).toBeInTheDocument();
 
-        // Reflects the tenant's existing DisabledFeatures - Branches starts
-        // unchecked, everything else starts checked.
+        // Reflects the tenant's existing PlatformRestrictedFeatures -
+        // Branches starts unchecked, everything else starts checked.
         expect(screen.getByRole("checkbox", { name: /branches \(multi-location\)/i })).not.toBeChecked();
         expect(screen.getByRole("checkbox", { name: /manage coupons/i })).toBeChecked();
 
@@ -315,7 +315,7 @@ describe("Tenants - manage features", () => {
         tenantService.updateTenantFeatures.mockResolvedValue({
             success: true,
             message: "Features updated.",
-            data: { ...sampleTenant, DisabledFeatures: ["manage_orders"] }
+            data: { ...sampleTenant, PlatformRestrictedFeatures: ["manage_orders"] }
         });
 
         renderTenants();
