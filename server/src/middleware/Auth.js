@@ -157,10 +157,17 @@ export const requireOwner = (req, res, next) => {
 // Owner). Standalone export for routes with no per-admin permission layer
 // at all (e.g. BranchRoutes, gated by requireOwner not requirePermission);
 // requirePermission also checks this same thing internally.
+// The "feature_disabled" code (in `errors`, not the human message) is what
+// lets a client tell this apart from an ordinary "you don't have
+// permission" 403 - the two need different handling client-side. This one
+// specifically means the tenant's own access changed since this admin
+// logged in (a platform admin toggled it, or the Owner did), not that the
+// admin themself lacks a grant - see requirePermission below for that case,
+// and tenant-admin's axiosClient.js for what actually reacts to the code.
 export const requireFeatureEnabled = (key) => (req, res, next) => {
 
     if (req.user?.role === "admin" && req.user.disabledFeatures?.includes(key)) {
-        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403);
+        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403, { code: "feature_disabled" });
     }
 
     return next();
@@ -178,7 +185,7 @@ export const requirePermission = (key) => (req, res, next) => {
     }
 
     if (req.user.disabledFeatures?.includes(key)) {
-        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403);
+        return errorResponse(res, "This feature isn't enabled for your restaurant.", 403, { code: "feature_disabled" });
     }
 
     if (!req.user.branchId) {

@@ -35,7 +35,7 @@ import toast from "react-hot-toast";
 
 import * as adminService from "../services/adminService";
 import * as branchService from "../services/branchService";
-import { getStoredAuth } from "../utils/adminAuth";
+import { getStoredAuth, isFeatureEnabled } from "../utils/adminAuth";
 import { CORE_PERMISSION_KEYS, GRANTABLE_PERMISSIONS } from "../utils/permissions";
 import EmptyState from "../components/EmptyState";
 
@@ -55,12 +55,20 @@ const emptyForm = {
     permissions: [...CORE_PERMISSION_KEYS]
 };
 
-const PERMISSION_GROUPS = [...new Set(GRANTABLE_PERMISSIONS.map((permission) => permission.group))];
-
 function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) {
 
     const [formData, setFormData] = useState(emptyForm);
     const [errors, setErrors] = useState({});
+
+    // A platform admin's tenant-wide Features toggle is the outer boundary -
+    // granting a permission here that's disabled at that level would do
+    // nothing (the backend checks disabledFeatures before Permissions
+    // either way, see requirePermission in middleware/Auth.js), so it's
+    // left out of the checklist entirely rather than shown as a checkbox
+    // that silently can't take effect.
+    const { admin: ownAdmin } = getStoredAuth() || {};
+    const grantablePermissions = GRANTABLE_PERMISSIONS.filter((permission) => isFeatureEnabled(ownAdmin, permission.key));
+    const permissionGroups = [...new Set(grantablePermissions.map((permission) => permission.group))];
 
     const isEditMode = Boolean(editingAdmin);
 
@@ -254,7 +262,7 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
                                 Every screen a Branch Admin can reach is controlled here. Uncheck anything they shouldn't see or act on.
                             </Typography>
 
-                            {PERMISSION_GROUPS.map((group) => (
+                            {permissionGroups.map((group) => (
 
                                 <Box key={group} sx={{ mb: 1.5 }}>
 
@@ -264,7 +272,7 @@ function AdminDialog({ open, onClose, onSave, editingAdmin, branches, saving }) 
 
                                     <FormGroup>
 
-                                        {GRANTABLE_PERMISSIONS.filter((permission) => permission.group === group).map((permission) => (
+                                        {grantablePermissions.filter((permission) => permission.group === group).map((permission) => (
 
                                             <FormControlLabel
                                                 key={permission.key}

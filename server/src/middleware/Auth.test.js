@@ -361,6 +361,35 @@ describe("requirePermission", () => {
 
     });
 
+    // "feature_disabled" is a machine-readable code (in `errors`, not the
+    // human message) - tenant-admin's axiosClient.js reacts to it by
+    // forcing a re-login, since it specifically means the tenant's own
+    // access changed since this admin logged in, not an ordinary missing
+    // grant (which stays a normal in-app 403, no forced logout).
+    it("tags a tenant-disabled-feature rejection with the feature_disabled code, distinct from an ordinary missing-permission 403", () => {
+
+        const req = { user: { role: "admin", branchId: 4, permissions: [], disabledFeatures: ["manage_ingredients"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ errors: { code: "feature_disabled" } }));
+
+    });
+
+    it("does NOT tag an ordinary missing-permission rejection with feature_disabled - the feature itself is enabled", () => {
+
+        const req = { user: { role: "admin", branchId: 4, permissions: [] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requirePermission("manage_ingredients")(req, res, next);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ errors: null }));
+
+    });
+
 });
 
 describe("requireFeatureEnabled", () => {
@@ -387,6 +416,18 @@ describe("requireFeatureEnabled", () => {
 
         expect(res.status).toHaveBeenCalledWith(403);
         expect(next).not.toHaveBeenCalled();
+
+    });
+
+    it("tags the rejection with the feature_disabled code", () => {
+
+        const req = { user: { role: "admin", branchId: null, disabledFeatures: ["manage_branches"] } };
+        const res = buildRes();
+        const next = vi.fn();
+
+        requireFeatureEnabled("manage_branches")(req, res, next);
+
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ errors: { code: "feature_disabled" } }));
 
     });
 

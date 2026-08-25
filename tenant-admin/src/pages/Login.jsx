@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Button, IconButton, InputAdornment, Paper, TextField, Typography } from "@mui/material";
 import VisibilityRoundedIcon from "@mui/icons-material/VisibilityRounded";
 import VisibilityOffRoundedIcon from "@mui/icons-material/VisibilityOffRounded";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import { login } from "../services/authService";
@@ -11,10 +11,28 @@ import { setStoredAuth } from "../utils/adminAuth";
 function Login() {
 
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [formData, setFormData] = useState({ tenantSlug: "", email: "", password: "" });
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+
+    // axiosClient.js redirects here with this reason when a request comes
+    // back tagged "feature_disabled" - the tenant's own access changed
+    // (a platform admin, or this tenant's Owner, toggled a feature) since
+    // this admin's session started, so their cached permissions are stale
+    // rather than their login itself having expired. Told apart from a
+    // plain expired-session redirect (no explanatory toast today) since
+    // this one has an actual, useful reason to surface.
+    useEffect(() => {
+
+        if (searchParams.get("reason") === "access-changed") {
+            toast.error("Your restaurant's access has changed. Please log in again.");
+            setSearchParams({}, { replace: true });
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const handleChange = (event) => {
         setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
