@@ -15,6 +15,7 @@ export const TENANT_FEATURES = [
     { key: "manage_coupons", label: "Manage Coupons", group: "Management" },
     { key: "manage_integrations", label: "Manage Integrations", group: "Management" },
     { key: "manage_branding", label: "Manage Branding", group: "Management" },
+    { key: "manage_delivery", label: "Manage Delivery Settings", group: "Management" },
     { key: "view_activity_log", label: "View Activity Log", group: "Management" },
     { key: "manage_branches", label: "Branches (multi-location)", group: "Management" }
 ];
