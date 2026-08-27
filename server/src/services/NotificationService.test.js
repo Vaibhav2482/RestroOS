@@ -172,6 +172,44 @@ describe("NotificationService.notifyOrderStatusChanged", () => {
 
     });
 
+    it("sends the full bill as a closing receipt worded 'served' when a Dine In order is Served, with no WhatsApp", async () => {
+
+        await NotificationService.notifyOrderStatusChanged({ ...order, DeliveryType: "Dine In", OrderStatus: "Served" });
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.subject).toBe("Order #62 served");
+        expect(emailArgs.html).toContain("has been served");
+        expect(emailArgs.html).toContain("3x Garam Tea");
+
+        // The approved WhatsApp template's copy says "delivered" - not
+        // reused for Dine In until a separately-approved template exists.
+        expect(whatsappCallTo(customer.Phone)).toBeUndefined();
+
+    });
+
+    it("sends the full bill as a closing receipt worded 'picked up' when a Takeaway order is Picked Up, with no WhatsApp", async () => {
+
+        await NotificationService.notifyOrderStatusChanged({ ...order, DeliveryType: "Takeaway", OrderStatus: "Picked Up" });
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.subject).toBe("Order #62 picked up");
+        expect(emailArgs.html).toContain("has been picked up");
+        expect(emailArgs.html).toContain("3x Garam Tea");
+
+        expect(whatsappCallTo(customer.Phone)).toBeUndefined();
+
+    });
+
+    it("still sends a short ping (not the closing receipt) when a Dine In order merely reaches Ready", async () => {
+
+        await NotificationService.notifyOrderStatusChanged({ ...order, DeliveryType: "Dine In", OrderStatus: "Ready" });
+
+        const [emailArgs] = sendEmailMock.mock.calls[0];
+        expect(emailArgs.html).not.toContain("Garam Tea");
+        expect(OrderRepository.getOrderById).not.toHaveBeenCalled();
+
+    });
+
 });
 
 describe("NotificationService.notifyOrderCancelled", () => {

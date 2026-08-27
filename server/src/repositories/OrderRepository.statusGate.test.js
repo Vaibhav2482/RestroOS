@@ -23,7 +23,9 @@ describe("hasStartedPreparing - the gate on stock consumption", () => {
     it("is true for every status past Preparing, not only an exact match", () => {
 
         expect(hasStartedPreparing("Ready", "Dine In")).toBe(true);
-        expect(hasStartedPreparing("Delivered", "Dine In")).toBe(true);
+        expect(hasStartedPreparing("Served", "Dine In")).toBe(true);
+        expect(hasStartedPreparing("Ready", "Takeaway")).toBe(true);
+        expect(hasStartedPreparing("Picked Up", "Takeaway")).toBe(true);
         expect(hasStartedPreparing("Ready", "Delivery")).toBe(true);
         expect(hasStartedPreparing("Out For Delivery", "Delivery")).toBe(true);
         expect(hasStartedPreparing("Delivered", "Delivery")).toBe(true);

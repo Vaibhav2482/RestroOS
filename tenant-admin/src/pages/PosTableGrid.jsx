@@ -65,7 +65,7 @@ function PosTableGrid({ tables, activeOrdersByTable, onTableClick, onQuickAdvanc
                 // for the single-order case; multiple orders route through
                 // the table's chooser dialog instead.
                 const primaryOrder = orders[0];
-                const nextStatus = isOccupied && !hasMultipleOrders ? getPosForwardStatuses(primaryOrder.OrderStatus)[0] : null;
+                const nextStatus = isOccupied && !hasMultipleOrders ? getPosForwardStatuses(primaryOrder.OrderStatus, primaryOrder.DeliveryType)[0] : null;
                 const combinedTotal = orders.reduce((sum, order) => sum + Number(order.TotalAmount), 0);
 
                 return (

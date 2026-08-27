@@ -20,7 +20,7 @@ import {
     Typography
 } from "@mui/material";
 
-import { POS_STATUS_STEPS, getPosForwardStatuses, isPosCancellable, isPosTerminal } from "./posOrderStatus";
+import { getPosStatusSteps, getPosForwardStatuses, isPosCancellable, isPosTerminal } from "./posOrderStatus";
 
 // Details view for a table's already-open order — lets staff advance its
 // status forward or cancel it, instead of starting a second order on top.
@@ -34,8 +34,9 @@ function PosOrderDetails({ open, order, onClose, onAdvanceStatus, onCancelOrder 
 
     const currentStatus = order.OrderStatus;
     const isCancelled = currentStatus === "Cancelled";
-    const activeStep = POS_STATUS_STEPS.indexOf(currentStatus);
-    const forwardStatuses = getPosForwardStatuses(currentStatus);
+    const statusSteps = getPosStatusSteps(order.DeliveryType);
+    const activeStep = statusSteps.indexOf(currentStatus);
+    const forwardStatuses = getPosForwardStatuses(currentStatus, order.DeliveryType);
 
     const handleAdvance = async (status) => {
 
@@ -101,7 +102,7 @@ function PosOrderDetails({ open, order, onClose, onAdvanceStatus, onCancelOrder 
 
                         <Stepper activeStep={activeStep} alternativeLabel sx={{ minWidth: 420 }}>
 
-                            {POS_STATUS_STEPS.map((step) => (
+                            {statusSteps.map((step) => (
                                 <Step key={step}>
                                     <StepLabel>{step}</StepLabel>
                                 </Step>

@@ -42,14 +42,16 @@ import PrintDialog from "../components/PrintDialog";
 import { formatCurrency, formatDateTime, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
 
 // "All" first, then the sequence a Delivery order actually moves through -
-// Dine In/Takeaway orders just never hit "Out For Delivery", which is fine
-// since it'll always have a zero count for them rather than being confusing.
-const STATUS_FILTERS = ["All", "Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered", "Cancelled"];
+// Dine In/Takeaway orders just never hit "Out For Delivery", and only ever
+// reach their own terminal word (Served / Picked Up), never "Delivered",
+// which is fine since the others will always have a zero count for a given
+// order rather than being confusing.
+const STATUS_FILTERS = ["All", "Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered", "Served", "Picked Up", "Cancelled"];
 
 // Soft tinted pills rather than MUI's solid filled chips. With ~92% of a
-// mature order list sitting on "Delivered", a wall of saturated green was
-// drawing the eye to the one thing nobody needs to look at; muting the
-// settled states lets Pending and Cancelled actually stand out.
+// mature order list sitting on a settled/terminal status, a wall of
+// saturated green was drawing the eye to the one thing nobody needs to look
+// at; muting the settled states lets Pending and Cancelled actually stand out.
 const STATUS_PILL_STYLES = {
     Pending: { color: "#92400E", bgcolor: "#FEF3C7" },
     Accepted: { color: "#1E40AF", bgcolor: "#DBEAFE" },
@@ -57,6 +59,8 @@ const STATUS_PILL_STYLES = {
     Ready: { color: "#5B21B6", bgcolor: "#EDE9FE" },
     "Out For Delivery": { color: "#155E75", bgcolor: "#CFFAFE" },
     Delivered: { color: "#3F6212", bgcolor: "#F0F5E4" },
+    Served: { color: "#3F6212", bgcolor: "#F0F5E4" },
+    "Picked Up": { color: "#3F6212", bgcolor: "#F0F5E4" },
     Cancelled: { color: "#9B1C1C", bgcolor: "#FEE2E2" }
 };
 

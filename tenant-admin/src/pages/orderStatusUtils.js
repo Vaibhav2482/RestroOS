@@ -11,19 +11,33 @@ export const DELIVERY_SEQUENCE = [
     "Delivered"
 ];
 
-export const DINE_IN_TAKEAWAY_SEQUENCE = [
+export const DINE_IN_SEQUENCE = [
     "Pending",
     "Accepted",
     "Preparing",
     "Ready",
-    "Delivered"
+    "Served"
 ];
 
-export const getStatusSequence = (deliveryType) =>
-    deliveryType === "Delivery" ? DELIVERY_SEQUENCE : DINE_IN_TAKEAWAY_SEQUENCE;
+export const TAKEAWAY_SEQUENCE = [
+    "Pending",
+    "Accepted",
+    "Preparing",
+    "Ready",
+    "Picked Up"
+];
 
-export const isTerminalStatus = (status) =>
-    status === "Delivered" || status === "Cancelled";
+export const getStatusSequence = (deliveryType) => {
+    if (deliveryType === "Delivery") return DELIVERY_SEQUENCE;
+    if (deliveryType === "Dine In") return DINE_IN_SEQUENCE;
+    return TAKEAWAY_SEQUENCE;
+};
+
+// Each channel's terminal word is distinct, so a flat set-membership check
+// (no DeliveryType needed) is unambiguous.
+export const TERMINAL_STATUSES = ["Delivered", "Served", "Picked Up", "Cancelled"];
+
+export const isTerminalStatus = (status) => TERMINAL_STATUSES.includes(status);
 
 // The backend allows jumping ahead in the sequence but never backward, so
 // every status after the current one in the sequence is a valid next step.
@@ -51,6 +65,8 @@ export const STATUS_CHIP_COLORS = {
     Ready: "secondary",
     "Out For Delivery": "primary",
     Delivered: "success",
+    Served: "success",
+    "Picked Up": "success",
     Cancelled: "error"
 };
 

@@ -104,6 +104,22 @@ const sendWhatsApp = async (to, templateEnvVar, contentVariables) => {
 
 const formatMoney = (value) => `Rs. ${Number(value ?? 0).toFixed(2)}`;
 
+// Each channel's closing event is a different real-world moment - Delivery
+// is handed off by a rider, Dine In is served at the table, Takeaway is
+// picked up in person at the counter - so the receipt copy below can't say
+// "delivered" for all three.
+const FINAL_STATUS_BY_TYPE = {
+    "Delivery": "Delivered",
+    "Dine In": "Served",
+    "Takeaway": "Picked Up"
+};
+
+const CLOSING_COPY_BY_TYPE = {
+    "Delivery": { verb: "delivered", subject: "delivered" },
+    "Dine In": { verb: "served", subject: "served" },
+    "Takeaway": { verb: "picked up", subject: "picked up" }
+};
+
 // The Orders row handed to every notify* function below never carries its
 // line items (OrderRepository.createOrder/updateOrderStatus only return the
 // Orders row itself) - fetched separately here since only the notifications
@@ -167,9 +183,10 @@ export const notifyOrderCreated = async (order) => {
 
 };
 
-// Every status change gets a short ping - Delivered additionally gets the
-// full bill as a closing receipt (repeating the bill on every intermediate
-// Accepted/Preparing/Ready/Out For Delivery step would just be spammy).
+// Every status change gets a short ping - the channel's own closing status
+// (Delivered/Served/Picked Up) additionally gets the full bill as a closing
+// receipt (repeating the bill on every intermediate Accepted/Preparing/
+// Ready/Out For Delivery step would just be spammy).
 export const notifyOrderStatusChanged = async (order) => {
 
     const customer = await CustomerRepository.getCustomerById(order.CustomerId);
@@ -178,7 +195,10 @@ export const notifyOrderStatusChanged = async (order) => {
         return;
     }
 
-    if (order.OrderStatus !== "Delivered") {
+    const deliveryType = order.DeliveryType ?? "Delivery";
+    const finalStatus = FINAL_STATUS_BY_TYPE[deliveryType];
+
+    if (order.OrderStatus !== finalStatus) {
 
         await Promise.all([
             sendEmail(
@@ -205,28 +225,40 @@ export const notifyOrderStatusChanged = async (order) => {
     const items = await getOrderItems(order.OrderId);
     const total = formatMoney(order.TotalAmount);
     const billText = formatBillText(items);
+    const copy = CLOSING_COPY_BY_TYPE[deliveryType];
 
-    await Promise.all([
+    const channels = [
         sendEmail(
             customer.Email,
-            `Order #${order.OrderId} delivered`,
+            `Order #${order.OrderId} ${copy.subject}`,
             `<p>Hi ${customer.FullName},</p>
-               <p>Your order <strong>#${order.OrderId}</strong> has been delivered. Here's your final bill:</p>
+               <p>Your order <strong>#${order.OrderId}</strong> has been ${copy.verb}. Here's your final bill:</p>
                ${formatBillHtml(items)}
                <p>Total: <strong>${total}</strong></p>
                <p>Thank you for ordering with us!</p>`
         ),
         sendSms(
             customer.Phone,
-            `Hi ${customer.FullName}, your order #${order.OrderId} has been delivered:\n${billText}\nTotal: ${total}\nThank you for ordering with us!`
-        ),
-        sendWhatsApp(customer.Phone, "TWILIO_WHATSAPP_TEMPLATE_ORDER_DELIVERED", {
-            1: customer.FullName,
-            2: String(order.OrderId),
-            3: billText,
-            4: total
-        })
-    ]);
+            `Hi ${customer.FullName}, your order #${order.OrderId} has been ${copy.verb}:\n${billText}\nTotal: ${total}\nThank you for ordering with us!`
+        )
+    ];
+
+    // The WhatsApp template is a pre-approved Twilio/Meta template whose
+    // copy literally says "delivered" - it can't be reused for Dine In/
+    // Takeaway without a separately-approved template for each, so only
+    // Delivery orders get the WhatsApp closing message for now.
+    if (deliveryType === "Delivery") {
+        channels.push(
+            sendWhatsApp(customer.Phone, "TWILIO_WHATSAPP_TEMPLATE_ORDER_DELIVERED", {
+                1: customer.FullName,
+                2: String(order.OrderId),
+                3: billText,
+                4: total
+            })
+        );
+    }
+
+    await Promise.all(channels);
 
 };
 

@@ -117,4 +117,41 @@ describe("OrderDetail - progress stepper", () => {
 
     });
 
+    // Dine In and Takeaway each end at their own real-world event, not
+    // "Delivered" - nothing was delivered when food is served at the table
+    // or picked up in person at the counter.
+    it("shows 'Served' as the final step for a completed Dine In order", async () => {
+
+        orderService.getOrderById.mockResolvedValue({
+            success: true,
+            data: { ...ORDER, DeliveryType: "Dine In", OrderStatus: "Served" }
+        });
+
+        renderOrderDetail();
+
+        const servedLabel = await screen.findByText("Served");
+        const step = servedLabel.closest(".MuiStep-root");
+
+        expect(step.querySelector(".MuiStepIcon-root.Mui-completed")).not.toBeNull();
+        expect(screen.queryByText("Delivered")).not.toBeInTheDocument();
+
+    });
+
+    it("shows 'Picked up' as the final step for a completed Takeaway order", async () => {
+
+        orderService.getOrderById.mockResolvedValue({
+            success: true,
+            data: { ...ORDER, DeliveryType: "Takeaway", OrderStatus: "Picked Up" }
+        });
+
+        renderOrderDetail();
+
+        const pickedUpLabel = await screen.findByText("Picked up");
+        const step = pickedUpLabel.closest(".MuiStep-root");
+
+        expect(step.querySelector(".MuiStepIcon-root.Mui-completed")).not.toBeNull();
+        expect(screen.queryByText("Delivered")).not.toBeInTheDocument();
+
+    });
+
 });

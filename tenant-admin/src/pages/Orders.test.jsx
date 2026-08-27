@@ -14,11 +14,11 @@ const BRANCH_ADMIN_AUTH = {
     admin: { AdminId: 1, BranchId: 5, Email: "staff@test.com" }
 };
 
-// Dine In/Takeaway's sequence goes straight from Ready to Delivered (no
-// "Out For Delivery" step) - keeping #57 as Dine In here means its next
-// status is unambiguously "Delivered", matching the assertions below.
+// Dine In's sequence goes straight from Ready to Served (no "Out For
+// Delivery" step) - keeping #57 as Dine In here means its next status is
+// unambiguously "Served", matching the assertions below.
 const sampleOrders = [
-    { OrderId: 62, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 105, OrderStatus: "Delivered", OrderDate: "2026-07-25T21:00:24", CreatedByAdminName: "Priya Sharma" },
+    { OrderId: 62, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 105, OrderStatus: "Served", OrderDate: "2026-07-25T21:00:24", CreatedByAdminName: "Priya Sharma" },
     { OrderId: 57, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 31.5, OrderStatus: "Ready", OrderDate: "2026-07-25T15:56:30" },
     { OrderId: 56, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 147, OrderStatus: "Cancelled", OrderDate: "2026-07-25T15:54:36" },
     { OrderId: 70, CustomerName: "New Guest", DeliveryType: "Dine In", TotalAmount: 50, OrderStatus: "Pending", OrderDate: "2026-07-25T22:00:00" }
@@ -162,9 +162,9 @@ describe("Orders - quick status advance", () => {
 
         await screen.findByText("#57");
 
-        await user.click(screen.getByRole("button", { name: /mark delivered/i }));
+        await user.click(screen.getByRole("button", { name: /mark served/i }));
 
-        await waitFor(() => expect(orderService.updateOrderStatus).toHaveBeenCalledWith(57, "Delivered"));
+        await waitFor(() => expect(orderService.updateOrderStatus).toHaveBeenCalledWith(57, "Served"));
 
         // Clicking the action button must not also trigger the row's own
         // onClick (which opens the details dialog and fetches the order).
@@ -177,7 +177,7 @@ describe("Orders - quick status advance", () => {
         // Isolate to only terminal orders - #57/#70 in the shared sample
         // data do have a next status, which would make a global "no mark
         // button anywhere" assertion pass or fail for the wrong reason.
-        mockServerOrders(sampleOrders.filter((order) => order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled"));
+        mockServerOrders(sampleOrders.filter((order) => order.OrderStatus === "Served" || order.OrderStatus === "Cancelled"));
 
         render(<Orders />);
 

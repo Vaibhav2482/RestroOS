@@ -52,19 +52,24 @@ const PAYMENT_STATUS_COLOR = {
 };
 
 const DELIVERY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
-const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
+const DINE_IN_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Served"];
+const TAKEAWAY_STEPS = ["Pending", "Accepted", "Preparing", "Ready", "Picked Up"];
 
-// Shown on the stepper only - order.OrderStatus/DELIVERY_STEPS/DINE_IN_STEPS
-// stay as the real backend values (activeStep is computed from those), this
-// is purely cosmetic so 6 steps' worth of labels can sit on one line each
-// without wrapping into their neighbor on a ~375px phone.
+const TERMINAL_STATUSES = ["Delivered", "Served", "Picked Up", "Cancelled"];
+
+// Shown on the stepper only - order.OrderStatus/DELIVERY_STEPS/DINE_IN_STEPS/
+// TAKEAWAY_STEPS stay as the real backend values (activeStep is computed
+// from those), this is purely cosmetic so 6 steps' worth of labels can sit
+// on one line each without wrapping into their neighbor on a ~375px phone.
 const STEP_DISPLAY_LABELS = {
     Pending: "Pending",
     Accepted: "Accepted",
     Preparing: "Preparing",
     Ready: "Ready",
     "Out For Delivery": "On the way",
-    Delivered: "Delivered"
+    Delivered: "Delivered",
+    Served: "Served",
+    "Picked Up": "Picked up"
 };
 
 // Matches the server's customer-side cancellation window (FRS A4) - once
@@ -157,7 +162,7 @@ function OrderDetail() {
     // order reaches a terminal state - nothing left to watch for at that point.
     useEffect(() => {
 
-        if (!order || order.OrderStatus === "Delivered" || order.OrderStatus === "Cancelled") {
+        if (!order || TERMINAL_STATUSES.includes(order.OrderStatus)) {
             return undefined;
         }
 
@@ -349,12 +354,15 @@ function OrderDetail() {
         );
     }
 
-    const steps = order.DeliveryType === "Delivery" ? DELIVERY_STEPS : DINE_IN_STEPS;
+    const steps = order.DeliveryType === "Delivery"
+        ? DELIVERY_STEPS
+        : order.DeliveryType === "Takeaway" ? TAKEAWAY_STEPS : DINE_IN_STEPS;
     const isCancelled = order.OrderStatus === "Cancelled";
     // MUI ticks every step *before* activeStep and renders activeStep itself
     // as a number, so an order sitting on the final step showed "6" against
-    // "Delivered" instead of a checkmark - reading as though the last stage
-    // hadn't happened yet. Pushing past the end marks the whole run complete.
+    // "Delivered"/"Served"/"Picked Up" instead of a checkmark - reading as
+    // though the last stage hadn't happened yet. Pushing past the end marks
+    // the whole run complete.
     const currentStepIndex = steps.indexOf(order.OrderStatus);
     const activeStep = currentStepIndex === steps.length - 1 ? steps.length : currentStepIndex;
     const canCancel = CANCELLABLE_STATUSES.includes(order.OrderStatus);

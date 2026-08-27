@@ -5,7 +5,21 @@ import * as CouponRepository from "./CouponRepository.js";
 import { resolveOpenVisitId } from "./TableVisitRepository.js";
 
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
-const OTHER_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Delivered"];
+const DINE_IN_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Served"];
+const TAKEAWAY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Picked Up"];
+
+// Each channel ends at a different real-world event - a Dine In order is
+// never "Delivered" (it's served at the table), and a Takeaway order is
+// picked up in person, not delivered either. Sharing one terminal word
+// across all three used to leak into customer-facing copy (see
+// NotificationService.js).
+export const TERMINAL_STATUSES = ["Delivered", "Served", "Picked Up", "Cancelled"];
+
+const getSequence = (deliveryType) => {
+    if (deliveryType === "Delivery") return DELIVERY_SEQUENCE;
+    if (deliveryType === "Dine In") return DINE_IN_SEQUENCE;
+    return TAKEAWAY_SEQUENCE;
+};
 
 const round2 = (amount) => Math.round(amount * 100) / 100;
 
@@ -56,11 +70,11 @@ export const computeOrderTax = (pricedItems, subTotal, discountAmount) => {
 // Status may legally jump several steps at once (Pending straight to Ready
 // is a valid forward move), so "has the kitchen started" can't be answered
 // by equality against "Preparing" alone - an order that skipped it has
-// still started. "Cancelled" isn't in either sequence, so it lands at -1
-// and correctly reports false.
+// still started. "Cancelled" isn't in any of the three sequences, so it
+// lands at -1 and correctly reports false.
 export const hasStartedPreparing = (status, deliveryType) => {
 
-    const sequence = deliveryType === "Delivery" ? DELIVERY_SEQUENCE : OTHER_SEQUENCE;
+    const sequence = getSequence(deliveryType);
     const index = sequence.indexOf(status);
 
     return index !== -1 && index >= sequence.indexOf("Preparing");
@@ -434,7 +448,7 @@ export const getDashboardSummary = async (tenantId, branchId) => {
     const countsResult = await pool.query(
         `SELECT
                 COUNT(*) AS "TotalOrders",
-                COUNT(*) FILTER (WHERE O."OrderStatus" NOT IN ('Delivered', 'Cancelled')) AS "ActiveOrders",
+                COUNT(*) FILTER (WHERE O."OrderStatus" NOT IN ('Delivered', 'Served', 'Picked Up', 'Cancelled')) AS "ActiveOrders",
                 COALESCE(SUM(O."TotalAmount") FILTER (
                     WHERE O."OrderDate" >= CURRENT_DATE AND O."OrderDate" < CURRENT_DATE + INTERVAL '1 day'
                 ), 0) AS "TodaysRevenue"
@@ -547,11 +561,11 @@ export const updateOrderStatus = async (id, orderStatus, onValidated) => {
         const currentStatus = existing.rows[0].OrderStatus;
         const deliveryType = existing.rows[0].DeliveryType;
 
-        if (["Delivered", "Cancelled"].includes(currentStatus)) {
+        if (TERMINAL_STATUSES.includes(currentStatus)) {
             throw new Error("This order is already finished and cannot be updated.");
         }
 
-        const sequence = deliveryType === "Delivery" ? DELIVERY_SEQUENCE : OTHER_SEQUENCE;
+        const sequence = getSequence(deliveryType);
 
         const currentStep = sequence.indexOf(currentStatus);
         const targetStep = sequence.indexOf(orderStatus);
