@@ -1,12 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import { Box, Button, Chip, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Box, Button, Chip, CircularProgress, Paper, Stack, Typography, useTheme } from "@mui/material";
 import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
+import PaymentOutlinedIcon from "@mui/icons-material/PaymentOutlined";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
 import { useStorefront } from "../context/StorefrontContext";
 import { getPusherClient } from "../lib/pusherClient";
+import { openRazorpayCheckout } from "../utils/razorpayCheckout";
+
+const ONLINE_PAYMENT_METHODS = ["Card", "UPI"];
+
+const PAYMENT_STATUS_COLOR = {
+    Paid: "success",
+    Failed: "error",
+    Pending: "warning"
+};
 
 const STATUS_COLORS = {
     "Pending": "warning",
@@ -15,6 +25,8 @@ const STATUS_COLORS = {
     "Ready": "primary",
     "Out For Delivery": "primary",
     "Delivered": "success",
+    "Served": "success",
+    "Picked Up": "success",
     "Cancelled": "error"
 };
 
@@ -63,9 +75,32 @@ function Orders() {
     const { tenantSlug, customer } = useStorefront();
     const navigate = useNavigate();
 
+    const theme = useTheme();
+
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [reorderingId, setReorderingId] = useState(null);
+    const [retryingId, setRetryingId] = useState(null);
+
+    // Silent refresh used after a retry-payment attempt (success or failure)
+    // to pick up the order's new LatestPaymentStatus - separate from the
+    // effect-scoped `load` below so it isn't tied to that effect's own
+    // cancellation/interval lifecycle.
+    const refreshOrders = useCallback(async () => {
+
+        try {
+
+            const response = await orderService.getOrdersByCustomer(customer.CustomerId);
+
+            if (response.success) {
+                setOrders(response.data);
+            }
+
+        } catch {
+            // Silent - the customer already saw a toast from the retry flow itself.
+        }
+
+    }, [customer.CustomerId]);
 
     // Only the very first load shows the blocking spinner - the periodic
     // background refresh below keeps the list visible and just silently
@@ -192,6 +227,47 @@ function Orders() {
 
     };
 
+    const handleRetryPayment = async (event, order) => {
+
+        // Rows are themselves clickable (navigate to the order detail page)
+        // - without this, tapping Retry Payment would also trigger that
+        // navigation, same as handleReorder above.
+        event.stopPropagation();
+
+        if (retryingId) {
+            return;
+        }
+
+        setRetryingId(order.OrderId);
+
+        await openRazorpayCheckout({
+            order,
+            customer,
+            paymentMethod: order.PaymentMethod,
+            themeColor: theme.palette.primary.main,
+            onSuccess: () => {
+                toast.success("Payment successful!");
+                setRetryingId(null);
+                refreshOrders();
+            },
+            onFailure: ({ reason, message }) => {
+
+                setRetryingId(null);
+
+                // Razorpay's own widget shows a retry screen and stays open
+                // on a bare decline - only reflect the other reasons as a
+                // toast here (the widget itself already told the customer).
+                if (reason !== "payment-failed") {
+                    toast.error(message || "Payment wasn't completed.");
+                }
+
+                refreshOrders();
+
+            }
+        });
+
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
@@ -260,9 +336,19 @@ function Orders() {
 
                             <Box>
 
-                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}>
                                     <Typography fontWeight={700}>Order #{order.OrderId}</Typography>
                                     <Chip label={order.OrderStatus} color={statusColor(order.OrderStatus)} size="small" />
+                                    {/* Only when NOT Paid - a successful online payment or a Cash
+                                        order (no LatestPaymentStatus at all) needs no extra badge here. */}
+                                    {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
+                                        <Chip
+                                            icon={<PaymentOutlinedIcon fontSize="small" />}
+                                            label={`Payment ${order.LatestPaymentStatus}`}
+                                            color={PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default"}
+                                            size="small"
+                                        />
+                                    )}
                                 </Stack>
 
                                 <Typography variant="body2" color="text.secondary">
@@ -282,15 +368,31 @@ function Orders() {
                                     &#8377;{Number(order.TotalAmount).toFixed(2)}
                                 </Typography>
 
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    startIcon={<ReplayRoundedIcon fontSize="small" />}
-                                    disabled={Boolean(reorderingId)}
-                                    onClick={(event) => handleReorder(event, order.OrderId)}
-                                >
-                                    {reorderingId === order.OrderId ? "Adding..." : "Reorder"}
-                                </Button>
+                                {/* A failed/pending online payment needs the SAME order paid,
+                                    not a duplicate one - Retry Payment replaces Reorder here
+                                    rather than sitting alongside it. */}
+                                {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" ? (
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        color="warning"
+                                        startIcon={<PaymentOutlinedIcon fontSize="small" />}
+                                        disabled={Boolean(retryingId)}
+                                        onClick={(event) => handleRetryPayment(event, order)}
+                                    >
+                                        {retryingId === order.OrderId ? "Opening payment..." : "Retry Payment"}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<ReplayRoundedIcon fontSize="small" />}
+                                        disabled={Boolean(reorderingId)}
+                                        onClick={(event) => handleReorder(event, order.OrderId)}
+                                    >
+                                        {reorderingId === order.OrderId ? "Adding..." : "Reorder"}
+                                    </Button>
+                                )}
 
                             </Stack>
 

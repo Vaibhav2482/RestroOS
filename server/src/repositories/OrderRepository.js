@@ -533,6 +533,7 @@ export const getOrdersByCustomer = async (customerId) => {
     const result = await pool.query(
         `SELECT O."OrderId", O."BranchId", B."BranchName", O."CustomerId", O."AddressId", O."DeliveryType",
                 O."PaymentMethod", O."TotalAmount", O."DiscountAmount", O."OrderStatus", O."OrderNotes", O."OrderDate", O."TableNumber",
+                (SELECT "PaymentStatus" FROM "Payments" WHERE "OrderId" = O."OrderId" ORDER BY "PaymentDate" DESC LIMIT 1) AS "LatestPaymentStatus",
                 COALESCE(
                     (SELECT json_agg(json_build_object('ItemName', OI."ItemName", 'Quantity', OI."Quantity")
                               ORDER BY OI."OrderItemId")
