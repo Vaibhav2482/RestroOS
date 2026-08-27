@@ -612,5 +612,27 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Tenants" ADD COLUMN "PlatformRestrictedFeatures" TEXT[] NOT NULL DEFAULT '{}';
         `
+    },
+    {
+        // One-time backfill for a real bug: OrderRepository.createOrder never
+        // wrote a Payments row for a staff-created (POS/counter) Card/UPI
+        // order, so OrderService's payment gate (which requires a Paid row
+        // before letting a Card/UPI order reach Preparing) blocked every such
+        // order forever - staff could never advance it past Preparing. The
+        // code fix makes new orders write this row atomically at creation;
+        // this unsticks any order already affected in production before that
+        // deploys. Scoped to CreatedByAdminId IS NOT NULL (staff-created,
+        // confirmed the only source of this gap) with no existing Payments
+        // row at all, so this can never insert a second row for an order
+        // that already has one (respecting UQ_Payments_OrderId_Paid).
+        id: "0034_backfill_pos_card_upi_payments",
+        sql: `
+            INSERT INTO "Payments" ("OrderId", "PaymentMethod", "Amount", "PaymentStatus", "PaymentDate")
+            SELECT O."OrderId", O."PaymentMethod", O."TotalAmount", 'Paid', O."OrderDate"
+            FROM "Orders" O
+            WHERE O."CreatedByAdminId" IS NOT NULL
+              AND O."PaymentMethod" IN ('Card', 'UPI')
+              AND NOT EXISTS (SELECT 1 FROM "Payments" P WHERE P."OrderId" = O."OrderId");
+        `
     }
 ];

@@ -215,6 +215,25 @@ export const createOrder = async (order) => {
 
         const orderId = orderInsert.rows[0].OrderId;
 
+        // A staff-created order (POS/counter, not storefront checkout) has no
+        // online gateway step to wait on for Card/UPI - the payment already
+        // happened in person on the staff's own card machine/UPI QR before
+        // this order was even placed. Without this, the order would have no
+        // Payments row at all, and OrderService's payment gate (which blocks
+        // Card/UPI orders from reaching Preparing without a Paid row) would
+        // block it forever. Mirrors the shape of a Cash payment's row
+        // (PaymentRepository.createPayment) - no RazorpayOrderId/TransactionId,
+        // since neither exists for an in-person sale either.
+        if (order.createdByAdminId && ["Card", "UPI"].includes(order.paymentMethod)) {
+
+            await client.query(
+                `INSERT INTO "Payments" ("OrderId", "PaymentMethod", "Amount", "PaymentStatus", "PaymentDate")
+                 VALUES ($1, $2, $3, 'Paid', NOW())`,
+                [orderId, order.paymentMethod, totalAmount]
+            );
+
+        }
+
         if (couponId) {
             await CouponRepository.recordRedemption(client, couponId, order.customerId, orderId, discountAmount);
         }
