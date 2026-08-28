@@ -359,6 +359,25 @@ describe("OrderService.refundOrder", () => {
 
     });
 
+    // A staff-created Card/UPI order (in-person POS sale) has no online
+    // transaction to refund through Razorpay - this must be handled the
+    // same way a Cash refund is (recorded, not blocked), not treated as the
+    // "Razorpay isn't configured" server-config failure.
+    it("treats a Card/UPI payment with no online transaction as handled and still logs it", async () => {
+
+        PaymentService.getPaymentByOrderId.mockResolvedValue({ data: [{ ...paidPayment, PaymentMethod: "Card" }] });
+        OrderAdjustmentRepository.getTotalRefundedForOrder.mockResolvedValue(0);
+        PaymentService.refundPaymentForOrder.mockResolvedValue({ refunded: false, reason: "no-online-transaction" });
+
+        const result = await OrderService.refundOrder(62, 7, 9, 50, "Wrong item sent");
+
+        expect(result.success).toBe(true);
+        expect(result.message).toMatch(/wasn't processed through Razorpay/i);
+        expect(result.message).not.toMatch(/hand the cash back/i);
+        expect(OrderAdjustmentRepository.recordAdjustment).toHaveBeenCalled();
+
+    });
+
     it("fails without logging anything when the gateway refund actually fails", async () => {
 
         PaymentService.getPaymentByOrderId.mockResolvedValue({ data: [paidPayment] });

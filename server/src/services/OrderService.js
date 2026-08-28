@@ -427,12 +427,14 @@ export const refundOrder = async (orderId, actorAdminId, actorTenantId, amount, 
 
     const refundResult = await PaymentService.refundPaymentForOrder(orderId, refundAmount, resultingStatus);
 
-    // A cash payment is treated as handled outside the system - staff hand
-    // the cash back themselves, and this call is what records that it
-    // happened. Every other failure reason means the money was NOT actually
-    // returned yet, so the action fails rather than logging a refund that
-    // didn't happen.
-    if (!refundResult.refunded && refundResult.reason !== "cash-payment") {
+    // A cash payment - or a Card/UPI payment that was never processed
+    // through Razorpay in the first place (an in-person POS sale) - is
+    // treated as handled outside the system either way: staff refund the
+    // customer themselves, and this call just records that it happened.
+    // Every other failure reason means the money was NOT actually returned
+    // yet, so the action fails rather than logging a refund that didn't
+    // happen.
+    if (!refundResult.refunded && refundResult.reason !== "cash-payment" && refundResult.reason !== "no-online-transaction") {
         return { success: false, message: REFUND_FAILURE_MESSAGES[refundResult.reason] || "Failed to process the refund." };
     }
 
@@ -454,9 +456,11 @@ export const refundOrder = async (orderId, actorAdminId, actorTenantId, amount, 
         summary: `Refunded ₹${refundAmount.toFixed(2)} on order #${orderId} - ${reason.trim()}`
     });
 
-    const message = payment.PaymentMethod === "Cash"
-        ? `₹${refundAmount.toFixed(2)} recorded - hand the cash back to the customer.`
-        : `₹${refundAmount.toFixed(2)} refunded successfully.`;
+    const message = refundResult.refunded
+        ? `₹${refundAmount.toFixed(2)} refunded successfully.`
+        : payment.PaymentMethod === "Cash"
+            ? `₹${refundAmount.toFixed(2)} recorded - hand the cash back to the customer.`
+            : `₹${refundAmount.toFixed(2)} recorded - this payment wasn't processed through Razorpay, so refund the customer directly and record it here for the books.`;
 
     return { success: true, message, data: { orderId: Number(orderId), amount: refundAmount, resultingStatus } };
 

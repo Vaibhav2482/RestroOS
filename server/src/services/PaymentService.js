@@ -154,8 +154,17 @@ export const refundPaymentForOrder = async (orderId, amount, resultingStatus = "
 
     const razorpay = getRazorpayClient();
 
-    if (!razorpay || !payment.TransactionId) {
+    if (!razorpay) {
         return { refunded: false, reason: "not-configured", payment, amount: refundAmount };
+    }
+
+    // Distinct from the server having no Razorpay client at all - this
+    // payment simply never went through Razorpay in the first place (an
+    // in-person Card/UPI sale, e.g. a staff-created POS order), so there's
+    // nothing to refund via the gateway. Callers treat this like a Cash
+    // refund - handled outside the system, not a real failure.
+    if (!payment.TransactionId) {
+        return { refunded: false, reason: "no-online-transaction", payment, amount: refundAmount };
     }
 
     try {

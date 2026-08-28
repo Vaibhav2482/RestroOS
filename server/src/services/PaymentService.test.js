@@ -332,6 +332,40 @@ describe("PaymentService.refundPaymentForOrder", () => {
 
     });
 
+    it("reports the server has no Razorpay client configured at all", async () => {
+
+        getRazorpayClient.mockReturnValue(null);
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Card", Amount: 200, TransactionId: "pay_ABC" }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(result.refunded).toBe(false);
+        expect(result.reason).toBe("not-configured");
+        expect(razorpayRefund).not.toHaveBeenCalled();
+
+    });
+
+    // Distinct from the case above - the gateway itself is configured and
+    // working (real storefront orders refund fine), this specific payment
+    // just never went through it. A staff-created in-person Card/UPI order
+    // (server/src/repositories/OrderRepository.js's createOrder writes it
+    // with no TransactionId) is exactly this shape.
+    it("reports no online transaction to refund when the payment has no TransactionId, even with Razorpay configured", async () => {
+
+        PaymentRepository.getPaymentByOrderId.mockResolvedValue([
+            { PaymentId: 1, PaymentStatus: "Paid", PaymentMethod: "Card", Amount: 200, TransactionId: null }
+        ]);
+
+        const result = await PaymentService.refundPaymentForOrder(ORDER_ID);
+
+        expect(result.refunded).toBe(false);
+        expect(result.reason).toBe("no-online-transaction");
+        expect(razorpayRefund).not.toHaveBeenCalled();
+
+    });
+
     it("refunds the full payment amount and marks it Refunded when no amount is given (the cancel-order default)", async () => {
 
         PaymentRepository.getPaymentByOrderId.mockResolvedValue([
