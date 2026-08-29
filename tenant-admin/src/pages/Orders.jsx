@@ -555,14 +555,14 @@ function Orders() {
                             <TableHead>
 
                                 <TableRow>
-                                    <TableCell>Order ID</TableCell>
-                                    <TableCell>Customer</TableCell>
-                                    {ownerMode && <TableCell>Branch</TableCell>}
-                                    <TableCell>Type</TableCell>
-                                    <TableCell align="right">Total</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Date</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
+                                    <TableCell sx={{ width: 90 }}>Order ID</TableCell>
+                                    <TableCell sx={{ minWidth: 160 }}>Customer</TableCell>
+                                    {ownerMode && <TableCell sx={{ width: 160 }}>Branch</TableCell>}
+                                    <TableCell sx={{ width: 140 }}>Type</TableCell>
+                                    <TableCell align="right" sx={{ width: 110 }}>Total</TableCell>
+                                    <TableCell sx={{ width: 220 }}>Status</TableCell>
+                                    <TableCell sx={{ width: 170 }}>Date</TableCell>
+                                    <TableCell align="right" sx={{ width: 230 }}>Actions</TableCell>
                                 </TableRow>
 
                             </TableHead>
@@ -716,18 +716,39 @@ function Orders() {
 
                 {!loading && totalCount > 0 && (
 
-                    <TablePagination
-                        component="div"
-                        count={totalCount}
-                        page={page}
-                        onPageChange={(event, newPage) => setPage(newPage)}
-                        rowsPerPage={rowsPerPage}
-                        onRowsPerPageChange={(event) => {
-                            setRowsPerPage(Number(event.target.value));
-                            setPage(0);
+                    <Box
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            flexWrap: "wrap",
+                            gap: 1,
+                            borderTop: "1px solid #E5E7EB",
+                            bgcolor: "#FAFAFB",
+                            pl: 2
                         }}
-                        rowsPerPageOptions={[10, 25, 50, 100]}
-                    />
+                    >
+
+                        <Typography variant="body2" color="text.secondary">
+                            Showing {Math.min(page * rowsPerPage + 1, totalCount)}–{Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} order{totalCount === 1 ? "" : "s"}
+                        </Typography>
+
+                        <TablePagination
+                            component="div"
+                            count={totalCount}
+                            page={page}
+                            onPageChange={(event, newPage) => setPage(newPage)}
+                            rowsPerPage={rowsPerPage}
+                            onRowsPerPageChange={(event) => {
+                                setRowsPerPage(Number(event.target.value));
+                                setPage(0);
+                            }}
+                            rowsPerPageOptions={[10, 25, 50, 100]}
+                            labelDisplayedRows={() => ""}
+                            sx={{ "& .MuiTablePagination-spacer": { display: "none" } }}
+                        />
+
+                    </Box>
 
                 )}
 
