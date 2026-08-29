@@ -407,13 +407,62 @@ function Orders() {
 
         <Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
+            {/* One toolbar row instead of a title/branch row sitting mostly
+                empty above a separate search/date row below it - the title
+                used to leave a huge dead gap next to the Branch selector
+                since flex space-between had nothing to distribute it to.
+                The search field's flexGrow now soaks up exactly that gap,
+                and everything else keeps its natural width alongside it. */}
+            <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 2, mb: 3 }}>
 
-                <Typography variant="h4">Orders</Typography>
+                <Typography variant="h4" sx={{ flexShrink: 0 }}>Orders</Typography>
+
+                <TextField
+                    size="small"
+                    placeholder="Search by order # or customer..."
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    sx={{ flexGrow: 1, minWidth: 200, maxWidth: 340 }}
+                    slotProps={{
+                        input: {
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <SearchRoundedIcon fontSize="small" sx={{ color: "text.disabled" }} />
+                                </InputAdornment>
+                            )
+                        }
+                    }}
+                />
+
+                <TextField
+                    size="small"
+                    type="date"
+                    label="From"
+                    value={dateRange.from}
+                    onChange={(event) => setDateRange((prev) => ({ ...prev, from: event.target.value }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    sx={{ flexShrink: 0 }}
+                />
+
+                <TextField
+                    size="small"
+                    type="date"
+                    label="To"
+                    value={dateRange.to}
+                    onChange={(event) => setDateRange((prev) => ({ ...prev, to: event.target.value }))}
+                    slotProps={{ inputLabel: { shrink: true } }}
+                    sx={{ flexShrink: 0 }}
+                />
+
+                {(dateRange.from || dateRange.to) && (
+                    <Button size="small" onClick={() => setDateRange({ from: "", to: "" })} sx={{ flexShrink: 0 }}>
+                        Clear dates
+                    </Button>
+                )}
 
                 {ownerMode && (
 
-                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <FormControl size="small" sx={{ minWidth: 220, flexShrink: 0 }}>
 
                         <InputLabel id="branch-filter-label">Branch</InputLabel>
 
@@ -439,51 +488,6 @@ function Orders() {
                 )}
 
             </Box>
-
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
-
-                <TextField
-                    size="small"
-                    placeholder="Search by order # or customer..."
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    sx={{ flexGrow: 1, maxWidth: { sm: 320 } }}
-                    slotProps={{
-                        input: {
-                            startAdornment: (
-                                <InputAdornment position="start">
-                                    <SearchRoundedIcon fontSize="small" sx={{ color: "text.disabled" }} />
-                                </InputAdornment>
-                            )
-                        }
-                    }}
-                />
-
-                <TextField
-                    size="small"
-                    type="date"
-                    label="From"
-                    value={dateRange.from}
-                    onChange={(event) => setDateRange((prev) => ({ ...prev, from: event.target.value }))}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                />
-
-                <TextField
-                    size="small"
-                    type="date"
-                    label="To"
-                    value={dateRange.to}
-                    onChange={(event) => setDateRange((prev) => ({ ...prev, to: event.target.value }))}
-                    slotProps={{ inputLabel: { shrink: true } }}
-                />
-
-                {(dateRange.from || dateRange.to) && (
-                    <Button size="small" onClick={() => setDateRange({ from: "", to: "" })}>
-                        Clear dates
-                    </Button>
-                )}
-
-            </Stack>
 
             <Stack direction="row" spacing={1} sx={{ overflowX: "auto", pb: { xs: 0.5, sm: 0 }, mb: 2 }}>
 
