@@ -9,6 +9,7 @@ import {
     InputAdornment,
     InputLabel,
     MenuItem,
+    Pagination,
     Paper,
     Select,
     Stack,
@@ -17,7 +18,6 @@ import {
     TableCell,
     TableContainer,
     TableHead,
-    TablePagination,
     TableRow,
     TextField,
     Tooltip,
@@ -766,20 +766,46 @@ function Orders() {
                             Showing {Math.min(page * rowsPerPage + 1, totalCount)}–{Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} order{totalCount === 1 ? "" : "s"}
                         </Typography>
 
-                        <TablePagination
-                            component="div"
-                            count={totalCount}
-                            page={page}
-                            onPageChange={(event, newPage) => setPage(newPage)}
-                            rowsPerPage={rowsPerPage}
-                            onRowsPerPageChange={(event) => {
-                                setRowsPerPage(Number(event.target.value));
-                                setPage(0);
-                            }}
-                            rowsPerPageOptions={[10, 25, 50, 100]}
-                            labelDisplayedRows={() => ""}
-                            sx={{ "& .MuiTablePagination-spacer": { display: "none" } }}
-                        />
+                        <Stack direction="row" spacing={2.5} alignItems="center" sx={{ py: 1 }}>
+
+                            <FormControl size="small" variant="standard">
+
+                                <Select
+                                    value={rowsPerPage}
+                                    onChange={(event) => {
+                                        setRowsPerPage(Number(event.target.value));
+                                        setPage(0);
+                                    }}
+                                    disableUnderline
+                                >
+
+                                    {[10, 25, 50, 100, 200].map((option) => (
+                                        <MenuItem key={option} value={option}>{option} / page</MenuItem>
+                                    ))}
+
+                                </Select>
+
+                            </FormControl>
+
+                            {/* A prev/next-only pager meant clicking through a
+                                dozen-plus pages one at a time to get anywhere -
+                                real page counts here (346 orders and growing)
+                                make that impractical. Numbered pages let staff
+                                jump straight to, say, page 10 in one click. */}
+                            <Pagination
+                                count={Math.max(1, Math.ceil(totalCount / rowsPerPage))}
+                                page={page + 1}
+                                onChange={(event, newPage) => setPage(newPage - 1)}
+                                color="primary"
+                                shape="rounded"
+                                size="small"
+                                showFirstButton
+                                showLastButton
+                                siblingCount={1}
+                                boundaryCount={1}
+                            />
+
+                        </Stack>
 
                     </Box>
 
