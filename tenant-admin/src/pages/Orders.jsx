@@ -533,13 +533,13 @@ function Orders() {
                     // Capped height with a stuck header: at 25 rows a page the
                     // column labels used to scroll away, leaving you counting
                     // columns to work out which figure was the total.
-                    <TableContainer sx={{ maxHeight: { xs: "none", md: "calc(100vh - 320px)" } }}>
+                    <TableContainer sx={{ maxHeight: { xs: "none", md: "calc(100vh - 270px)" } }}>
 
                         <Table
                             size="small"
                             stickyHeader
                             sx={{
-                                "& tbody td": { py: 1.25, borderColor: "#F1F2F4" },
+                                "& tbody td": { py: 1, borderColor: "#F1F2F4" },
                                 "& thead th": {
                                     bgcolor: "#FAFAFB",
                                     color: "text.secondary",
@@ -562,7 +562,7 @@ function Orders() {
                                     <TableCell align="right" sx={{ width: 110 }}>Total</TableCell>
                                     <TableCell sx={{ width: 220 }}>Status</TableCell>
                                     <TableCell sx={{ width: 170 }}>Date</TableCell>
-                                    <TableCell align="right" sx={{ width: 230 }}>Actions</TableCell>
+                                    <TableCell align="right" sx={{ width: 300 }}>Actions</TableCell>
                                 </TableRow>
 
                             </TableHead>
@@ -659,42 +659,52 @@ function Orders() {
 
                                                 <TableCell align="right" onClick={(event) => event.stopPropagation()}>
 
-                                                    <Stack direction="row" spacing={0.25} sx={{ display: "inline-flex", alignItems: "center", mr: 1 }}>
+                                                    {/* One single-line flex row for both the print icons and the
+                                                        quick-advance button - previously these were two separate
+                                                        inline elements that wrapped onto their own line whenever a
+                                                        row had a Mark button, roughly doubling that row's height
+                                                        and cutting how many orders fit on screen at once. */}
+                                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ flexWrap: "nowrap" }}>
 
-                                                        <Tooltip title="Print KOT">
-                                                            <IconButton
-                                                                size="small"
-                                                                disabled={printLoadingId === order.OrderId}
-                                                                onClick={(event) => handlePrint(event, order, "kot")}
-                                                                aria-label={`Print KOT for order ${order.OrderId}`}
-                                                            >
-                                                                <SoupKitchenOutlinedIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
+                                                        <Stack direction="row" spacing={0.25} alignItems="center">
 
-                                                        <Tooltip title="Print bill">
-                                                            <IconButton
+                                                            <Tooltip title="Print KOT">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={printLoadingId === order.OrderId}
+                                                                    onClick={(event) => handlePrint(event, order, "kot")}
+                                                                    aria-label={`Print KOT for order ${order.OrderId}`}
+                                                                >
+                                                                    <SoupKitchenOutlinedIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+
+                                                            <Tooltip title="Print bill">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    disabled={printLoadingId === order.OrderId}
+                                                                    onClick={(event) => handlePrint(event, order, "bill")}
+                                                                    aria-label={`Print bill for order ${order.OrderId}`}
+                                                                >
+                                                                    <PrintOutlinedIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+
+                                                        </Stack>
+
+                                                        {!isTerminalStatus(order.OrderStatus) && nextStatus && (
+                                                            <Button
                                                                 size="small"
-                                                                disabled={printLoadingId === order.OrderId}
-                                                                onClick={(event) => handlePrint(event, order, "bill")}
-                                                                aria-label={`Print bill for order ${order.OrderId}`}
+                                                                variant="outlined"
+                                                                disabled={advancingOrderIds.has(order.OrderId)}
+                                                                onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
+                                                                sx={{ whiteSpace: "nowrap" }}
                                                             >
-                                                                <PrintOutlinedIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </Tooltip>
+                                                                {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
+                                                            </Button>
+                                                        )}
 
                                                     </Stack>
-
-                                                    {!isTerminalStatus(order.OrderStatus) && nextStatus && (
-                                                        <Button
-                                                            size="small"
-                                                            variant="outlined"
-                                                            disabled={advancingOrderIds.has(order.OrderId)}
-                                                            onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
-                                                        >
-                                                            {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
-                                                        </Button>
-                                                    )}
 
                                                 </TableCell>
 
