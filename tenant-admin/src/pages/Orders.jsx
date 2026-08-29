@@ -701,17 +701,27 @@ function Orders() {
 
                                                         </Stack>
 
-                                                        {!isTerminalStatus(order.OrderStatus) && nextStatus && (
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                disabled={advancingOrderIds.has(order.OrderId)}
-                                                                onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
-                                                                sx={{ whiteSpace: "nowrap" }}
-                                                            >
-                                                                {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
-                                                            </Button>
-                                                        )}
+                                                        {/* Fixed-width slot regardless of whether a button renders into
+                                                            it - a terminal order (no button at all) or a short label
+                                                            ("Mark Ready") vs a long one ("Mark Out For Delivery") used
+                                                            to leave the row's occupied width ragged and inconsistent
+                                                            from one order to the next. Reserving this slot up front
+                                                            keeps every row's shape identical either way. */}
+                                                        <Box sx={{ width: 200, display: "flex", justifyContent: "flex-end" }}>
+
+                                                            {!isTerminalStatus(order.OrderStatus) && nextStatus && (
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    disabled={advancingOrderIds.has(order.OrderId)}
+                                                                    onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
+                                                                    sx={{ whiteSpace: "nowrap", minWidth: 120 }}
+                                                                >
+                                                                    {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
+                                                                </Button>
+                                                            )}
+
+                                                        </Box>
 
                                                     </Stack>
 
