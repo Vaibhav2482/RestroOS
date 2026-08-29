@@ -599,6 +599,15 @@ function Orders() {
                                                 hover
                                                 onClick={() => handleRowClick(order.OrderId)}
                                                 sx={{
+                                                    // A fixed minimum, not a guess - rows without a quick-advance
+                                                    // button (terminal status) or without a payment badge were
+                                                    // measurably shorter than rows with one, so the whole list
+                                                    // visibly reflowed as an order's status/payment state changed
+                                                    // under it. This is the tallest real case (a Payment
+                                                    // Failed/Pending badge alongside the status pill), so every
+                                                    // row now holds steady at it regardless of that order's
+                                                    // current state.
+                                                    height: 64,
                                                     cursor: "pointer",
                                                     borderLeft: needsAttention ? "3px solid #F59E0B" : "3px solid transparent"
                                                 }}
