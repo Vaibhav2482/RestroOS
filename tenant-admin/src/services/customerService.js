@@ -1,7 +1,11 @@
 import axiosClient from "../api/axiosClient";
 
-export const getAllCustomers = async () => {
-    const response = await axiosClient.get("/customers");
+// params can additionally carry { page, limit, search } - passing either of
+// page/limit opts into the paginated response shape ({ customers, total }),
+// server-side; omitting both keeps the plain array every other caller of
+// this shape still expects.
+export const getAllCustomers = async (params = {}) => {
+    const response = await axiosClient.get("/customers", { params });
     return response.data;
 };
 
