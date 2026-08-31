@@ -1,22 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import Orders from "./Orders";
 import * as orderService from "../services/orderService";
-
-// Orders now navigates to /pos for Reorder, so it needs a Router in scope
-// even for tests that never touch that button - useNavigate() throws
-// without one regardless of whether it's actually called.
-const renderOrders = () => render(<Orders />, { wrapper: MemoryRouter });
-
-const mockNavigate = vi.fn();
-
-vi.mock("react-router-dom", async (importOriginal) => ({
-    ...(await importOriginal()),
-    useNavigate: () => mockNavigate
-}));
 
 vi.mock("../services/orderService");
 
@@ -98,7 +85,7 @@ describe("Orders - search and status filter", () => {
 
         const user = userEvent.setup();
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#62");
         expect(screen.getByText("#70")).toBeInTheDocument();
@@ -116,7 +103,7 @@ describe("Orders - search and status filter", () => {
 
         const user = userEvent.setup();
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#62");
 
@@ -136,7 +123,7 @@ describe("Orders - search and status filter", () => {
 
         const user = userEvent.setup();
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#62");
 
@@ -148,7 +135,7 @@ describe("Orders - search and status filter", () => {
 
     it("shows which staff member took an order, and says nothing for one placed by a customer", async () => {
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#62");
 
@@ -171,7 +158,7 @@ describe("Orders - quick status advance", () => {
 
         orderService.updateOrderStatus.mockResolvedValue({ success: true, message: "Order status updated." });
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#57");
 
@@ -192,7 +179,7 @@ describe("Orders - quick status advance", () => {
         // button anywhere" assertion pass or fail for the wrong reason.
         mockServerOrders(sampleOrders.filter((order) => order.OrderStatus === "Served" || order.OrderStatus === "Cancelled"));
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#62");
 
@@ -209,7 +196,7 @@ describe("Orders - quick status advance", () => {
             data: { ...sampleOrders[1], Items: [] }
         });
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#57");
 
@@ -231,7 +218,7 @@ describe("Orders - quick status advance", () => {
             { OrderId: 90, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Failed", TotalAmount: 200, OrderStatus: "Cancelled", OrderDate: "2026-07-25T21:00:24" }
         ]);
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#90");
 
@@ -247,7 +234,7 @@ describe("Orders - quick status advance", () => {
             { OrderId: 91, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Failed", TotalAmount: 200, OrderStatus: "Pending", OrderDate: "2026-07-25T21:00:24" }
         ]);
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#91");
 
@@ -267,7 +254,7 @@ describe("Orders - quick status advance", () => {
             { OrderId: 92, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Pending", TotalAmount: 200, OrderStatus: "Accepted", OrderDate: "2026-07-25T21:00:24" }
         ]);
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#92");
 
@@ -281,92 +268,13 @@ describe("Orders - quick status advance", () => {
             { OrderId: 93, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Pending", TotalAmount: 200, OrderStatus: "Pending", OrderDate: "2026-07-25T21:00:24" }
         ]);
 
-        renderOrders();
+        render(<Orders />);
 
         await screen.findByText("#93");
 
         // Pending -> Accepted doesn't reach Preparing yet, so this step is
         // still fine even with an unconfirmed payment.
         expect(screen.getByRole("button", { name: /^mark accepted$/i })).not.toBeDisabled();
-
-    });
-
-    // A finished/cancelled order used to leave this slot blank - Reorder
-    // gives staff something to do with it instead of a dead end.
-    it("shows a Reorder button for a finished Dine In order, and hands off to Take Order with its items", async () => {
-
-        const user = userEvent.setup();
-
-        mockServerOrders([
-            { OrderId: 94, CustomerName: "Vaibhav Nawale", DeliveryType: "Dine In", TotalAmount: 200, OrderStatus: "Served", OrderDate: "2026-07-25T21:00:24" }
-        ]);
-
-        orderService.getOrderById.mockResolvedValue({
-            success: true,
-            data: {
-                OrderId: 94,
-                BranchId: 5,
-                DeliveryType: "Dine In",
-                CustomerId: 12,
-                CustomerName: "Vaibhav Nawale",
-                CustomerPhone: "9876543210",
-                Items: [
-                    { MenuItemId: 1, ItemName: "Masala Chai", Quantity: 2, SelectedOptions: [] },
-                    { MenuItemId: 2, ItemName: "Samosa", Quantity: 1, SelectedOptions: [{ OptionId: 9, OptionName: "Extra Spicy" }] }
-                ]
-            }
-        });
-
-        renderOrders();
-
-        await screen.findByText("#94");
-
-        await user.click(screen.getByRole("button", { name: /^reorder$/i }));
-
-        await waitFor(() => expect(orderService.getOrderById).toHaveBeenCalledWith(94));
-
-        await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith("/pos", {
-            state: {
-                reorder: {
-                    sourceOrderId: 94,
-                    branchId: 5,
-                    deliveryType: "Dine In",
-                    customer: { CustomerId: 12, FullName: "Vaibhav Nawale", Phone: "9876543210" },
-                    items: [
-                        { menuItemId: 1, quantity: 2, hadOptions: false },
-                        { menuItemId: 2, quantity: 1, hadOptions: true }
-                    ]
-                }
-            }
-        }));
-
-    });
-
-    it("does not show a Reorder button for a finished Delivery order - Take Order has no Delivery mode to land in", async () => {
-
-        mockServerOrders([
-            { OrderId: 95, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", TotalAmount: 200, OrderStatus: "Delivered", OrderDate: "2026-07-25T21:00:24" }
-        ]);
-
-        renderOrders();
-
-        await screen.findByText("#95");
-
-        expect(screen.queryByRole("button", { name: /^reorder$/i })).not.toBeInTheDocument();
-
-    });
-
-    it("does not show a Reorder button for an order still in progress", async () => {
-
-        mockServerOrders([
-            { OrderId: 96, CustomerName: "Vaibhav Nawale", DeliveryType: "Takeaway", TotalAmount: 200, OrderStatus: "Preparing", OrderDate: "2026-07-25T21:00:24" }
-        ]);
-
-        renderOrders();
-
-        await screen.findByText("#96");
-
-        expect(screen.queryByRole("button", { name: /^reorder$/i })).not.toBeInTheDocument();
 
     });
 
