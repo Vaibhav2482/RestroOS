@@ -206,4 +206,41 @@ describe("Orders - quick status advance", () => {
 
     });
 
+    // A cancelled order is already dead, so the badge still shows (staff
+    // scanning cancelled orders need to tell "customer's payment just
+    // failed" apart from "voided for some other reason") but muted to a
+    // plain outlined grey chip instead of a second bold red badge shouting
+    // for attention right under an already-red Cancelled pill.
+    it("mutes the payment badge to a plain outlined chip on a Cancelled order, rather than hiding or alarming it", async () => {
+
+        mockServerOrders([
+            { OrderId: 90, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Failed", TotalAmount: 200, OrderStatus: "Cancelled", OrderDate: "2026-07-25T21:00:24" }
+        ]);
+
+        render(<Orders />);
+
+        await screen.findByText("#90");
+
+        const badge = screen.getByText(/payment failed/i);
+        expect(badge).toBeInTheDocument();
+        expect(badge.closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
+
+    });
+
+    it("shows the payment badge as a solid, alarming chip on a non-cancelled order with a failed payment", async () => {
+
+        mockServerOrders([
+            { OrderId: 91, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Failed", TotalAmount: 200, OrderStatus: "Pending", OrderDate: "2026-07-25T21:00:24" }
+        ]);
+
+        render(<Orders />);
+
+        await screen.findByText("#91");
+
+        const badge = screen.getByText(/payment failed/i);
+        expect(badge).toBeInTheDocument();
+        expect(badge.closest(".MuiChip-root")).toHaveClass("MuiChip-filled");
+
+    });
+
 });

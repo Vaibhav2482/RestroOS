@@ -92,6 +92,32 @@ describe("Orders - payment status visibility", () => {
 
     });
 
+    // A cancelled order is already dead, so offering "Retry Payment" would
+    // open a real checkout for an order that will never be fulfilled - that
+    // action must disappear. The payment badge itself stays though: it's
+    // real context for the customer (their payment genuinely didn't go
+    // through, distinct from the restaurant cancelling for some other
+    // reason) - just muted to a plain outlined chip instead of a second
+    // bold badge on an order that's already resolved.
+    it("mutes the payment badge and removes Retry Payment for a Cancelled order, even with a failed payment", async () => {
+
+        orderService.getOrdersByCustomer.mockResolvedValue({
+            success: true,
+            data: [baseOrder({ OrderId: 61, PaymentMethod: "Card", LatestPaymentStatus: "Failed", OrderStatus: "Cancelled" })]
+        });
+
+        renderOrders();
+
+        await screen.findByText("Order #61");
+
+        const badge = screen.getByText(/^Payment /);
+        expect(badge).toBeInTheDocument();
+        expect(badge.closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
+        expect(screen.queryByRole("button", { name: /^retry payment$/i })).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /^reorder$/i })).toBeInTheDocument();
+
+    });
+
     it("opens Razorpay checkout without navigating to the order detail page when Retry Payment is clicked", async () => {
 
         const user = userEvent.setup();

@@ -340,12 +340,19 @@ function Orders() {
                                     <Typography fontWeight={700}>Order #{order.OrderId}</Typography>
                                     <Chip label={order.OrderStatus} color={statusColor(order.OrderStatus)} size="small" />
                                     {/* Only when NOT Paid - a successful online payment or a Cash
-                                        order (no LatestPaymentStatus at all) needs no extra badge here. */}
+                                        order (no LatestPaymentStatus at all) needs no extra badge
+                                        here. Still shown on a Cancelled order - it's real, useful
+                                        context for the customer (their payment genuinely didn't go
+                                        through, distinct from the restaurant cancelling for some
+                                        other reason), just muted to a plain outlined grey there
+                                        instead of a second bold badge on an order that's already
+                                        resolved - this is history now, not a live warning. */}
                                     {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
                                         <Chip
                                             icon={<PaymentOutlinedIcon fontSize="small" />}
                                             label={`Payment ${order.LatestPaymentStatus}`}
-                                            color={PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default"}
+                                            color={order.OrderStatus === "Cancelled" ? "default" : (PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default")}
+                                            variant={order.OrderStatus === "Cancelled" ? "outlined" : "filled"}
                                             size="small"
                                         />
                                     )}
@@ -370,8 +377,11 @@ function Orders() {
 
                                 {/* A failed/pending online payment needs the SAME order paid,
                                     not a duplicate one - Retry Payment replaces Reorder here
-                                    rather than sitting alongside it. */}
-                                {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" ? (
+                                    rather than sitting alongside it. Never offered on a Cancelled
+                                    order though - there's nothing left to pay for, and letting a
+                                    customer tap "Retry Payment" on a dead order would open a real
+                                    checkout for an order that will never be fulfilled. */}
+                                {order.OrderStatus !== "Cancelled" && ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" ? (
                                     <Button
                                         size="small"
                                         variant="contained"

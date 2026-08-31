@@ -662,15 +662,23 @@ function Orders() {
 
                                                 <TableCell>
                                                     <StatusPill status={order.OrderStatus} />
-                                                    {/* Only flagged when it's NOT Paid - the common
-                                                        case (already paid, or Cash) needs no badge
-                                                        here, this is specifically to catch the
-                                                        Card/UPI orders staff shouldn't be preparing yet. */}
+                                                    {/* Only flagged when it's NOT Paid - the common case
+                                                        (already paid, or Cash) needs no badge here. Still
+                                                        shown on a Cancelled order (it's real, useful
+                                                        context - "why did this get cancelled" - staff
+                                                        scanning cancelled orders need to tell "customer's
+                                                        payment just failed" apart from "voided for some
+                                                        other reason"), but muted to a plain outlined grey
+                                                        there instead of a second bold red badge shouting
+                                                        for attention right under an already-red Cancelled
+                                                        pill - the order is already resolved, this is
+                                                        history, not a live warning. */}
                                                     {["Card", "UPI"].includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
                                                         <Chip
                                                             label={`Payment ${order.LatestPaymentStatus}`}
                                                             size="small"
-                                                            color={order.LatestPaymentStatus === "Failed" ? "error" : "warning"}
+                                                            color={order.OrderStatus === "Cancelled" ? "default" : (order.LatestPaymentStatus === "Failed" ? "error" : "warning")}
+                                                            variant={order.OrderStatus === "Cancelled" ? "outlined" : "filled"}
                                                             sx={{ ml: 0.5 }}
                                                         />
                                                     )}
