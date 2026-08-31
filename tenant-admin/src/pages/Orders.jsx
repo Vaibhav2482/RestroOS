@@ -524,11 +524,16 @@ function Orders() {
 
             </Stack>
 
-            <Paper elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
+            {/* minHeight, not just the table's own maxHeight scroll cap below -
+                without it, a short result set (or the empty state) left the
+                white card far shorter than the page's own reserved height,
+                showing as a slab of bare page background underneath it
+                instead of looking like a deliberately-sized panel. */}
+            <Paper elevation={0} sx={{ border: "1px solid #E5E7EB", minHeight: "calc(100vh - 210px)", display: "flex", flexDirection: "column" }}>
 
                 {loading ? (
 
-                    <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", flexGrow: 1, py: 8 }}>
                         <CircularProgress size={28} />
                     </Box>
 
@@ -536,8 +541,13 @@ function Orders() {
 
                     // Capped height with a stuck header: at 25 rows a page the
                     // column labels used to scroll away, leaving you counting
-                    // columns to work out which figure was the total.
-                    <TableContainer sx={{ maxHeight: { xs: "none", md: "calc(100vh - 270px)" } }}>
+                    // columns to work out which figure was the total. flexGrow
+                    // lets it fill the card's own reserved height too, on a
+                    // short result set - any leftover space then sits inside
+                    // the (still-bordered) table area, above the pagination
+                    // footer, rather than the footer floating right under the
+                    // last row with blank page background beneath everything.
+                    <TableContainer sx={{ maxHeight: { xs: "none", md: "calc(100vh - 210px)" }, flexGrow: 1 }}>
 
                         <Table
                             size="small"
