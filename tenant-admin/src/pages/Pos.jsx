@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Box, Button, Chip, CircularProgress, IconButton, MenuItem, Select, Stack, Typography } from "@mui/material";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Alert, Box, Button, Chip, CircularProgress, IconButton, MenuItem, Select, Stack, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ShoppingBagRoundedIcon from "@mui/icons-material/ShoppingBagRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -24,9 +25,21 @@ function Pos() {
 
     const auth = getStoredAuth();
     const ownerMode = isOwner(auth?.admin);
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const [branches, setBranches] = useState([]);
     const [selectedBranchId, setSelectedBranchId] = useState(ownerMode ? null : auth?.admin?.BranchId);
+    // Set the instant a Reorder hand-off from Orders.jsx is read out of
+    // location.state (see the effect below) - read by the branches-loaded
+    // effect further down so it doesn't stomp this branch choice back to
+    // "first branch in the list" once that fetch resolves a moment later.
+    const reorderBranchIdRef = useRef(null);
+    // Carries a reorder's customer + items from the moment it's requested
+    // until PosOrderBuilder actually seeds a cart from it - kept here (not
+    // just in location.state) because a Dine In reorder has to survive a
+    // trip through the floor grid while a table gets picked.
+    const [pendingReorder, setPendingReorder] = useState(null);
 
     const [tables, setTables] = useState([]);
     const [activeOrders, setActiveOrders] = useState([]);
@@ -81,7 +94,13 @@ function Pos() {
                     setBranches(response.data);
 
                     if (response.data.length > 0) {
-                        setSelectedBranchId(response.data[0].BranchId);
+                        // A pending reorder already claimed the branch this
+                        // owner should land on - defaulting to the first
+                        // branch here instead would silently switch them
+                        // away from the order they just asked to reorder.
+                        if (!reorderBranchIdRef.current) {
+                            setSelectedBranchId(response.data[0].BranchId);
+                        }
                     } else {
                         // No branch to select means the table-state effect
                         // below never fires, so nothing else will ever turn
@@ -104,6 +123,50 @@ function Pos() {
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Landed here from Orders.jsx's Reorder button - location.state carries
+    // the source order's branch/delivery type/customer/items one-shot, since
+    // a normal reload of this page should never replay it. Takeaway can jump
+    // straight into the order builder (no table needed); Dine In has to wait
+    // on the floor grid for staff to actually pick a table before there's
+    // anywhere for PosOrderBuilder to render at all.
+    useEffect(() => {
+
+        const reorder = location.state?.reorder;
+
+        if (!reorder) {
+            return;
+        }
+
+        if (!ownerMode && reorder.branchId !== auth?.admin?.BranchId) {
+            toast.error("That order belongs to a different branch.");
+            navigate(location.pathname, { replace: true, state: {} });
+            return;
+        }
+
+        reorderBranchIdRef.current = reorder.branchId;
+
+        if (ownerMode) {
+            setSelectedBranchId(reorder.branchId);
+        }
+
+        setPendingReorder(reorder);
+
+        if (reorder.deliveryType === "Takeaway") {
+            setPendingTable(null);
+            setMode("takeaway");
+        } else {
+            setMode("grid");
+            setPendingTable(null);
+        }
+
+        // Consumed as far as routing/history is concerned - pendingReorder
+        // (React state, not location.state) is what PosOrderBuilder actually
+        // reads from here on, so a refresh of this page can't replay it.
+        navigate(location.pathname, { replace: true, state: {} });
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location.state]);
 
     useEffect(() => {
 
@@ -291,6 +354,7 @@ function Pos() {
     const handleOrderCreated = () => {
         setMode("grid");
         setPendingTable(null);
+        setPendingReorder(null);
         loadTableState(selectedBranchId, true);
     };
 
@@ -426,6 +490,21 @@ function Pos() {
 
             )}
 
+            {/* Only shows while waiting on a table pick - Takeaway reorders
+                skip the floor grid entirely, and this clears itself the
+                moment PosOrderBuilder actually seeds the cart. */}
+            {mode === "grid" && pendingReorder && pendingReorder.deliveryType === "Dine In" && (
+
+                <Alert
+                    severity="info"
+                    onClose={() => setPendingReorder(null)}
+                    sx={{ mb: 2.5 }}
+                >
+                    Reordering for {pendingReorder.customer?.FullName || "this customer"} (from order #{pendingReorder.sourceOrderId}) - pick a table to continue.
+                </Alert>
+
+            )}
+
             {mode === "grid" && !loading && tables.length > 0 && (
 
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
@@ -557,6 +636,15 @@ function Pos() {
                             tableNumber={mode === "dine-in" ? pendingTable.TableName : undefined}
                             onCreated={handleOrderCreated}
                             onCartSummaryChange={setCartSummary}
+                            // Only honored when its own delivery type matches the mode
+                            // actually being entered - otherwise a Dine In reorder still
+                            // waiting on a table pick would leak into an unrelated manual
+                            // Takeaway order started from the same floor screen meanwhile.
+                            initialReorder={
+                                pendingReorder && pendingReorder.deliveryType === orderDeliveryType
+                                    ? pendingReorder
+                                    : null
+                            }
                         />
 
                     </Box>

@@ -172,7 +172,7 @@ function CategoryNavItem({ label, icon, selected, onClick, count }) {
 // a customer (or fall back to the shared guest placeholder), pick a payment
 // method and submit. GST is computed server-side, so only a pre-tax
 // subtotal is shown here.
-function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCartSummaryChange }) {
+function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCartSummaryChange, initialReorder }) {
 
     const { admin } = getStoredAuth() || {};
     const { printing: kotPrinting, print: printKot } = useThermalPrint();
@@ -180,6 +180,12 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
     const [menuLoading, setMenuLoading] = useState(false);
+    // menuLoading alone can't tell "haven't started fetching yet" apart from
+    // "finished fetching, menu is empty" - the reorder-seeding effect below
+    // needs that distinction so it doesn't run once against a still-empty
+    // menuItems array and wrongly report every item as no longer available.
+    const [menuReady, setMenuReady] = useState(false);
+    const reorderSeededRef = useRef(false);
     const [itemSearch, setItemSearch] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState("all");
 
@@ -233,8 +239,15 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
     }, [optionsDialogItem, placedOrder]);
 
     // Default to the shared guest placeholder so staff can start adding items
-    // immediately; they can still swap in a real customer below.
+    // immediately; they can still swap in a real customer below. Skipped
+    // entirely for a reorder - that already names an exact customer, and
+    // briefly showing Guest here before the reorder-seeding effect below
+    // overwrites it would just be a flash of the wrong name.
     useEffect(() => {
+
+        if (initialReorder?.customer) {
+            return;
+        }
 
         (async () => {
 
@@ -336,12 +349,85 @@ function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCr
             } finally {
 
                 setMenuLoading(false);
+                setMenuReady(true);
 
             }
 
         })();
 
     }, [branchId]);
+
+    // Seeds the cart from a reordered order once there's a real, current menu
+    // to check its items against - runs once per mount (reorderSeededRef),
+    // not on every menuItems change, so editing the cart afterwards never
+    // gets silently overwritten. Only plain items still on the active menu
+    // are carried over, at today's price - not the old order's price, which
+    // may no longer be accurate. Customized items are deliberately skipped
+    // rather than guessed back together, since their exact option IDs may no
+    // longer exist or mean something different now.
+    useEffect(() => {
+
+        if (!initialReorder || reorderSeededRef.current || !menuReady) {
+            return;
+        }
+
+        reorderSeededRef.current = true;
+
+        if (initialReorder.customer) {
+            setResolvedCustomer(initialReorder.customer);
+        }
+
+        const seededByMenuItemId = new Map();
+        let skippedCount = 0;
+
+        for (const oldItem of initialReorder.items) {
+
+            const currentItem = menuItems.find((menuItem) => menuItem.MenuItemId === oldItem.menuItemId);
+
+            if (!currentItem || oldItem.hadOptions) {
+                skippedCount += 1;
+                continue;
+            }
+
+            const existing = seededByMenuItemId.get(currentItem.MenuItemId);
+
+            if (existing) {
+                existing.quantity += oldItem.quantity;
+            } else {
+                seededByMenuItemId.set(currentItem.MenuItemId, {
+                    lineKey: String(currentItem.MenuItemId),
+                    menuItemId: currentItem.MenuItemId,
+                    itemName: currentItem.ItemName,
+                    price: Number(currentItem.Price),
+                    quantity: oldItem.quantity,
+                    selectedOptionIds: [],
+                    summary: undefined
+                });
+            }
+
+        }
+
+        const seededLines = Array.from(seededByMenuItemId.values());
+
+        if (seededLines.length > 0) {
+            setCartLines(seededLines);
+        }
+
+        if (skippedCount > 0) {
+
+            toast(
+                `Reordered ${seededLines.length} of ${initialReorder.items.length} item${initialReorder.items.length === 1 ? "" : "s"} from #${initialReorder.sourceOrderId} - ${skippedCount} need${skippedCount === 1 ? "s" : ""} a fresh look (no longer on the menu, or were customized).`,
+                { icon: "ℹ️", duration: 6000 }
+            );
+
+        } else if (seededLines.length > 0) {
+
+            toast.success(`Reordered ${seededLines.length} item${seededLines.length === 1 ? "" : "s"} from #${initialReorder.sourceOrderId} - review and place when ready.`);
+
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialReorder, menuReady, menuItems]);
 
     const isGuest = resolvedCustomer?.Phone === GUEST_PHONE;
 

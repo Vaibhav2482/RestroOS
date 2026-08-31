@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Box,
     Button,
@@ -24,6 +25,7 @@ import {
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
+import ReplayRoundedIcon from "@mui/icons-material/ReplayRounded";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
@@ -89,6 +91,7 @@ function Orders() {
 
     const { admin } = getStoredAuth() || {};
     const ownerMode = isOwner(admin);
+    const navigate = useNavigate();
 
     const [orders, setOrders] = useState([]);
     // Server-reported total for the current filtered set (not orders.length,
@@ -129,6 +132,11 @@ function Orders() {
     const [printOrder, setPrintOrder] = useState(null);
     const [printMode, setPrintMode] = useState(null);
     const [printLoadingId, setPrintLoadingId] = useState(null);
+
+    // Same per-row-independent disable pattern as printLoadingId, while the
+    // full order (needed for its items/customer) is fetched before handing
+    // off to Take Order.
+    const [reorderingOrderId, setReorderingOrderId] = useState(null);
 
     // Server-side paging - page/rowsPerPage drive the actual GET /orders
     // request (page/limit params) rather than slicing an already-fetched
@@ -389,6 +397,63 @@ function Orders() {
 
     };
 
+    // Hands off to Take Order rather than recreating the order here directly
+    // - staff should still see and confirm the cart (menu prices may have
+    // changed, an item may no longer be available) before it's actually
+    // placed, not have a duplicate order silently appear.
+    const handleReorder = async (event, order) => {
+
+        event.stopPropagation();
+
+        if (reorderingOrderId === order.OrderId) {
+            return;
+        }
+
+        setReorderingOrderId(order.OrderId);
+
+        try {
+
+            const response = await orderService.getOrderById(order.OrderId);
+
+            if (!response.success) {
+                toast.error(response.message || "Failed to load order.");
+                return;
+            }
+
+            const fullOrder = response.data;
+
+            navigate("/pos", {
+                state: {
+                    reorder: {
+                        sourceOrderId: fullOrder.OrderId,
+                        branchId: fullOrder.BranchId,
+                        deliveryType: fullOrder.DeliveryType,
+                        customer: {
+                            CustomerId: fullOrder.CustomerId,
+                            FullName: fullOrder.CustomerName,
+                            Phone: fullOrder.CustomerPhone
+                        },
+                        items: (fullOrder.Items || []).map((item) => ({
+                            menuItemId: item.MenuItemId,
+                            quantity: item.Quantity,
+                            hadOptions: (item.SelectedOptions || []).length > 0
+                        }))
+                    }
+                }
+            });
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to load order.");
+
+        } finally {
+
+            setReorderingOrderId(null);
+
+        }
+
+    };
+
     const handleClosePrint = () => {
         setPrintOrder(null);
         setPrintMode(null);
@@ -616,6 +681,14 @@ function Orders() {
                                             && hasStartedPreparing(nextStatus, order.DeliveryType)
                                         );
 
+                                        // A finished or cancelled order used to just leave this slot
+                                        // blank - Reorder gives staff something to actually do with
+                                        // it instead (a repeat regular, or a redo of an order that
+                                        // only got cancelled because its payment failed). Delivery
+                                        // isn't offered: Take Order has no Delivery mode to land in,
+                                        // since those orders only ever come from the storefront.
+                                        const canReorder = isTerminalStatus(order.OrderStatus) && ["Dine In", "Takeaway"].includes(order.DeliveryType);
+
                                         return (
 
                                             <TableRow
@@ -779,6 +852,23 @@ function Orders() {
                                                                             sx={{ whiteSpace: "nowrap", minWidth: 120 }}
                                                                         >
                                                                             {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
+                                                                        </Button>
+                                                                    </span>
+                                                                </Tooltip>
+                                                            )}
+
+                                                            {canReorder && (
+                                                                <Tooltip title={`Start a new order with the same items as #${order.OrderId}`}>
+                                                                    <span>
+                                                                        <Button
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            disabled={reorderingOrderId === order.OrderId}
+                                                                            onClick={(event) => handleReorder(event, order)}
+                                                                            startIcon={<ReplayRoundedIcon fontSize="small" />}
+                                                                            sx={{ whiteSpace: "nowrap", minWidth: 120 }}
+                                                                        >
+                                                                            {reorderingOrderId === order.OrderId ? "..." : "Reorder"}
                                                                         </Button>
                                                                     </span>
                                                                 </Tooltip>
