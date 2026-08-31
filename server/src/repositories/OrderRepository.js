@@ -408,7 +408,7 @@ export const getAllOrders = async (tenantId, branchId, customerId, pagination = 
            AND ($4::varchar IS NULL OR O."OrderStatus" = $4)
            AND ($5::date IS NULL OR O."OrderDate"::date >= $5)
            AND ($6::date IS NULL OR O."OrderDate"::date <= $6)
-           AND ($7::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $7 || '%' OR C."FullName" ILIKE '%' || $7 || '%')
+           AND ($7::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $7 || '%' OR C."FullName" ILIKE '%' || $7 || '%' OR C."Phone" ILIKE '%' || $7 || '%')
          ORDER BY O."OrderDate" DESC
          LIMIT $8 OFFSET $9`,
         [...filterParams, limit, offset]
@@ -441,7 +441,7 @@ export const getOrderStatusCounts = async (tenantId, branchId, filters = null) =
          WHERE B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2)
            AND ($3::date IS NULL OR O."OrderDate"::date >= $3)
            AND ($4::date IS NULL OR O."OrderDate"::date <= $4)
-           AND ($5::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $5 || '%' OR C."FullName" ILIKE '%' || $5 || '%')
+           AND ($5::text IS NULL OR CAST(O."OrderId" AS TEXT) ILIKE '%' || $5 || '%' OR C."FullName" ILIKE '%' || $5 || '%' OR C."Phone" ILIKE '%' || $5 || '%')
          GROUP BY O."OrderStatus"`,
         [tenantId, branchId ?? null, dateFrom, dateTo, search]
     );

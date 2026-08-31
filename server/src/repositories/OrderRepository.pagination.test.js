@@ -103,14 +103,14 @@ describe("OrderRepository.getAllOrders - filters (status/date range/search)", ()
 
     });
 
-    it("matches search against either the order id or the customer name", async () => {
+    it("matches search against the order id, the customer name, or their phone", async () => {
 
         queryMock.mockResolvedValue({ rows: [] });
 
         await getAllOrders(3, null, null, { page: 1, limit: 25 }, { search: "  70  " });
 
         const [sql, params] = queryMock.mock.calls[0];
-        expect(sql).toMatch(/CAST\(O\."OrderId" AS TEXT\) ILIKE '%' \|\| \$7 \|\| '%' OR C\."FullName" ILIKE '%' \|\| \$7 \|\| '%'/);
+        expect(sql).toMatch(/CAST\(O\."OrderId" AS TEXT\) ILIKE '%' \|\| \$7 \|\| '%' OR C\."FullName" ILIKE '%' \|\| \$7 \|\| '%' OR C\."Phone" ILIKE '%' \|\| \$7 \|\| '%'/);
         // Trimmed before being sent as a query param.
         expect(params[6]).toBe("70");
 
