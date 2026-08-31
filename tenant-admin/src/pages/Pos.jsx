@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Chip, IconButton, MenuItem, Select, Typography } from "@mui/material";
+import { Box, Button, Chip, IconButton, MenuItem, Select, Stack, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ShoppingBagRoundedIcon from "@mui/icons-material/ShoppingBagRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -206,6 +206,14 @@ function Pos() {
         activeOrdersByTable.set(order.TableNumber, [...existing, order]);
     });
 
+    // A live read of the floor at a glance - the grid below answers "which
+    // table", this answers "how busy are we right now" without counting
+    // tiles by eye. Derived from the same tables/activeOrdersByTable the
+    // grid itself uses, so it can never drift out of sync with what's
+    // actually rendered below it.
+    const occupiedTableCount = tables.filter((table) => (activeOrdersByTable.get(table.TableName) || []).length > 0).length;
+    const availableTableCount = tables.length - occupiedTableCount;
+
     const openOrderDetails = async (orderId) => {
 
         try {
@@ -401,6 +409,32 @@ function Pos() {
                     </Box>
 
                 </Box>
+
+            )}
+
+            {mode === "grid" && tables.length > 0 && (
+
+                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
+
+                    <Chip
+                        label={`${occupiedTableCount} Occupied`}
+                        color="warning"
+                        size="small"
+                        variant={occupiedTableCount > 0 ? "filled" : "outlined"}
+                    />
+
+                    <Chip
+                        label={`${availableTableCount} Available`}
+                        color="success"
+                        size="small"
+                        variant={availableTableCount > 0 ? "filled" : "outlined"}
+                    />
+
+                    <Typography variant="body2" color="text.secondary">
+                        {tables.length} table{tables.length === 1 ? "" : "s"} total
+                    </Typography>
+
+                </Stack>
 
             )}
 
