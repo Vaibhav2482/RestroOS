@@ -8,6 +8,8 @@ import {
     IconButton,
     InputAdornment,
     InputLabel,
+    ListItemIcon,
+    Menu,
     MenuItem,
     Pagination,
     Paper,
@@ -132,6 +134,17 @@ function Orders() {
     const [printOrder, setPrintOrder] = useState(null);
     const [printMode, setPrintMode] = useState(null);
     const [printLoadingId, setPrintLoadingId] = useState(null);
+    // The two print actions used to be separate icon-only buttons (a soup
+    // bowl for KOT, a generic printer for the bill) with no visible label,
+    // relying entirely on a hover tooltip to explain either one - fine on a
+    // desktop mouse, useless at a glance or on a touchscreen. One labeled
+    // "Print" trigger opening a menu with two clearly-worded choices reads
+    // the same for everyone. printMenuOrderId (not just the anchor element)
+    // is what the row-scoped "is my order's menu open" checks key off, so
+    // this stays correct even though every row shares this one piece of
+    // state.
+    const [printMenuAnchor, setPrintMenuAnchor] = useState(null);
+    const [printMenuOrderId, setPrintMenuOrderId] = useState(null);
 
     // Server-side paging - page/rowsPerPage drive the actual GET /orders
     // request (page/limit params) rather than slicing an already-fetched
@@ -358,9 +371,21 @@ function Orders() {
 
     };
 
+    const handleOpenPrintMenu = (event, orderId) => {
+        event.stopPropagation();
+        setPrintMenuAnchor(event.currentTarget);
+        setPrintMenuOrderId(orderId);
+    };
+
+    const handleClosePrintMenu = () => {
+        setPrintMenuAnchor(null);
+        setPrintMenuOrderId(null);
+    };
+
     const handlePrint = async (event, order, mode) => {
 
         event.stopPropagation();
+        handleClosePrintMenu();
 
         if (printLoadingId === order.OrderId) {
             return;
@@ -419,7 +444,7 @@ function Orders() {
 
                 <TextField
                     size="small"
-                    placeholder="Search by order # or customer..."
+                    placeholder="Search by order #, customer, or phone..."
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     sx={{ flexGrow: 1, minWidth: 200, maxWidth: 340 }}
@@ -712,31 +737,46 @@ function Orders() {
                                                         and cutting how many orders fit on screen at once. */}
                                                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ flexWrap: "nowrap" }}>
 
-                                                        <Stack direction="row" spacing={0.25} alignItems="center">
+                                                        {/* One labeled "Print" trigger opening a menu with the
+                                                            two choices spelled out, replacing what used to be
+                                                            two bare icon buttons (a soup bowl standing in for
+                                                            "KOT", a generic printer for "bill") with no visible
+                                                            label at all - clear only after hovering long enough
+                                                            for the tooltip, which a touchscreen or a quick scan
+                                                            never gets. */}
+                                                        <Tooltip title="Print">
+                                                            <IconButton
+                                                                size="small"
+                                                                disabled={printLoadingId === order.OrderId}
+                                                                onClick={(event) => handleOpenPrintMenu(event, order.OrderId)}
+                                                                aria-label={`Print options for order ${order.OrderId}`}
+                                                            >
+                                                                <PrintOutlinedIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </Tooltip>
 
-                                                            <Tooltip title="Print KOT">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    disabled={printLoadingId === order.OrderId}
-                                                                    onClick={(event) => handlePrint(event, order, "kot")}
-                                                                    aria-label={`Print KOT for order ${order.OrderId}`}
-                                                                >
+                                                        <Menu
+                                                            anchorEl={printMenuAnchor}
+                                                            open={printMenuOrderId === order.OrderId}
+                                                            onClose={handleClosePrintMenu}
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
+
+                                                            <MenuItem onClick={(event) => handlePrint(event, order, "kot")}>
+                                                                <ListItemIcon>
                                                                     <SoupKitchenOutlinedIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                                                </ListItemIcon>
+                                                                Print KOT
+                                                            </MenuItem>
 
-                                                            <Tooltip title="Print bill">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    disabled={printLoadingId === order.OrderId}
-                                                                    onClick={(event) => handlePrint(event, order, "bill")}
-                                                                    aria-label={`Print bill for order ${order.OrderId}`}
-                                                                >
-                                                                    <PrintOutlinedIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
+                                                            <MenuItem onClick={(event) => handlePrint(event, order, "bill")}>
+                                                                <ListItemIcon>
+                                                                    <ReceiptLongOutlinedIcon fontSize="small" />
+                                                                </ListItemIcon>
+                                                                Print Bill
+                                                            </MenuItem>
 
-                                                        </Stack>
+                                                        </Menu>
 
                                                         {/* Fixed-width slot regardless of whether a button renders into
                                                             it - a terminal order (no button at all) or a short label
