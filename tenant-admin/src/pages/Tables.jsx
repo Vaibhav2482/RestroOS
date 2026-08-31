@@ -315,6 +315,7 @@ function Tables() {
                             <TableRow>
                                 <TableCell>Table Name</TableCell>
                                 {owner && <TableCell>Branch</TableCell>}
+                                <TableCell>Floor</TableCell>
                                 <TableCell>Capacity</TableCell>
                                 <TableCell>Status</TableCell>
                                 <TableCell align="right">Actions</TableCell>
@@ -327,7 +328,7 @@ function Tables() {
                             {tables.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={owner ? 5 : 4} sx={{ py: 0 }}>
+                                    <TableCell colSpan={owner ? 6 : 5} sx={{ py: 0 }}>
                                         <EmptyState
                                             icon={<TableRestaurantOutlinedIcon />}
                                             title="No tables yet"
@@ -353,6 +354,10 @@ function Tables() {
                                                 {table.BranchName || "-"}
                                             </TableCell>
                                         )}
+
+                                        <TableCell>
+                                            {table.Floor || "-"}
+                                        </TableCell>
 
                                         <TableCell>
                                             {table.Capacity || "-"}

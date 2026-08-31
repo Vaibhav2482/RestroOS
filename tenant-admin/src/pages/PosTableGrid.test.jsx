@@ -140,4 +140,33 @@ describe("PosTableGrid", () => {
 
     });
 
+    it("renders a flat grid with no section headers when no table has a Floor set", () => {
+
+        renderGrid();
+
+        expect(screen.queryByText(/other tables/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/ground floor/i)).not.toBeInTheDocument();
+
+    });
+
+    it("groups tables under Floor headers once at least one table has one, with unassigned tables under Other Tables", () => {
+
+        renderGrid({
+            tables: [
+                { TableId: 1, TableName: "A1", Capacity: 4, Floor: "Ground Floor" },
+                { TableId: 2, TableName: "A2", Capacity: null, Floor: "Ground Floor" },
+                { TableId: 3, TableName: "T10", Capacity: 10, Floor: null }
+            ]
+        });
+
+        expect(screen.getByText("Ground Floor")).toBeInTheDocument();
+        expect(screen.getByText("Other Tables")).toBeInTheDocument();
+
+        // Still every table, just grouped rather than dropped.
+        expect(screen.getByText("A1")).toBeInTheDocument();
+        expect(screen.getByText("A2")).toBeInTheDocument();
+        expect(screen.getByText("T10")).toBeInTheDocument();
+
+    });
+
 });

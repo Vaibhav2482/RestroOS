@@ -14,6 +14,7 @@ import {
 const emptyForm = {
     tableName: "",
     capacity: "",
+    floor: "",
     isActive: true
 };
 
@@ -32,6 +33,7 @@ function TableDialog({ open, onClose, onSave, selectedTable, isEditMode }) {
             setFormData({
                 tableName: selectedTable.TableName ?? "",
                 capacity: selectedTable.Capacity ?? "",
+                floor: selectedTable.Floor ?? "",
                 isActive: Boolean(selectedTable.IsActive)
             });
 
@@ -77,7 +79,8 @@ function TableDialog({ open, onClose, onSave, selectedTable, isEditMode }) {
 
         const payload = {
             tableName: formData.tableName.trim(),
-            capacity: formData.capacity === "" ? null : Number(formData.capacity)
+            capacity: formData.capacity === "" ? null : Number(formData.capacity),
+            floor: formData.floor.trim() || null
         };
 
         if (isEditMode) {
@@ -128,6 +131,17 @@ function TableDialog({ open, onClose, onSave, selectedTable, isEditMode }) {
                             value={formData.capacity}
                             onChange={handleChange}
                             slotProps={{ htmlInput: { min: 1 } }}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12 }}>
+                        <TextField
+                            fullWidth
+                            label="Floor / Section (optional)"
+                            placeholder="e.g. Ground Floor, Terrace, Hall A"
+                            name="floor"
+                            value={formData.floor}
+                            onChange={handleChange}
                         />
                     </Grid>
 
