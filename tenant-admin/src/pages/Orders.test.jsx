@@ -244,4 +244,38 @@ describe("Orders - quick status advance", () => {
 
     });
 
+    // The backend blocks a Card/UPI order from reaching Preparing (or
+    // beyond) without a confirmed payment - clicking "Mark Preparing" here
+    // used to just fail with an error toast after a round trip. It should
+    // now be disabled up front instead.
+    it("disables the quick-advance button when it would move a Card/UPI order to Preparing without a confirmed payment", async () => {
+
+        mockServerOrders([
+            { OrderId: 92, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Pending", TotalAmount: 200, OrderStatus: "Accepted", OrderDate: "2026-07-25T21:00:24" }
+        ]);
+
+        render(<Orders />);
+
+        await screen.findByText("#92");
+
+        expect(screen.getByRole("button", { name: /^mark preparing$/i })).toBeDisabled();
+
+    });
+
+    it("does not disable the quick-advance button for a step that does not yet require a confirmed payment", async () => {
+
+        mockServerOrders([
+            { OrderId: 93, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Pending", TotalAmount: 200, OrderStatus: "Pending", OrderDate: "2026-07-25T21:00:24" }
+        ]);
+
+        render(<Orders />);
+
+        await screen.findByText("#93");
+
+        // Pending -> Accepted doesn't reach Preparing yet, so this step is
+        // still fine even with an unconfirmed payment.
+        expect(screen.getByRole("button", { name: /^mark accepted$/i })).not.toBeDisabled();
+
+    });
+
 });

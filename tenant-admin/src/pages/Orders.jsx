@@ -5,11 +5,8 @@ import {
     Chip,
     CircularProgress,
     FormControl,
-    IconButton,
     InputAdornment,
     InputLabel,
-    ListItemIcon,
-    Menu,
     MenuItem,
     Pagination,
     Paper,
@@ -27,8 +24,6 @@ import {
 } from "@mui/material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
-import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
-import SoupKitchenOutlinedIcon from "@mui/icons-material/SoupKitchenOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
@@ -41,7 +36,7 @@ import EmptyState from "../components/EmptyState";
 import BillReceipt from "../components/BillReceipt";
 import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
-import { formatCurrency, formatDateTime, getNextStatuses, getStatusChipColor, isTerminalStatus } from "./orderStatusUtils";
+import { formatCurrency, formatDateTime, getNextStatuses, getStatusChipColor, hasStartedPreparing, isTerminalStatus } from "./orderStatusUtils";
 
 // "All" first, then the sequence a Delivery order actually moves through -
 // Dine In/Takeaway orders just never hit "Out For Delivery", and only ever
@@ -134,17 +129,6 @@ function Orders() {
     const [printOrder, setPrintOrder] = useState(null);
     const [printMode, setPrintMode] = useState(null);
     const [printLoadingId, setPrintLoadingId] = useState(null);
-    // The two print actions used to be separate icon-only buttons (a soup
-    // bowl for KOT, a generic printer for the bill) with no visible label,
-    // relying entirely on a hover tooltip to explain either one - fine on a
-    // desktop mouse, useless at a glance or on a touchscreen. One labeled
-    // "Print" trigger opening a menu with two clearly-worded choices reads
-    // the same for everyone. printMenuOrderId (not just the anchor element)
-    // is what the row-scoped "is my order's menu open" checks key off, so
-    // this stays correct even though every row shares this one piece of
-    // state.
-    const [printMenuAnchor, setPrintMenuAnchor] = useState(null);
-    const [printMenuOrderId, setPrintMenuOrderId] = useState(null);
 
     // Server-side paging - page/rowsPerPage drive the actual GET /orders
     // request (page/limit params) rather than slicing an already-fetched
@@ -371,21 +355,9 @@ function Orders() {
 
     };
 
-    const handleOpenPrintMenu = (event, orderId) => {
-        event.stopPropagation();
-        setPrintMenuAnchor(event.currentTarget);
-        setPrintMenuOrderId(orderId);
-    };
-
-    const handleClosePrintMenu = () => {
-        setPrintMenuAnchor(null);
-        setPrintMenuOrderId(null);
-    };
-
     const handlePrint = async (event, order, mode) => {
 
         event.stopPropagation();
-        handleClosePrintMenu();
 
         if (printLoadingId === order.OrderId) {
             return;
@@ -630,6 +602,19 @@ function Orders() {
                                         // visual flag the plain status chip doesn't provide.
                                         const needsAttention = order.OrderStatus === "Pending";
                                         const nextStatus = getNextStatuses(order.OrderStatus, order.DeliveryType)[0];
+                                        // The backend blocks a Card/UPI order from reaching Preparing
+                                        // (or beyond) without a confirmed payment - clicking this
+                                        // button on one used to just fail with an error toast after
+                                        // the round trip. Disabling it up front (with a tooltip
+                                        // explaining why) is a courtesy only - the server's own gate
+                                        // is still what actually protects this either way.
+                                        const blockedByUnconfirmedPayment = Boolean(
+                                            nextStatus
+                                            && ["Card", "UPI"].includes(order.PaymentMethod)
+                                            && order.LatestPaymentStatus
+                                            && order.LatestPaymentStatus !== "Paid"
+                                            && hasStartedPreparing(nextStatus, order.DeliveryType)
+                                        );
 
                                         return (
 
@@ -730,53 +715,45 @@ function Orders() {
 
                                                 <TableCell align="right" onClick={(event) => event.stopPropagation()}>
 
-                                                    {/* One single-line flex row for both the print icons and the
+                                                    {/* One single-line flex row for both the print buttons and the
                                                         quick-advance button - previously these were two separate
                                                         inline elements that wrapped onto their own line whenever a
                                                         row had a Mark button, roughly doubling that row's height
                                                         and cutting how many orders fit on screen at once. */}
                                                     <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ flexWrap: "nowrap" }}>
 
-                                                        {/* One labeled "Print" trigger opening a menu with the
-                                                            two choices spelled out, replacing what used to be
-                                                            two bare icon buttons (a soup bowl standing in for
-                                                            "KOT", a generic printer for "bill") with no visible
-                                                            label at all - clear only after hovering long enough
-                                                            for the tooltip, which a touchscreen or a quick scan
-                                                            never gets. */}
-                                                        <Tooltip title="Print">
-                                                            <IconButton
-                                                                size="small"
-                                                                disabled={printLoadingId === order.OrderId}
-                                                                onClick={(event) => handleOpenPrintMenu(event, order.OrderId)}
-                                                                aria-label={`Print options for order ${order.OrderId}`}
-                                                            >
-                                                                <PrintOutlinedIcon fontSize="small" />
-                                                            </IconButton>
+                                                        {/* Two small, always-visible, text-labeled buttons - tried
+                                                            both bare icons (unclear which is which without
+                                                            hovering) and a single icon opening a menu (not obvious
+                                                            it opens anything at all) before landing here. A real
+                                                            word beats either shortcut. */}
+                                                        <Tooltip title="Print kitchen order ticket">
+                                                            <span>
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    disabled={printLoadingId === order.OrderId}
+                                                                    onClick={(event) => handlePrint(event, order, "kot")}
+                                                                    sx={{ minWidth: 0, px: 1, fontSize: 11, lineHeight: 1.3 }}
+                                                                >
+                                                                    KOT
+                                                                </Button>
+                                                            </span>
                                                         </Tooltip>
 
-                                                        <Menu
-                                                            anchorEl={printMenuAnchor}
-                                                            open={printMenuOrderId === order.OrderId}
-                                                            onClose={handleClosePrintMenu}
-                                                            onClick={(event) => event.stopPropagation()}
-                                                        >
-
-                                                            <MenuItem onClick={(event) => handlePrint(event, order, "kot")}>
-                                                                <ListItemIcon>
-                                                                    <SoupKitchenOutlinedIcon fontSize="small" />
-                                                                </ListItemIcon>
-                                                                Print KOT
-                                                            </MenuItem>
-
-                                                            <MenuItem onClick={(event) => handlePrint(event, order, "bill")}>
-                                                                <ListItemIcon>
-                                                                    <ReceiptLongOutlinedIcon fontSize="small" />
-                                                                </ListItemIcon>
-                                                                Print Bill
-                                                            </MenuItem>
-
-                                                        </Menu>
+                                                        <Tooltip title="Print bill">
+                                                            <span>
+                                                                <Button
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    disabled={printLoadingId === order.OrderId}
+                                                                    onClick={(event) => handlePrint(event, order, "bill")}
+                                                                    sx={{ minWidth: 0, px: 1, fontSize: 11, lineHeight: 1.3 }}
+                                                                >
+                                                                    Bill
+                                                                </Button>
+                                                            </span>
+                                                        </Tooltip>
 
                                                         {/* Fixed-width slot regardless of whether a button renders into
                                                             it - a terminal order (no button at all) or a short label
@@ -787,15 +764,19 @@ function Orders() {
                                                         <Box sx={{ width: 200, display: "flex", justifyContent: "flex-end" }}>
 
                                                             {!isTerminalStatus(order.OrderStatus) && nextStatus && (
-                                                                <Button
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    disabled={advancingOrderIds.has(order.OrderId)}
-                                                                    onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
-                                                                    sx={{ whiteSpace: "nowrap", minWidth: 120 }}
-                                                                >
-                                                                    {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
-                                                                </Button>
+                                                                <Tooltip title={blockedByUnconfirmedPayment ? "Payment not yet confirmed for this order - it can't move to Preparing yet." : ""}>
+                                                                    <span>
+                                                                        <Button
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            disabled={advancingOrderIds.has(order.OrderId) || blockedByUnconfirmedPayment}
+                                                                            onClick={(event) => handleQuickAdvance(event, order, nextStatus)}
+                                                                            sx={{ whiteSpace: "nowrap", minWidth: 120 }}
+                                                                        >
+                                                                            {advancingOrderIds.has(order.OrderId) ? "..." : `Mark ${nextStatus}`}
+                                                                        </Button>
+                                                                    </span>
+                                                                </Tooltip>
                                                             )}
 
                                                         </Box>

@@ -58,6 +58,20 @@ export const getNextStatuses = (currentStatus, deliveryType) => {
 
 };
 
+// Mirrors the backend's own hasStartedPreparing (OrderRepository.js) -
+// duplicated deliberately rather than shared over the network, since this
+// is a pure client-side check (used only to decide whether to disable the
+// quick-advance button before ever making the request, not to enforce
+// anything - the server's own gate is still what actually protects this).
+export const hasStartedPreparing = (status, deliveryType) => {
+
+    const sequence = getStatusSequence(deliveryType);
+    const index = sequence.indexOf(status);
+
+    return index !== -1 && index >= sequence.indexOf("Preparing");
+
+};
+
 export const STATUS_CHIP_COLORS = {
     Pending: "default",
     Accepted: "info",
