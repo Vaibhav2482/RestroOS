@@ -109,20 +109,57 @@ export const updateCustomer = async (customer) => {
 // TotalSpent used to show a customer as having placed orders while somehow
 // spending nothing, which just reads as a broken number, not "they
 // cancelled everything."
-export const getAllCustomersByTenant = async (tenantId) => {
+//
+// `pagination`/`filters` are optional and additive, mirroring
+// OrderRepository.getAllOrders - the one existing caller (and this file's
+// own repository test) that doesn't pass them keeps getting the full
+// unpaginated array back exactly as before.
+export const getAllCustomersByTenant = async (tenantId, pagination = null, filters = null) => {
 
+    if (!pagination) {
+
+        const result = await pool.query(
+            `SELECT C."CustomerId", C."FullName", C."Email", C."Phone", C."CreatedAt", C."UpdatedAt",
+                    COUNT(O."OrderId") FILTER (WHERE O."OrderStatus" <> 'Cancelled') AS "OrderCount",
+                    COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent"
+             FROM "Customers" C
+             LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
+             WHERE C."TenantId" = $1
+             GROUP BY C."CustomerId"
+             ORDER BY C."CustomerId" DESC`,
+            [tenantId]
+        );
+
+        return result.rows;
+
+    }
+
+    const { page, limit } = pagination;
+    const offset = (page - 1) * limit;
+    const search = filters?.search?.trim() || null;
+
+    // COUNT(*) OVER() rides along after the GROUP BY (window functions
+    // apply post-aggregation), so it correctly counts every matching
+    // customer, not just the page's own rows - same pattern as
+    // OrderRepository.getAllOrders' TotalCount.
     const result = await pool.query(
         `SELECT C."CustomerId", C."FullName", C."Email", C."Phone", C."CreatedAt", C."UpdatedAt",
                 COUNT(O."OrderId") FILTER (WHERE O."OrderStatus" <> 'Cancelled') AS "OrderCount",
-                COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent"
+                COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent",
+                COUNT(*) OVER() AS "TotalCount"
          FROM "Customers" C
          LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
          WHERE C."TenantId" = $1
+           AND ($2::text IS NULL OR C."FullName" ILIKE '%' || $2 || '%' OR C."Phone" ILIKE '%' || $2 || '%' OR C."Email" ILIKE '%' || $2 || '%')
          GROUP BY C."CustomerId"
-         ORDER BY C."CustomerId" DESC`,
-        [tenantId]
+         ORDER BY C."CustomerId" DESC
+         LIMIT $3 OFFSET $4`,
+        [tenantId, search, limit, offset]
     );
 
-    return result.rows;
+    const total = result.rows[0]?.TotalCount ?? 0;
+    const customers = result.rows.map(({ TotalCount, ...customer }) => customer);
+
+    return { customers, total };
 
 };

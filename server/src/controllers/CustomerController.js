@@ -2,6 +2,25 @@ import * as CustomerService from "../services/CustomerService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
 
+// A page/limit pair is opt-in - same pattern as OrderController's own
+// resolvePagination - only present when the caller actually sent both.
+// Absent either one, getAllCustomers keeps returning the full array it
+// always has.
+const MAX_PAGE_SIZE = 100;
+
+const resolvePagination = (req) => {
+
+    if (req.query.page === undefined && req.query.limit === undefined) {
+        return null;
+    }
+
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.limit) || 25));
+
+    return { page, limit };
+
+};
+
 // Self-access is always tenant-safe (a customer's own record already belongs
 // to their own tenant). Admin access is NOT automatically tenant-safe - it
 // must be checked against the fetched record's TenantId explicitly, or any
@@ -84,7 +103,10 @@ export const changePassword = asyncHandler(async (req, res) => {
 
 export const getAllCustomers = asyncHandler(async (req, res) => {
 
-    const result = await CustomerService.getAllCustomers(req.user.tenantId);
+    const pagination = resolvePagination(req);
+    const filters = pagination ? { search: req.query.search || null } : null;
+
+    const result = await CustomerService.getAllCustomers(req.user.tenantId, pagination, filters);
 
     return successResponse(res, result.data, result.message);
 

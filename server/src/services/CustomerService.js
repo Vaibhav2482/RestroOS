@@ -183,10 +183,18 @@ export const changeOwnPassword = async (customerId, currentPassword, newPassword
 
 };
 
-export const getAllCustomers = async (tenantId) => {
+export const getAllCustomers = async (tenantId, pagination = null, filters = null) => {
 
-    const customers = await CustomerRepository.getAllCustomersByTenant(tenantId);
+    const result = await CustomerRepository.getAllCustomersByTenant(tenantId, pagination, filters);
 
-    return { success: true, message: "Customers fetched successfully.", data: customers };
+    if (!pagination) {
+        return { success: true, message: "Customers fetched successfully.", data: result };
+    }
+
+    return {
+        success: true,
+        message: "Customers fetched successfully.",
+        data: { customers: result.customers, total: result.total, page: pagination.page, limit: pagination.limit }
+    };
 
 };
