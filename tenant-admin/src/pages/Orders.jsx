@@ -720,7 +720,7 @@ function Orders() {
                                                         inline elements that wrapped onto their own line whenever a
                                                         row had a Mark button, roughly doubling that row's height
                                                         and cutting how many orders fit on screen at once. */}
-                                                    <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center" sx={{ flexWrap: "nowrap" }}>
+                                                    <Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center" sx={{ flexWrap: "nowrap" }}>
 
                                                         {/* Two small, always-visible, text-labeled buttons - tried
                                                             both bare icons (unclear which is which without
@@ -760,8 +760,13 @@ function Orders() {
                                                             ("Mark Ready") vs a long one ("Mark Out For Delivery") used
                                                             to leave the row's occupied width ragged and inconsistent
                                                             from one order to the next. Reserving this slot up front
-                                                            keeps every row's shape identical either way. */}
-                                                        <Box sx={{ width: 200, display: "flex", justifyContent: "flex-end" }}>
+                                                            keeps every row's shape identical either way. Anchored to
+                                                            flex-start (not flex-end) so the button always sits right
+                                                            next to Bill with the same gap as every other button here -
+                                                            right-aligning a short label like "Mark Ready" inside this
+                                                            200px box left a wide dead gap right after Bill that a
+                                                            long label like "Mark Out For Delivery" didn't have. */}
+                                                        <Box sx={{ width: 200, display: "flex", justifyContent: "flex-start" }}>
 
                                                             {!isTerminalStatus(order.OrderStatus) && nextStatus && (
                                                                 <Tooltip title={blockedByUnconfirmedPayment ? "Payment not yet confirmed for this order - it can't move to Preparing yet." : ""}>
