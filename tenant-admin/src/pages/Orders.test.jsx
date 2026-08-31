@@ -206,12 +206,13 @@ describe("Orders - quick status advance", () => {
 
     });
 
-    // A cancelled order is already dead, so the badge still shows (staff
+    // A cancelled order is already dead, so this still shows (staff
     // scanning cancelled orders need to tell "customer's payment just
-    // failed" apart from "voided for some other reason") but muted to a
-    // plain outlined grey chip instead of a second bold red badge shouting
-    // for attention right under an already-red Cancelled pill.
-    it("mutes the payment badge to a plain outlined chip on a Cancelled order, rather than hiding or alarming it", async () => {
+    // failed" apart from "voided for some other reason") but as plain
+    // caption text, not a second chip - two badge shapes stacked under
+    // each other read as two competing statuses on one row even when the
+    // second one is muted in color.
+    it("shows plain text, not a chip, for the payment info on a Cancelled order", async () => {
 
         mockServerOrders([
             { OrderId: 90, CustomerName: "Vaibhav Nawale", DeliveryType: "Delivery", PaymentMethod: "Card", LatestPaymentStatus: "Failed", TotalAmount: 200, OrderStatus: "Cancelled", OrderDate: "2026-07-25T21:00:24" }
@@ -221,9 +222,9 @@ describe("Orders - quick status advance", () => {
 
         await screen.findByText("#90");
 
-        const badge = screen.getByText(/payment failed/i);
-        expect(badge).toBeInTheDocument();
-        expect(badge.closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
+        const note = screen.getByText(/payment failed/i);
+        expect(note).toBeInTheDocument();
+        expect(note.closest(".MuiChip-root")).toBeNull();
 
     });
 

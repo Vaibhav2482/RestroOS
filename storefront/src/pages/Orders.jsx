@@ -339,20 +339,18 @@ function Orders() {
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5, flexWrap: "wrap", rowGap: 0.5 }}>
                                     <Typography fontWeight={700}>Order #{order.OrderId}</Typography>
                                     <Chip label={order.OrderStatus} color={statusColor(order.OrderStatus)} size="small" />
-                                    {/* Only when NOT Paid - a successful online payment or a Cash
-                                        order (no LatestPaymentStatus at all) needs no extra badge
-                                        here. Still shown on a Cancelled order - it's real, useful
-                                        context for the customer (their payment genuinely didn't go
-                                        through, distinct from the restaurant cancelling for some
-                                        other reason), just muted to a plain outlined grey there
-                                        instead of a second bold badge on an order that's already
-                                        resolved - this is history now, not a live warning. */}
-                                    {ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
+                                    {/* Only when NOT Paid AND still live - a successful online
+                                        payment, a Cash order (no LatestPaymentStatus at all), or a
+                                        Cancelled order (shown as plain text below instead, not a
+                                        second badge - see that line) needs no chip here. Two bold
+                                        badges on one row reads as two competing statuses even once
+                                        the second one so a Cancelled order never reaches this branch
+                                        at all now, rather than trying to mute it in place. */}
+                                    {order.OrderStatus !== "Cancelled" && ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
                                         <Chip
                                             icon={<PaymentOutlinedIcon fontSize="small" />}
                                             label={`Payment ${order.LatestPaymentStatus}`}
-                                            color={order.OrderStatus === "Cancelled" ? "default" : (PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default")}
-                                            variant={order.OrderStatus === "Cancelled" ? "outlined" : "filled"}
+                                            color={PAYMENT_STATUS_COLOR[order.LatestPaymentStatus] || "default"}
                                             size="small"
                                         />
                                     )}
@@ -362,6 +360,18 @@ function Orders() {
                                     {formatDate(order.OrderDate)} &middot; {order.DeliveryType}
                                     {order.DeliveryType === "Dine In" && order.TableNumber ? ` (Table ${order.TableNumber})` : ""}
                                 </Typography>
+
+                                {/* Plain text, not a chip - real context for the customer (their
+                                    payment genuinely didn't go through, distinct from the
+                                    restaurant cancelling for some other reason), but this order is
+                                    already resolved, so it reads as a note about what happened
+                                    rather than a second live status competing with the Cancelled
+                                    chip above. */}
+                                {order.OrderStatus === "Cancelled" && ONLINE_PAYMENT_METHODS.includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
+                                    <Typography variant="body2" color="text.secondary">
+                                        Payment {order.LatestPaymentStatus.toLowerCase()}
+                                    </Typography>
+                                )}
 
                                 <Typography variant="body2" sx={{ mt: 1 }}>
                                     {itemsPreview(order.Items)}

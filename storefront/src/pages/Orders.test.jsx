@@ -94,12 +94,13 @@ describe("Orders - payment status visibility", () => {
 
     // A cancelled order is already dead, so offering "Retry Payment" would
     // open a real checkout for an order that will never be fulfilled - that
-    // action must disappear. The payment badge itself stays though: it's
+    // action must disappear. The payment info itself stays though: it's
     // real context for the customer (their payment genuinely didn't go
     // through, distinct from the restaurant cancelling for some other
-    // reason) - just muted to a plain outlined chip instead of a second
-    // bold badge on an order that's already resolved.
-    it("mutes the payment badge and removes Retry Payment for a Cancelled order, even with a failed payment", async () => {
+    // reason) - just as plain text instead of a second bold chip sitting
+    // next to the already-shown Cancelled chip on an order that's already
+    // resolved.
+    it("shows plain payment text (not a chip) and removes Retry Payment for a Cancelled order, even with a failed payment", async () => {
 
         orderService.getOrdersByCustomer.mockResolvedValue({
             success: true,
@@ -110,9 +111,9 @@ describe("Orders - payment status visibility", () => {
 
         await screen.findByText("Order #61");
 
-        const badge = screen.getByText(/^Payment /);
-        expect(badge).toBeInTheDocument();
-        expect(badge.closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
+        const note = screen.getByText(/^Payment /);
+        expect(note).toBeInTheDocument();
+        expect(note.closest(".MuiChip-root")).toBeNull();
         expect(screen.queryByRole("button", { name: /^retry payment$/i })).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: /^reorder$/i })).toBeInTheDocument();
 

@@ -663,24 +663,39 @@ function Orders() {
                                                 <TableCell>
                                                     <StatusPill status={order.OrderStatus} />
                                                     {/* Only flagged when it's NOT Paid - the common case
-                                                        (already paid, or Cash) needs no badge here. Still
-                                                        shown on a Cancelled order (it's real, useful
-                                                        context - "why did this get cancelled" - staff
-                                                        scanning cancelled orders need to tell "customer's
-                                                        payment just failed" apart from "voided for some
-                                                        other reason"), but muted to a plain outlined grey
-                                                        there instead of a second bold red badge shouting
-                                                        for attention right under an already-red Cancelled
-                                                        pill - the order is already resolved, this is
-                                                        history, not a live warning. */}
+                                                        (already paid, or Cash) needs no badge here.
+                                                        A Cancelled order still gets this as plain caption
+                                                        text, not a second pill-shaped chip - staff scanning
+                                                        cancelled orders need to tell "customer's payment
+                                                        just failed" apart from "voided for some other
+                                                        reason", but two badge shapes stacked under each
+                                                        other reads as two competing statuses on one row
+                                                        even when the second one is muted in color. Plain
+                                                        text underneath (same visual language as the
+                                                        "by Admin Name" caption elsewhere in this table)
+                                                        reads as a note about a closed order, not a second
+                                                        live status. An active order still gets the real
+                                                        alarm-colored chip - that one genuinely needs
+                                                        attention before someone tries to prepare it. */}
                                                     {["Card", "UPI"].includes(order.PaymentMethod) && order.LatestPaymentStatus && order.LatestPaymentStatus !== "Paid" && (
-                                                        <Chip
-                                                            label={`Payment ${order.LatestPaymentStatus}`}
-                                                            size="small"
-                                                            color={order.OrderStatus === "Cancelled" ? "default" : (order.LatestPaymentStatus === "Failed" ? "error" : "warning")}
-                                                            variant={order.OrderStatus === "Cancelled" ? "outlined" : "filled"}
-                                                            sx={{ ml: 0.5 }}
-                                                        />
+
+                                                        order.OrderStatus === "Cancelled" ? (
+
+                                                            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                                                                Payment {order.LatestPaymentStatus.toLowerCase()}
+                                                            </Typography>
+
+                                                        ) : (
+
+                                                            <Chip
+                                                                label={`Payment ${order.LatestPaymentStatus}`}
+                                                                size="small"
+                                                                color={order.LatestPaymentStatus === "Failed" ? "error" : "warning"}
+                                                                sx={{ ml: 0.5 }}
+                                                            />
+
+                                                        )
+
                                                     )}
                                                 </TableCell>
 
