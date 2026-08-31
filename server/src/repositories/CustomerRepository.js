@@ -102,13 +102,18 @@ export const updateCustomer = async (customer) => {
 
 // Left-joined (not INNER) so a customer with zero orders still appears,
 // with OrderCount/TotalSpent as 0 rather than being dropped entirely.
-// Cancelled orders are excluded from TotalSpent - a cancelled order was
-// never actually paid out, so counting it would overstate real spend.
+// Cancelled orders are excluded from BOTH OrderCount and TotalSpent - a
+// cancelled order was never actually paid out, so counting it in either
+// figure would overstate a customer's real activity/spend. Both use the
+// same FILTER for exactly that reason - counting it in OrderCount but not
+// TotalSpent used to show a customer as having placed orders while somehow
+// spending nothing, which just reads as a broken number, not "they
+// cancelled everything."
 export const getAllCustomersByTenant = async (tenantId) => {
 
     const result = await pool.query(
         `SELECT C."CustomerId", C."FullName", C."Email", C."Phone", C."CreatedAt", C."UpdatedAt",
-                COUNT(O."OrderId") AS "OrderCount",
+                COUNT(O."OrderId") FILTER (WHERE O."OrderStatus" <> 'Cancelled') AS "OrderCount",
                 COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent"
          FROM "Customers" C
          LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
