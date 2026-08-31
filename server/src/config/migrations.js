@@ -634,5 +634,15 @@ export const MIGRATIONS = [
               AND O."PaymentMethod" IN ('Card', 'UPI')
               AND NOT EXISTS (SELECT 1 FROM "Payments" P WHERE P."OrderId" = O."OrderId");
         `
+    },
+    {
+        // Free-text, not an enum - "floor" means wildly different things per
+        // restaurant ("Ground Floor", "Terrace", "Hall A"), and nullable so
+        // this is entirely opt-in: a tenant who never sets it sees no change
+        // at all in the Take Order grid.
+        id: "0035_table_floor",
+        sql: `
+            ALTER TABLE "Tables" ADD COLUMN "Floor" VARCHAR(50) NULL;
+        `
     }
 ];

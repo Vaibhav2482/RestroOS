@@ -3,10 +3,11 @@ import pool from "../config/db.js";
 export const getActiveTables = async (branchId) => {
 
     const result = await pool.query(
-        `SELECT "TableId", "BranchId", "TableName", "Capacity"
+        `SELECT "TableId", "BranchId", "TableName", "Capacity", "Floor"
          FROM "Tables"
          WHERE "BranchId" = $1 AND "IsActive" = TRUE
-         ORDER BY regexp_replace("TableName", '\\d+', '', 'g'),
+         ORDER BY "Floor" NULLS LAST,
+                  regexp_replace("TableName", '\\d+', '', 'g'),
                   NULLIF(regexp_replace("TableName", '\\D', '', 'g'), '')::bigint NULLS FIRST,
                   "TableName"`,
         [branchId]
@@ -19,11 +20,12 @@ export const getActiveTables = async (branchId) => {
 export const getAllTables = async (tenantId, branchId) => {
 
     const result = await pool.query(
-        `SELECT T."TableId", T."BranchId", B."BranchName", T."TableName", T."Capacity", T."IsActive", T."CreatedAt", T."UpdatedAt"
+        `SELECT T."TableId", T."BranchId", B."BranchName", T."TableName", T."Capacity", T."Floor", T."IsActive", T."CreatedAt", T."UpdatedAt"
          FROM "Tables" T
          INNER JOIN "Branches" B ON T."BranchId" = B."BranchId"
          WHERE B."TenantId" = $1 AND ($2::int IS NULL OR T."BranchId" = $2)
          ORDER BY B."BranchName",
+                  T."Floor" NULLS LAST,
                   regexp_replace(T."TableName", '\\d+', '', 'g'),
                   NULLIF(regexp_replace(T."TableName", '\\D', '', 'g'), '')::bigint NULLS FIRST,
                   T."TableName"`,
@@ -37,7 +39,7 @@ export const getAllTables = async (tenantId, branchId) => {
 export const getTableById = async (tableId) => {
 
     const result = await pool.query(
-        `SELECT T."TableId", T."BranchId", B."TenantId", T."TableName", T."Capacity", T."IsActive", T."CreatedAt", T."UpdatedAt"
+        `SELECT T."TableId", T."BranchId", B."TenantId", T."TableName", T."Capacity", T."Floor", T."IsActive", T."CreatedAt", T."UpdatedAt"
          FROM "Tables" T
          INNER JOIN "Branches" B ON T."BranchId" = B."BranchId"
          WHERE T."TableId" = $1`,
@@ -66,10 +68,10 @@ export const getTableByName = async (branchId, tableName, excludeTableId = null)
 export const createTable = async (table) => {
 
     const result = await pool.query(
-        `INSERT INTO "Tables" ("BranchId", "TableName", "Capacity", "IsActive", "CreatedAt")
-         VALUES ($1, $2, $3, TRUE, NOW())
+        `INSERT INTO "Tables" ("BranchId", "TableName", "Capacity", "Floor", "IsActive", "CreatedAt")
+         VALUES ($1, $2, $3, $4, TRUE, NOW())
          RETURNING *`,
-        [table.branchId, table.tableName, table.capacity ?? null]
+        [table.branchId, table.tableName, table.capacity ?? null, table.floor?.trim() || null]
     );
 
     return result.rows[0];
@@ -85,11 +87,11 @@ export const updateTable = async (table, tenantId) => {
 
     const result = await pool.query(
         `UPDATE "Tables"
-         SET "TableName" = $1, "Capacity" = $2, "IsActive" = $3, "UpdatedAt" = NOW()
-         WHERE "TableId" = $4
-           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $5)
+         SET "TableName" = $1, "Capacity" = $2, "Floor" = $3, "IsActive" = $4, "UpdatedAt" = NOW()
+         WHERE "TableId" = $5
+           AND "BranchId" IN (SELECT "BranchId" FROM "Branches" WHERE "TenantId" = $6)
          RETURNING *`,
-        [table.tableName, table.capacity ?? null, table.isActive, table.tableId, tenantId]
+        [table.tableName, table.capacity ?? null, table.floor?.trim() || null, table.isActive, table.tableId, tenantId]
     );
 
     return result.rows[0];
