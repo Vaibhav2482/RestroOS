@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Button, Chip, IconButton, MenuItem, Select, Stack, Typography } from "@mui/material";
+import { Box, Button, Chip, CircularProgress, IconButton, MenuItem, Select, Stack, Typography } from "@mui/material";
 import TableRestaurantRoundedIcon from "@mui/icons-material/TableRestaurantRounded";
 import ShoppingBagRoundedIcon from "@mui/icons-material/ShoppingBagRounded";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
@@ -30,7 +30,13 @@ function Pos() {
 
     const [tables, setTables] = useState([]);
     const [activeOrders, setActiveOrders] = useState([]);
-    const [loading, setLoading] = useState(false);
+    // Starts true, not false - tables is [] before the first fetch resolves
+    // either way (branch admin or owner), and PosTableGrid can't tell "no
+    // tables yet" apart from "haven't fetched yet" on its own. Left false
+    // by default, the floor briefly flashed its own "No tables yet" empty
+    // state on every page load/branch switch before the real grid replaced
+    // it, since nothing was actually gating the grid on this flag.
+    const [loading, setLoading] = useState(true);
 
     const [mode, setMode] = useState("grid");
     const [pendingTable, setPendingTable] = useState(null);
@@ -76,6 +82,13 @@ function Pos() {
 
                     if (response.data.length > 0) {
                         setSelectedBranchId(response.data[0].BranchId);
+                    } else {
+                        // No branch to select means the table-state effect
+                        // below never fires, so nothing else will ever turn
+                        // this off - an owner account with zero branches
+                        // would otherwise spin forever instead of reaching
+                        // PosTableGrid's own "no tables" empty state.
+                        setLoading(false);
                     }
 
                 }
@@ -83,6 +96,7 @@ function Pos() {
             } catch {
 
                 toast.error("Failed to load branches.");
+                setLoading(false);
 
             }
 
@@ -412,7 +426,7 @@ function Pos() {
 
             )}
 
-            {mode === "grid" && tables.length > 0 && (
+            {mode === "grid" && !loading && tables.length > 0 && (
 
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
 
@@ -440,15 +454,25 @@ function Pos() {
 
             {mode === "grid" && (
 
-                <PosTableGrid
-                    tables={tables}
-                    activeOrdersByTable={activeOrdersByTable}
-                    onTableClick={handleTableClick}
-                    onQuickAdvance={handleAdvanceStatus}
-                    onAddOrder={handleAddAnotherOrder}
-                    onSettleBill={setSettleBillTable}
-                    pendingAdvanceOrderIds={pendingAdvanceOrderIds}
-                />
+                loading ? (
+
+                    <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+                        <CircularProgress size={28} />
+                    </Box>
+
+                ) : (
+
+                    <PosTableGrid
+                        tables={tables}
+                        activeOrdersByTable={activeOrdersByTable}
+                        onTableClick={handleTableClick}
+                        onQuickAdvance={handleAdvanceStatus}
+                        onAddOrder={handleAddAnotherOrder}
+                        onSettleBill={setSettleBillTable}
+                        pendingAdvanceOrderIds={pendingAdvanceOrderIds}
+                    />
+
+                )
 
             )}
 
