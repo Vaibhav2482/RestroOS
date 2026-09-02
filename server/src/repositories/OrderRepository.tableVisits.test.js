@@ -48,4 +48,22 @@ describe("OrderRepository.getActiveTableOrders - visit-driven occupancy", () => 
 
     });
 
+    // The WHERE clause always filters to Dine In (see above), but the SELECT
+    // list never actually returned the DeliveryType column itself - every
+    // row PosTableGrid received had DeliveryType undefined, which silently
+    // sent posOrderStatus.js's getPosStatusSteps down its Takeaway fallback
+    // for every Dine In table. The floor grid's quick-advance button read
+    // "Picked Up" instead of "Served" for every occupied table.
+    it("selects DeliveryType, not just filters on it", async () => {
+
+        queryMock.mockResolvedValue({ rows: [] });
+
+        await getActiveTableOrders(1);
+
+        const [sql] = queryMock.mock.calls[0];
+
+        expect(sql).toMatch(/SELECT[^;]*O\."DeliveryType"/);
+
+    });
+
 });

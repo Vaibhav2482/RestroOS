@@ -124,3 +124,50 @@ describe("OrderRepository.createOrder - Payments row for staff-created Card/UPI 
     });
 
 });
+
+describe("OrderRepository.createOrder - initial status", () => {
+
+    // A staff-placed order (Take Order/POS - createdByAdminId set) has no
+    // one left to accept it: the staff member taking it down at the table
+    // or counter already is the acceptance. Starting it at Pending anyway
+    // used to mean an extra "Mark Accepted" click on an order staff just
+    // typed in themselves.
+    it("starts a staff-placed order at Accepted, not Pending", async () => {
+
+        queueBaseSequence();
+        // Cash never gets the staff Payments-row insert (that's Card/UPI
+        // only) - so the sequence after the Orders insert is just OrderItems
+        // insert, final select, COMMIT, same as the customer case below.
+        clientQueryMock.mockResolvedValueOnce(undefined); // OrderItems insert
+        clientQueryMock.mockResolvedValueOnce({ rows: [{ OrderId: 100 }] }); // final select
+        clientQueryMock.mockResolvedValueOnce(undefined); // COMMIT
+
+        await createOrder({ ...TAKEAWAY_ORDER, paymentMethod: "Cash", createdByAdminId: 7 });
+
+        const ordersInsertCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Orders"'));
+
+        expect(ordersInsertCall[1]).toContain("Accepted");
+        expect(ordersInsertCall[1]).not.toContain("Pending");
+
+    });
+
+    // A customer's own storefront order (createdByAdminId null) still needs
+    // a real human to notice and accept it - nobody on staff has seen this
+    // one yet, unlike an order staff typed in themselves.
+    it("starts a customer's own order at Pending", async () => {
+
+        queueBaseSequence();
+        clientQueryMock.mockResolvedValueOnce(undefined); // OrderItems insert
+        clientQueryMock.mockResolvedValueOnce({ rows: [{ OrderId: 100 }] }); // final select
+        clientQueryMock.mockResolvedValueOnce(undefined); // COMMIT
+
+        await createOrder({ ...TAKEAWAY_ORDER, paymentMethod: "Cash", createdByAdminId: null });
+
+        const ordersInsertCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes('INSERT INTO "Orders"'));
+
+        expect(ordersInsertCall[1]).toContain("Pending");
+        expect(ordersInsertCall[1]).not.toContain("Accepted");
+
+    });
+
+});

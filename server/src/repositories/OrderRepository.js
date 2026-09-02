@@ -189,10 +189,17 @@ export const createOrder = async (order) => {
             ? await resolveOpenVisitId(client, branchId, order.tableNumber)
             : null;
 
+        // A staff-placed order (POS/counter - createdByAdminId set, see
+        // OrderController) has no one left to accept it - the staff member
+        // taking it down at the table or counter *is* the acceptance. Only a
+        // customer's own storefront order (nobody on staff has seen it yet)
+        // actually needs to sit in Pending for the kitchen to acknowledge.
+        const initialStatus = order.createdByAdminId ? "Accepted" : "Pending";
+
         const orderInsert = await client.query(
             `INSERT INTO "Orders"
                 ("BranchId", "CustomerId", "AddressId", "DeliveryType", "PaymentMethod", "SubTotal", "CgstAmount", "SgstAmount", "TotalAmount", "OrderStatus", "OrderNotes", "OrderDate", "TableNumber", "CouponId", "DiscountAmount", "CreatedByAdminId", "VisitId")
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'Pending', $10, NOW(), $11, $12, $13, $14, $15)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16)
              RETURNING "OrderId"`,
             [
                 branchId,
@@ -204,6 +211,7 @@ export const createOrder = async (order) => {
                 cgstAmount,
                 sgstAmount,
                 totalAmount,
+                initialStatus,
                 order.notes ?? null,
                 order.tableNumber ?? null,
                 couponId,
@@ -292,7 +300,7 @@ export const createOrder = async (order) => {
 export const getActiveTableOrders = async (branchId) => {
 
     const result = await pool.query(
-        `SELECT O."TableNumber", O."OrderId", O."OrderStatus", O."TotalAmount", O."OrderDate", O."VisitId", C."FullName" AS "CustomerName"
+        `SELECT O."TableNumber", O."OrderId", O."OrderStatus", O."DeliveryType", O."TotalAmount", O."OrderDate", O."VisitId", C."FullName" AS "CustomerName"
          FROM "Orders" O
          INNER JOIN "Customers" C ON O."CustomerId" = C."CustomerId"
          INNER JOIN "TableVisits" V ON O."VisitId" = V."VisitId" AND V."Status" = 'Open'
@@ -645,8 +653,13 @@ export const updateOrderItems = async (orderId, items) => {
         const branchId = orderCheck.rows[0].BranchId;
         const discountAmount = Number(orderCheck.rows[0].DiscountAmount || 0);
 
-        if (orderStatus !== "Pending") {
-            throw new Error("Only pending orders can have their items edited.");
+        // A staff-placed order (POS/counter) starts at Accepted, not Pending
+        // (see createOrder) - it still needs this same pre-kitchen edit
+        // window, just under a different starting status, so this can't
+        // check for "Pending" alone without locking staff out of editing the
+        // exact orders this route exists for.
+        if (!["Pending", "Accepted"].includes(orderStatus)) {
+            throw new Error("Only orders not yet in preparation can have their items edited.");
         }
 
         const menuItemIds = items.map((item) => item.menuItemId);
