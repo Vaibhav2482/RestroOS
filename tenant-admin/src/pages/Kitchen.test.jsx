@@ -99,3 +99,117 @@ describe("Kitchen - payment-confirmation guard", () => {
     });
 
 });
+
+describe("Kitchen - Accepted vs Preparing sub-status", () => {
+
+    // In Progress merges Accepted and Preparing into one column with one
+    // shared "Mark Ready" button - without a sub-status label, a ticket
+    // nobody's started cooking looked identical to one already on the
+    // stove. Only shown in a column that actually merges multiple statuses;
+    // New and Ready for Pickup are each a single status already.
+    it("shows a sub-status chip for a Preparing ticket in In Progress", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [baseOrder({ OrderId: 20, OrderStatus: "Preparing" })]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#20");
+
+        expect(screen.getByText("Preparing")).toBeInTheDocument();
+
+    });
+
+    it("shows a sub-status chip for an Accepted ticket in In Progress", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [baseOrder({ OrderId: 21, OrderStatus: "Accepted" })]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#21");
+
+        expect(screen.getByText("Accepted")).toBeInTheDocument();
+
+    });
+
+    it("does not show a sub-status chip for a ticket in New (a single-status column)", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [baseOrder({ OrderId: 22, OrderStatus: "Pending" })]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#22");
+
+        expect(screen.queryByText("Pending")).not.toBeInTheDocument();
+
+    });
+
+});
+
+describe("Kitchen - grouping a table's multiple open tickets", () => {
+
+    // A table ordering a second round mid-sitting used to show up as two
+    // unrelated cards - nothing tied them together as the same table.
+    it("groups two Dine In tickets for the same table under one header", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [
+                baseOrder({ OrderId: 30, DeliveryType: "Dine In", TableNumber: "A1", OrderStatus: "Pending" }),
+                baseOrder({ OrderId: 31, DeliveryType: "Dine In", TableNumber: "A1", OrderStatus: "Pending" })
+            ]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#30");
+        await screen.findByText("#31");
+
+        expect(screen.getByText(/table a1.*2 orders/i)).toBeInTheDocument();
+
+    });
+
+    it("does not group a table with only one open ticket - no header, just the card", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [baseOrder({ OrderId: 32, DeliveryType: "Dine In", TableNumber: "A2", OrderStatus: "Pending" })]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#32");
+
+        expect(screen.queryByText(/orders$/i)).not.toBeInTheDocument();
+        expect(screen.getByText("Table A2")).toBeInTheDocument();
+
+    });
+
+    it("never groups Takeaway tickets, even several open at once", async () => {
+
+        orderService.getKitchenOrders.mockResolvedValue({
+            success: true,
+            data: [
+                baseOrder({ OrderId: 33, DeliveryType: "Takeaway", OrderStatus: "Pending" }),
+                baseOrder({ OrderId: 34, DeliveryType: "Takeaway", OrderStatus: "Pending" })
+            ]
+        });
+
+        render(<Kitchen />);
+
+        await screen.findByText("#33");
+        await screen.findByText("#34");
+
+        expect(screen.queryByText(/orders$/i)).not.toBeInTheDocument();
+
+    });
+
+});

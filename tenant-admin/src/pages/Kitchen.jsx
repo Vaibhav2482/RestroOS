@@ -66,7 +66,41 @@ function formatElapsed(minutes) {
 
 }
 
-function OrderTicket({ order, column, onAdvance, advancing, onPrintKot }) {
+// A table ordering a second round mid-sitting (starters already in, dessert
+// ordered before they're even out) used to show up as two cards with
+// nothing tying them together - easy to miss they're the same table.
+// Groups consecutive same-table Dine In tickets within a column; Takeaway/
+// Delivery orders (no table) and a table with only one open ticket here
+// stay exactly as before, single card, no wrapper.
+function groupOrdersByTable(columnOrders) {
+
+    const groups = [];
+    const groupByTable = new Map();
+
+    for (const order of columnOrders) {
+
+        const tableKey = order.DeliveryType === "Dine In" && order.TableNumber ? order.TableNumber : null;
+
+        if (tableKey && groupByTable.has(tableKey)) {
+            groupByTable.get(tableKey).orders.push(order);
+            continue;
+        }
+
+        const group = { tableNumber: tableKey, orders: [order] };
+
+        if (tableKey) {
+            groupByTable.set(tableKey, group);
+        }
+
+        groups.push(group);
+
+    }
+
+    return groups;
+
+}
+
+function OrderTicket({ order, column, onAdvance, advancing, onPrintKot, hideTableLabel }) {
 
     const minutes = elapsedMinutes(order.OrderDate);
 
@@ -104,9 +138,33 @@ function OrderTicket({ order, column, onAdvance, advancing, onPrintKot }) {
                 </Stack>
             </Stack>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                {order.DeliveryType === "Dine In" && order.TableNumber ? `Table ${order.TableNumber}` : order.DeliveryType}
-            </Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+
+                {/* Suppressed inside a table group - its own header already
+                    says "Table X", so every card in the group repeating it
+                    is just noise. */}
+                {!hideTableLabel && (
+                    <Typography variant="body2" color="text.secondary">
+                        {order.DeliveryType === "Dine In" && order.TableNumber ? `Table ${order.TableNumber}` : order.DeliveryType}
+                    </Typography>
+                )}
+
+                {/* In Progress merges Accepted and Preparing into one column
+                    with one shared "Mark Ready" button (a KDS wants one big
+                    action per ticket, not a menu of every intermediate step)
+                    - but that meant a ticket nobody has started cooking yet
+                    looked identical to one already on the stove. This is the
+                    only thing that tells them apart at a glance. */}
+                {column.statuses.length > 1 && (
+                    <Chip
+                        label={order.OrderStatus}
+                        size="small"
+                        variant={order.OrderStatus === "Preparing" ? "filled" : "outlined"}
+                        color={order.OrderStatus === "Preparing" ? "warning" : "default"}
+                    />
+                )}
+
+            </Stack>
 
             <Divider sx={{ mb: 1 }} />
 
@@ -408,16 +466,44 @@ function Kitchen() {
 
                                 ) : (
 
-                                    columnOrders.map((order) => (
-                                        <OrderTicket
-                                            key={order.OrderId}
-                                            order={order}
-                                            column={column}
-                                            advancing={advancingIds.has(order.OrderId)}
-                                            onAdvance={handleAdvance}
-                                            onPrintKot={setKotOrder}
-                                        />
-                                    ))
+                                    groupOrdersByTable(columnOrders).map((group) => {
+
+                                        const isGrouped = group.orders.length > 1;
+
+                                        const tickets = group.orders.map((order) => (
+                                            <OrderTicket
+                                                key={order.OrderId}
+                                                order={order}
+                                                column={column}
+                                                advancing={advancingIds.has(order.OrderId)}
+                                                onAdvance={handleAdvance}
+                                                onPrintKot={setKotOrder}
+                                                hideTableLabel={isGrouped}
+                                            />
+                                        ));
+
+                                        if (!isGrouped) {
+                                            return tickets;
+                                        }
+
+                                        return (
+
+                                            <Box
+                                                key={`table-${group.tableNumber}`}
+                                                sx={{ mb: 2, p: 1.5, border: "1px solid #C7D2FE", borderRadius: 1, bgcolor: "#EEF2FF" }}
+                                            >
+
+                                                <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ display: "block", mb: 1 }}>
+                                                    Table {group.tableNumber} &middot; {group.orders.length} orders
+                                                </Typography>
+
+                                                {tickets}
+
+                                            </Box>
+
+                                        );
+
+                                    })
 
                                 )}
 
