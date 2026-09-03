@@ -27,10 +27,15 @@ export const getIngredientById = async (ingredientId) => {
 
 };
 
+// ILIKE, not "=" - same fix as MenuRepository's checkMenuItemExists/
+// getMenuItemByName: an exact-match check let "Tomato" and "tomato" both
+// exist as separate ingredients for the same tenant, defeating the point
+// of a duplicate check. A name is the same name to a human regardless of
+// case.
 export const checkIngredientExists = async (tenantId, name) => {
 
     const result = await pool.query(
-        `SELECT "IngredientId" FROM "Ingredients" WHERE "TenantId" = $1 AND "Name" = $2`,
+        `SELECT "IngredientId" FROM "Ingredients" WHERE "TenantId" = $1 AND "Name" ILIKE $2`,
         [tenantId, name]
     );
 
@@ -41,7 +46,7 @@ export const checkIngredientExists = async (tenantId, name) => {
 export const checkIngredientExistsForUpdate = async (tenantId, ingredientId, name) => {
 
     const result = await pool.query(
-        `SELECT "IngredientId" FROM "Ingredients" WHERE "TenantId" = $1 AND "Name" = $2 AND "IngredientId" <> $3`,
+        `SELECT "IngredientId" FROM "Ingredients" WHERE "TenantId" = $1 AND "Name" ILIKE $2 AND "IngredientId" <> $3`,
         [tenantId, name, ingredientId]
     );
 
