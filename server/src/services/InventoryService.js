@@ -411,9 +411,15 @@ export const recordAdjustment = async (input, tenantId, actorAdminId) => {
         const physicalBase = conversion.quantityBase;
         const delta = physicalBase - priorBalance;
 
+        // A count that exactly matches system stock is a valid, correct
+        // outcome, not a failure - staff did the count and everything's
+        // fine. This used to come back as success: false, which the
+        // frontend renders as a red error toast for a physical count that
+        // was actually right, and left the entry dialog stuck open instead
+        // of closing the way every other successful action here does.
         if (delta === 0) {
             await client.query("ROLLBACK");
-            return { success: false, message: "Physical quantity matches system stock - no adjustment needed." };
+            return { success: true, message: "Physical count matches system stock - no adjustment needed.", data: null };
         }
 
         const transaction = await InventoryRepository.recordTransaction(client, {

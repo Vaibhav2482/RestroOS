@@ -185,7 +185,11 @@ describe("InventoryService - stock adjustment (FRS B11)", () => {
 
     });
 
-    it("rejects a no-op adjustment when the physical count matches system stock exactly", async () => {
+    // A count that exactly matches system stock is a valid, correct outcome
+    // - staff did the count and everything's fine - not a failure. This
+    // used to come back as success: false, which the frontend renders as a
+    // red error toast for a physical count that was actually right.
+    it("records no transaction, but still reports success, when the physical count matches system stock exactly", async () => {
 
         InventoryRepository.getIngredientBalance.mockResolvedValue(50);
 
@@ -193,7 +197,8 @@ describe("InventoryService - stock adjustment (FRS B11)", () => {
             { branchId: BRANCH_ID, ingredientId: INGREDIENT_ID, unit: "g", physicalQuantity: 50, reason: "Recount" }, TENANT_ID, 1
         );
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(true);
+        expect(result.message).toMatch(/matches system stock/i);
         expect(InventoryRepository.recordTransaction).not.toHaveBeenCalled();
 
     });

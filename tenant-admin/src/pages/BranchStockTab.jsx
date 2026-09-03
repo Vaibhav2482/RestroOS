@@ -136,9 +136,14 @@ function BranchStockTab({ branchId }) {
                 return;
             }
 
+            // A physical count that exactly matches system stock is also a
+            // success (nothing needed correcting) but isn't "recorded" the
+            // way the other two actions are - response.message says which
+            // actually happened, so this can't just hardcode "Adjustment
+            // recorded." regardless.
             toast.success(
                 actionMode === "opening" ? "Opening stock recorded." :
-                    actionMode === "wastage" ? "Wastage recorded." : "Adjustment recorded."
+                    actionMode === "wastage" ? "Wastage recorded." : response.message
             );
 
             setActionMode(null);
