@@ -475,11 +475,22 @@ export const getDashboardSummary = async (tenantId, branchId) => {
     const params = [tenantId, branchId ?? null];
 
     const countsResult = await pool.query(
+        // CURRENT_DATE/O."OrderDate" both read as whatever the DB session's
+        // own timezone happens to be - confirmed to actually differ between
+        // environments (local dev's is Asia/Calcutta, production's is
+        // GMT), so "today" here silently meant different 24-hour windows
+        // depending on which database answered the query, neither of them
+        // reliably the IST business day this owner actually operates in.
+        // O."OrderDate" is a naive column holding a real UTC instant
+        // (NOW()'s underlying instant, not its session-timezone label) -
+        // shifting it by IST's fixed UTC+5:30 offset (no DST in India) and
+        // comparing against NOW() shifted the same way is what actually
+        // means "today" in India, regardless of the session's own setting.
         `SELECT
                 COUNT(*) AS "TotalOrders",
                 COUNT(*) FILTER (WHERE O."OrderStatus" NOT IN ('Delivered', 'Served', 'Picked Up', 'Cancelled')) AS "ActiveOrders",
                 COALESCE(SUM(O."TotalAmount") FILTER (
-                    WHERE O."OrderDate" >= CURRENT_DATE AND O."OrderDate" < CURRENT_DATE + INTERVAL '1 day'
+                    WHERE DATE(O."OrderDate" + INTERVAL '5 hours 30 minutes') = DATE(NOW() AT TIME ZONE 'Asia/Kolkata')
                         AND O."OrderStatus" <> 'Cancelled'
                 ), 0) AS "TodaysRevenue"
          FROM "Orders" O

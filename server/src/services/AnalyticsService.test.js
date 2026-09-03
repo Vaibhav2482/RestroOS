@@ -35,14 +35,19 @@ describe("AnalyticsService.getOverview", () => {
 
     });
 
-    it("treats the \"to\" date as inclusive of that whole calendar day", async () => {
+    // IST midnight Jan 1st is 18:30 UTC Dec 31st (IST is UTC+5:30, no
+    // DST) - Orders."OrderDate" is stored as a naive column holding a
+    // real UTC instant (see resolveDateRange's own comment on this), so
+    // these are the boundaries that actually line up with "Jan 1st in
+    // India," not a bare UTC calendar day.
+    it("treats the \"to\" date as inclusive of that whole IST calendar day", async () => {
 
         await AnalyticsService.getOverview(1, null, "2026-01-01", "2026-01-01");
 
         const [, , from, to] = AnalyticsRepository.getSummary.mock.calls[0];
 
-        expect(from.toISOString().slice(0, 10)).toBe("2026-01-01");
-        expect(to.toISOString().slice(0, 10)).toBe("2026-01-02");
+        expect(from.toISOString()).toBe("2025-12-31T18:30:00.000Z");
+        expect(to.toISOString()).toBe("2026-01-01T18:30:00.000Z");
 
     });
 

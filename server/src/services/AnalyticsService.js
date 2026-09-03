@@ -3,32 +3,50 @@ import * as BranchRepository from "../repositories/BranchRepository.js";
 
 const MAX_RANGE_DAYS = 366;
 
+// Every restaurant on this app is India-based (IST, UTC+5:30, no DST) - a
+// "YYYY-MM-DD" from/to here always means an IST calendar day, and the
+// frontend already builds that string from the browser's own local date
+// components for exactly this reason (see tenant-admin's
+// toDateInputValue). Orders."OrderDate" is a plain "timestamp without time
+// zone" column filled from NOW() - what actually lands in it is a naive
+// value holding a real UTC instant (confirmed against both databases:
+// local dev's session timezone is Asia/Calcutta, production's is GMT, so
+// the ONE thing that's actually portable between them is that NOW()'s
+// underlying instant, not its wall-clock label, is what gets stored).
+// Parsing "YYYY-MM-DD" as UTC midnight - what this used to do - silently
+// queried a window shifted 5.5 hours from the IST day the caller actually
+// asked for, the same way AnalyticsRepository's DATE()/EXTRACT(HOUR)
+// bucketing needed its own IST correction (see there).
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+// "YYYY-MM-DD" -> the UTC instant that IST midnight on that calendar day
+// actually falls at (e.g. "2026-01-01" -> 2025-12-31T18:30:00.000Z).
+const parseAsIstMidnight = (dateStr) => new Date(Date.parse(`${dateStr}T00:00:00Z`) - IST_OFFSET_MS);
+
+// Today's date as an IST calendar-day string - shifting the current
+// instant forward by the IST offset before reading its UTC calendar date
+// yields the IST wall-clock date, since Node has no timezone-aware date
+// formatting built in without pulling in Intl machinery for it.
+const todayInIst = () => new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
+
 // [from, to) - "to" is inclusive from the caller's perspective (a calendar
-// day), so it's pushed to the start of the next day here rather than
-// asking every query to reason about end-of-day timestamps. Uses UTC
-// methods throughout (not setHours/getDate, which read the server
-// process's local timezone) - a Vercel serverless function's local
-// timezone isn't guaranteed, so mixing that with a "YYYY-MM-DD" input
-// (always parsed as UTC midnight) silently shifted the range by whatever
-// the host's UTC offset happened to be.
+// day), so it's pushed to the start of the *next* IST day here rather than
+// asking every query to reason about end-of-day timestamps.
 const resolveDateRange = (fromInput, toInput) => {
 
-    const to = toInput ? new Date(toInput) : new Date();
+    const to = parseAsIstMidnight(toInput || todayInIst());
 
     if (Number.isNaN(to.getTime())) {
         return { error: "Invalid \"to\" date." };
     }
 
-    to.setUTCHours(0, 0, 0, 0);
-    to.setUTCDate(to.getUTCDate() + 1);
+    to.setTime(to.getTime() + 24 * 60 * 60 * 1000);
 
-    const from = fromInput ? new Date(fromInput) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const from = fromInput ? parseAsIstMidnight(fromInput) : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     if (Number.isNaN(from.getTime())) {
         return { error: "Invalid \"from\" date." };
     }
-
-    from.setUTCHours(0, 0, 0, 0);
 
     if (from >= to) {
         return { error: "\"from\" must be before \"to\"." };

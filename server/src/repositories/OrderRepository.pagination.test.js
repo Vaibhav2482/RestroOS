@@ -215,4 +215,23 @@ describe("OrderRepository.getDashboardSummary", () => {
 
     });
 
+    // CURRENT_DATE/OrderDate both read as whatever the DB session's own
+    // timezone happens to be - confirmed to actually differ between
+    // environments (local dev's is Asia/Calcutta, production's is GMT),
+    // so a literal CURRENT_DATE comparison meant different 24-hour windows
+    // depending on which database answered, neither of them reliably the
+    // IST business day an India-based owner means by "today".
+    it("computes today's revenue against the IST calendar day, not a session-timezone-dependent CURRENT_DATE", async () => {
+
+        queryMock.mockResolvedValue({ rows: [{ TotalOrders: 0, ActiveOrders: 0, TodaysRevenue: 0 }] });
+
+        await getDashboardSummary(3, null);
+
+        const [countsSql] = queryMock.mock.calls[0];
+
+        expect(countsSql).not.toMatch(/CURRENT_DATE/);
+        expect(countsSql).toMatch(/DATE\(O\."OrderDate" \+ INTERVAL '5 hours 30 minutes'\) = DATE\(NOW\(\) AT TIME ZONE 'Asia\/Kolkata'\)/);
+
+    });
+
 });

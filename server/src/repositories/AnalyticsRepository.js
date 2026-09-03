@@ -6,6 +6,16 @@ import pool from "../config/db.js";
 // branch), and the date range is always end-exclusive ([from, to)).
 const SCOPE_CLAUSE = `B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND O."OrderDate" >= $3 AND O."OrderDate" < $4 AND O."OrderStatus" <> 'Cancelled'`;
 
+// O."OrderDate" is a naive "timestamp without time zone" holding a real
+// UTC instant (see AnalyticsService.resolveDateRange's own comment on
+// this) - every restaurant here is India-based, so grouping by DATE() or
+// EXTRACT(HOUR FROM ...) directly on the raw column bucketed by the UTC
+// calendar day/hour instead of the IST one the owner actually means by
+// "today" or "7pm", off by 5.5 hours. Adding IST's fixed UTC+5:30 offset
+// (no DST in India, so this never needs to vary) before bucketing is what
+// actually lines these up with the business's own day.
+const AT_IST = `(O."OrderDate" + INTERVAL '5 hours 30 minutes')`;
+
 export const getSummary = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
@@ -25,14 +35,14 @@ export const getSummary = async (tenantId, branchId, from, to) => {
 export const getRevenueTrend = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
-        `SELECT DATE(O."OrderDate") AS "Date",
+        `SELECT DATE(${AT_IST}) AS "Date",
                 COALESCE(SUM(O."TotalAmount"), 0) AS "Revenue",
                 COUNT(*) AS "OrderCount"
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          WHERE ${SCOPE_CLAUSE}
-         GROUP BY DATE(O."OrderDate")
-         ORDER BY DATE(O."OrderDate")`,
+         GROUP BY DATE(${AT_IST})
+         ORDER BY DATE(${AT_IST})`,
         [tenantId, branchId ?? null, from, to]
     );
 
@@ -63,12 +73,12 @@ export const getTopItems = async (tenantId, branchId, from, to, limit) => {
 export const getPeakHours = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
-        `SELECT EXTRACT(HOUR FROM O."OrderDate")::int AS "Hour",
+        `SELECT EXTRACT(HOUR FROM ${AT_IST})::int AS "Hour",
                 COUNT(*) AS "OrderCount"
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          WHERE ${SCOPE_CLAUSE}
-         GROUP BY EXTRACT(HOUR FROM O."OrderDate")
+         GROUP BY EXTRACT(HOUR FROM ${AT_IST})
          ORDER BY "Hour"`,
         [tenantId, branchId ?? null, from, to]
     );
@@ -169,7 +179,7 @@ export const getMenuItemProfitability = async (branchId) => {
 export const getTaxSummary = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
-        `SELECT DATE(O."OrderDate") AS "Date",
+        `SELECT DATE(${AT_IST}) AS "Date",
                 COALESCE(SUM(O."SubTotal"), 0) AS "SubTotal",
                 COALESCE(SUM(O."DiscountAmount"), 0) AS "DiscountAmount",
                 COALESCE(SUM(O."CgstAmount"), 0) AS "CgstAmount",
@@ -179,8 +189,8 @@ export const getTaxSummary = async (tenantId, branchId, from, to) => {
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          WHERE ${SCOPE_CLAUSE}
-         GROUP BY DATE(O."OrderDate")
-         ORDER BY DATE(O."OrderDate")`,
+         GROUP BY DATE(${AT_IST})
+         ORDER BY DATE(${AT_IST})`,
         [tenantId, branchId ?? null, from, to]
     );
 
@@ -219,7 +229,7 @@ const SUMMARY_SCOPE_CLAUSE = `B."TenantId" = $1 AND ($2::int IS NULL OR O."Branc
 export const getSalesSummary = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
-        `SELECT DATE(O."OrderDate") AS "Date",
+        `SELECT DATE(${AT_IST}) AS "Date",
                 COUNT(*) AS "TotalOrders",
                 COUNT(*) FILTER (WHERE O."OrderStatus" = 'Cancelled') AS "CancelledOrders",
                 COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "GrossSales",
@@ -227,8 +237,8 @@ export const getSalesSummary = async (tenantId, branchId, from, to) => {
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
          WHERE ${SUMMARY_SCOPE_CLAUSE}
-         GROUP BY DATE(O."OrderDate")
-         ORDER BY DATE(O."OrderDate")`,
+         GROUP BY DATE(${AT_IST})
+         ORDER BY DATE(${AT_IST})`,
         [tenantId, branchId ?? null, from, to]
     );
 
