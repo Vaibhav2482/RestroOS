@@ -138,3 +138,63 @@ describe("MenuService.updateMenuItem - tax rate", () => {
     });
 
 });
+
+describe("MenuService.deleteMenuItem - referenced by order/cart history", () => {
+
+    const existingItem = {
+        MenuItemId: 100,
+        BranchId: 5,
+        ItemName: "Ginger Chai",
+        Price: 30
+    };
+
+    beforeEach(() => {
+        MenuRepository.getMenuItemById.mockResolvedValue([existingItem]);
+    });
+
+    // OrderItems and Cart both reference MenuItemId with NO ACTION (no
+    // cascade) - deleting an item that's ever been ordered, or is sitting
+    // in a customer's cart right now, hits that constraint. The global
+    // error handler's generic 23503 message ("references something that no
+    // longer exists") is backwards for this direction of violation, so this
+    // needs its own message rather than letting that one through.
+    it("returns a clear message instead of the raw FK violation when the item has order/cart history", async () => {
+
+        const fkError = new Error('update or delete on table "MenuItems" violates foreign key constraint "FK_OrderItems_MenuItems" on table "OrderItems"');
+        fkError.code = "23503";
+
+        MenuRepository.deleteMenuItem.mockRejectedValue(fkError);
+
+        const result = await MenuService.deleteMenuItem(100, TENANT_ID, ADMIN_ID);
+
+        expect(result).toEqual({
+            success: false,
+            message: "This item has order or cart history and can't be deleted - mark it Inactive instead to stop offering it without losing past order records."
+        });
+
+        expect(AuditService.record).not.toHaveBeenCalled();
+
+    });
+
+    it("still deletes cleanly, and records the audit entry, when nothing references the item", async () => {
+
+        MenuRepository.deleteMenuItem.mockResolvedValue({ RowsAffected: 1 });
+
+        const result = await MenuService.deleteMenuItem(100, TENANT_ID, ADMIN_ID);
+
+        expect(result.success).toBe(true);
+        expect(AuditService.record).toHaveBeenCalledWith(
+            expect.objectContaining({ action: "MENU_ITEM_DELETED" })
+        );
+
+    });
+
+    it("re-throws any other kind of error rather than swallowing it as a delete-blocked message", async () => {
+
+        MenuRepository.deleteMenuItem.mockRejectedValue(new Error("connection lost"));
+
+        await expect(MenuService.deleteMenuItem(100, TENANT_ID, ADMIN_ID)).rejects.toThrow("connection lost");
+
+    });
+
+});

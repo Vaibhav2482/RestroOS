@@ -244,7 +244,30 @@ export const deleteMenuItem = async (menuItemId, tenantId, actorAdminId) => {
         return { success: false, message: "Menu item not found." };
     }
 
-    await MenuRepository.deleteMenuItem(menuItemId, tenantId);
+    try {
+
+        await MenuRepository.deleteMenuItem(menuItemId, tenantId);
+
+    } catch (error) {
+
+        // 23503 = foreign_key_violation - OrderItems/Cart both reference
+        // MenuItemId with NO ACTION (no cascade), so any item that's ever
+        // been ordered or is sitting in a customer's cart right now can't
+        // actually be hard-deleted. The global error handler's generic
+        // 23503 message ("references something that no longer exists") is
+        // backwards for this direction of violation - the item obviously
+        // exists, the problem is something else still points to it - so
+        // this is caught here specifically rather than left to that.
+        if (error.code === "23503") {
+            return {
+                success: false,
+                message: "This item has order or cart history and can't be deleted - mark it Inactive instead to stop offering it without losing past order records."
+            };
+        }
+
+        throw error;
+
+    }
 
     // A hard delete, not a soft deactivate - the one MenuItems write path
     // that actually destroys a row, so this is the audit entry that
