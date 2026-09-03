@@ -116,6 +116,13 @@ function Menu() {
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
+    // Deleting a single item already asks first - bulk-hiding (or
+    // restoring) an entire category used to fire straight off the click,
+    // no confirmation at all, even though it's the more consequential
+    // action of the two: one fat-fingered tap could take a whole category
+    // off the menu mid-service with nothing to catch it.
+    const [bulkConfirmTarget, setBulkConfirmTarget] = useState(null);
+
     const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
     const [optionsTarget, setOptionsTarget] = useState(null);
 
@@ -375,6 +382,21 @@ function Menu() {
 
     };
 
+    const handleBulkClick = (categoryName, items, nextAvailable) => {
+        setBulkConfirmTarget({ categoryName, items, nextAvailable });
+    };
+
+    const handleBulkConfirm = async () => {
+
+        if (!bulkConfirmTarget) return;
+
+        const { categoryName, items, nextAvailable } = bulkConfirmTarget;
+
+        setBulkConfirmTarget(null);
+        await handleBulkAvailability(categoryName, items, nextAvailable);
+
+    };
+
     const handleDeleteClick = (item) => {
         setDeleteTarget(item);
     };
@@ -586,7 +608,7 @@ function Menu() {
                                         variant="outlined"
                                         color="warning"
                                         disabled={bulkProcessingCategories.has(categoryName)}
-                                        onClick={() => handleBulkAvailability(categoryName, items, false)}
+                                        onClick={() => handleBulkClick(categoryName, items, false)}
                                     >
                                         {bulkProcessingCategories.has(categoryName) ? "Updating..." : `86 All (${items.length})`}
                                     </Button>
@@ -595,7 +617,7 @@ function Menu() {
                                         size="small"
                                         variant="outlined"
                                         disabled={bulkProcessingCategories.has(categoryName)}
-                                        onClick={() => handleBulkAvailability(categoryName, items, true)}
+                                        onClick={() => handleBulkClick(categoryName, items, true)}
                                     >
                                         Mark All Available
                                     </Button>
@@ -802,6 +824,40 @@ function Menu() {
 
                     <Button variant="contained" color="error" onClick={handleDeleteConfirm} disabled={deleting}>
                         {deleting ? "Deleting..." : "Delete"}
+                    </Button>
+
+                </DialogActions>
+
+            </Dialog>
+
+            <Dialog open={Boolean(bulkConfirmTarget)} onClose={() => setBulkConfirmTarget(null)}>
+
+                <DialogTitle>
+                    {bulkConfirmTarget?.nextAvailable ? "Mark All Available" : "86 All"}
+                </DialogTitle>
+
+                <DialogContent>
+
+                    <DialogContentText>
+                        {bulkConfirmTarget?.nextAvailable
+                            ? `Mark all ${bulkConfirmTarget?.items.length} item${bulkConfirmTarget?.items.length === 1 ? "" : "s"} in "${bulkConfirmTarget?.categoryName}" as available again?`
+                            : `Mark all ${bulkConfirmTarget?.items.length} item${bulkConfirmTarget?.items.length === 1 ? "" : "s"} in "${bulkConfirmTarget?.categoryName}" as out of stock? Customers won't be able to order any of them until you turn them back on.`}
+                    </DialogContentText>
+
+                </DialogContent>
+
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+
+                    <Button onClick={() => setBulkConfirmTarget(null)}>
+                        Cancel
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color={bulkConfirmTarget?.nextAvailable ? "primary" : "warning"}
+                        onClick={handleBulkConfirm}
+                    >
+                        {bulkConfirmTarget?.nextAvailable ? "Mark All Available" : "86 All"}
                     </Button>
 
                 </DialogActions>
