@@ -28,6 +28,7 @@ import KotReceipt from "../components/KotReceipt";
 import PrintDialog from "../components/PrintDialog";
 import { useThermalPrint } from "../hooks/useThermalPrint";
 import { buildKotTicket } from "../utils/kotEscpos";
+import { hasStartedPreparing } from "./orderStatusUtils";
 
 // The kitchen's job ends at Ready - Delivered/Out For Delivery is
 // front-of-house's concern, handled from Orders/POS instead. Pending jumps
@@ -68,6 +69,20 @@ function formatElapsed(minutes) {
 function OrderTicket({ order, column, onAdvance, advancing, onPrintKot }) {
 
     const minutes = elapsedMinutes(order.OrderDate);
+
+    // Same gate as Orders.jsx's quick-advance button - the backend blocks a
+    // Card/UPI order from reaching Preparing (or anything past it, which
+    // "Mark Ready" on an Accepted ticket also does by jumping straight over
+    // Preparing) without a confirmed payment. Tapping this used to just fail
+    // with a bare error toast after the round trip; disabling it up front is
+    // a courtesy only - the server's own gate still enforces this either way.
+    const blockedByUnconfirmedPayment = Boolean(
+        column.nextStatus
+        && ["Card", "UPI"].includes(order.PaymentMethod)
+        && order.LatestPaymentStatus
+        && order.LatestPaymentStatus !== "Paid"
+        && hasStartedPreparing(column.nextStatus, order.DeliveryType)
+    );
 
     return (
 
@@ -124,16 +139,20 @@ function OrderTicket({ order, column, onAdvance, advancing, onPrintKot }) {
             )}
 
             {column.actionLabel && (
-                <Button
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    disabled={advancing}
-                    onClick={() => onAdvance(order.OrderId, column.nextStatus)}
-                    sx={{ mt: 2 }}
-                >
-                    {advancing ? "Updating..." : column.actionLabel}
-                </Button>
+                <Tooltip title={blockedByUnconfirmedPayment ? "Payment not yet confirmed for this order - it can't move forward yet." : ""}>
+                    <span style={{ display: "block" }}>
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            size="large"
+                            disabled={advancing || blockedByUnconfirmedPayment}
+                            onClick={() => onAdvance(order.OrderId, column.nextStatus)}
+                            sx={{ mt: 2 }}
+                        >
+                            {advancing ? "Updating..." : column.actionLabel}
+                        </Button>
+                    </span>
+                </Tooltip>
             )}
 
         </Paper>

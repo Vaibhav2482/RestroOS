@@ -324,6 +324,8 @@ export const getKitchenOrders = async (branchId) => {
 
     const result = await pool.query(
         `SELECT O."OrderId", O."TableNumber", O."DeliveryType", O."OrderStatus", O."OrderNotes", O."OrderDate",
+                O."PaymentMethod",
+                (SELECT "PaymentStatus" FROM "Payments" WHERE "OrderId" = O."OrderId" ORDER BY "PaymentDate" DESC LIMIT 1) AS "LatestPaymentStatus",
                 COALESCE(
                     (SELECT json_agg(json_build_object(
                             'OrderItemId', OI."OrderItemId",
