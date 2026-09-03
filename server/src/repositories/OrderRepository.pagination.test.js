@@ -197,4 +197,22 @@ describe("OrderRepository.getDashboardSummary", () => {
 
     });
 
+    // TodaysRevenue was scoped by date only, not by status - a cancelled
+    // order placed today still counted toward it, overstating real revenue
+    // and silently disagreeing with every other revenue figure in the app
+    // (AnalyticsRepository excludes Cancelled everywhere it sums TotalAmount).
+    it("excludes Cancelled orders from today's revenue, same as every other revenue query in the app", async () => {
+
+        queryMock
+            .mockResolvedValueOnce({ rows: [{ TotalOrders: 5, ActiveOrders: 1, TodaysRevenue: 500 }] })
+            .mockResolvedValueOnce({ rows: [] });
+
+        await getDashboardSummary(3, null);
+
+        const [countsSql] = queryMock.mock.calls[0];
+
+        expect(countsSql).toMatch(/SUM\(O\."TotalAmount"\) FILTER \([\s\S]*?"OrderStatus" <> 'Cancelled'[\s\S]*?\) AS "TodaysRevenue"/);
+
+    });
+
 });

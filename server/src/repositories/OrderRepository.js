@@ -480,6 +480,7 @@ export const getDashboardSummary = async (tenantId, branchId) => {
                 COUNT(*) FILTER (WHERE O."OrderStatus" NOT IN ('Delivered', 'Served', 'Picked Up', 'Cancelled')) AS "ActiveOrders",
                 COALESCE(SUM(O."TotalAmount") FILTER (
                     WHERE O."OrderDate" >= CURRENT_DATE AND O."OrderDate" < CURRENT_DATE + INTERVAL '1 day'
+                        AND O."OrderStatus" <> 'Cancelled'
                 ), 0) AS "TodaysRevenue"
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
