@@ -54,10 +54,14 @@ export const getRecommendations = async (menuItemId, branchId, categoryId, limit
 
 };
 
+// ILIKE, not "=" - an exact-match check let "Ginger Chai" and "ginger
+// chai" both get created for the same branch as if they were different
+// items, defeating the whole point of a duplicate check. A name is the
+// same name to a human regardless of case.
 export const checkMenuItemExists = async (itemName, branchId) => {
 
     const result = await pool.query(
-        `SELECT "MenuItemId" FROM "MenuItems" WHERE "ItemName" = $1 AND "BranchId" = $2`,
+        `SELECT "MenuItemId" FROM "MenuItems" WHERE "ItemName" ILIKE $1 AND "BranchId" = $2`,
         [itemName, branchId]
     );
 
@@ -125,10 +129,15 @@ export const updateMenuItem = async (menuItem, tenantId) => {
 
 };
 
+// Same ILIKE reasoning as checkMenuItemExists above - the create-time and
+// update-time duplicate checks need to agree on what counts as "the same
+// name", or renaming an item to another item's name with different casing
+// would sail through here even though creating it fresh would have been
+// blocked.
 export const getMenuItemByName = async (itemName, branchId) => {
 
     const result = await pool.query(
-        `SELECT * FROM "MenuItems" WHERE "ItemName" = $1 AND "BranchId" = $2`,
+        `SELECT * FROM "MenuItems" WHERE "ItemName" ILIKE $1 AND "BranchId" = $2`,
         [itemName, branchId]
     );
 
