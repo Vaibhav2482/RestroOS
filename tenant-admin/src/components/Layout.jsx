@@ -566,7 +566,11 @@ function Layout({ children }) {
                     ml: { md: `${drawerWidth}px` },
                     backgroundColor: "#FFFFFF",
                     boxShadow: "0 1px 2px rgba(17,24,39,.04), 0 6px 20px rgba(17,24,39,.04)",
-                    transition: (theme) => theme.transitions.create(["width", "margin"], { duration: theme.transitions.duration.shorter })
+                    transition: (theme) => theme.transitions.create(["width", "margin"], { duration: theme.transitions.duration.shorter }),
+                    // A page's own Print button (Day-End Report, KOT/Bill
+                    // dialogs) means printing exactly that content, not this
+                    // chrome around it too.
+                    "@media print": { display: "none" }
                 }}
             >
 
@@ -641,7 +645,15 @@ function Layout({ children }) {
 
                     </Menu>
 
-            <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 }, transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter }) }}>
+            <Box
+                component="nav"
+                sx={{
+                    width: { md: drawerWidth },
+                    flexShrink: { md: 0 },
+                    transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter }),
+                    "@media print": { display: "none" }
+                }}
+            >
 
                 <Drawer
                     variant="temporary"
@@ -683,7 +695,12 @@ function Layout({ children }) {
                     // there's no bar to clear, and that was the empty strip
                     // above the page heading.
                     mt: { xs: 6, md: 0 },
-                    transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter })
+                    transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shorter }),
+                    // The sidebar/topbar are hidden for print (see above) -
+                    // without this, the width still reserves the space they
+                    // used to occupy, leaving a blank strip down one side of
+                    // the printed page instead of using its full width.
+                    "@media print": { width: "100%", mt: 0, p: 0 }
                 }}
             >
                 {children}

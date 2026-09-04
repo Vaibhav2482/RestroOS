@@ -272,6 +272,32 @@ export const getCategorySales = async (tenantId, branchId, from, to) => {
 
 };
 
+// Per-staff-member order count/revenue - the cashier/waiter performance
+// report every POS has. CreatedByAdminId is null for a customer's own
+// storefront order (nobody on staff placed it), grouped here as its own
+// "Customer (Online)" row via COALESCE/LEFT JOIN rather than excluded, so
+// this report's total reconciles with Sales Summary's for the same range
+// instead of silently only covering staff-placed orders.
+export const getStaffSales = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT O."CreatedByAdminId", COALESCE(A."FullName", 'Customer (Online)') AS "StaffName",
+                COUNT(*) AS "OrderCount",
+                COALESCE(SUM(O."TotalAmount"), 0) AS "Revenue",
+                COALESCE(AVG(O."TotalAmount"), 0) AS "AvgOrderValue"
+         FROM "Orders" O
+         INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         LEFT JOIN "Admins" A ON A."AdminId" = O."CreatedByAdminId"
+         WHERE ${SCOPE_CLAUSE}
+         GROUP BY O."CreatedByAdminId", A."FullName"
+         ORDER BY "Revenue" DESC`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
 // Per-coupon redemption count and discount given, scoped like every other
 // revenue report (a cancelled order's coupon "use" isn't a real
 // redemption - SCOPE_CLAUSE already excludes it).
@@ -301,12 +327,31 @@ export const getCouponUsage = async (tenantId, branchId, from, to) => {
 // individual voided transactions rather than just a daily count.
 const CANCELLED_SCOPE_CLAUSE = `B."TenantId" = $1 AND ($2::int IS NULL OR O."BranchId" = $2) AND O."OrderDate" >= $3 AND O."OrderDate" < $4 AND O."OrderStatus" = 'Cancelled'`;
 
+// A void report without who and why is just a list of numbers - the actual
+// point of the report (catching a staff member voiding orders to pocket
+// cash) needs both. A staff cancellation already writes exactly this to
+// OrderAdjustments (AdjustmentType 'VOID', see OrderService.cancelOrder);
+// a customer's own self-cancellation never does (no reason required, no
+// admin involved), so LEFT JOIN LATERAL correctly leaves both columns
+// null for those rather than excluding them from the report entirely.
+// ORDER BY + LIMIT 1 picks the single VOID row an order can ever have
+// (cancelOrder blocks cancelling an already-terminal order) defensively,
+// the same pattern OrderRepository's LatestPaymentStatus subquery uses.
 export const getCancelledOrders = async (tenantId, branchId, from, to) => {
 
     const result = await pool.query(
-        `SELECT O."OrderId", O."OrderDate", O."TotalAmount", O."PaymentMethod", O."DeliveryType"
+        `SELECT O."OrderId", O."OrderDate", O."TotalAmount", O."PaymentMethod", O."DeliveryType",
+                VA."Reason" AS "CancelReason", VA."ActorAdminName"
          FROM "Orders" O
          INNER JOIN "Branches" B ON O."BranchId" = B."BranchId"
+         LEFT JOIN LATERAL (
+             SELECT OA."Reason", A."FullName" AS "ActorAdminName"
+             FROM "OrderAdjustments" OA
+             LEFT JOIN "Admins" A ON A."AdminId" = OA."ActorAdminId"
+             WHERE OA."OrderId" = O."OrderId" AND OA."AdjustmentType" = 'VOID'
+             ORDER BY OA."CreatedAt" DESC
+             LIMIT 1
+         ) VA ON TRUE
          WHERE ${CANCELLED_SCOPE_CLAUSE}
          ORDER BY O."OrderDate" DESC`,
         [tenantId, branchId ?? null, from, to]

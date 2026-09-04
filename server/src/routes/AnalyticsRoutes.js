@@ -7,8 +7,10 @@ import {
     getPaymentBreakdown,
     getSalesSummary,
     getCategorySales,
+    getStaffSales,
     getCouponUsage,
-    getCancelledOrders
+    getCancelledOrders,
+    getDayEndSummary
 } from "../controllers/AnalyticsController.js";
 import { authenticate, authorize, requireOwner, requirePermission } from "../middleware/Auth.js";
 
@@ -27,7 +29,9 @@ router.get("/tax-summary", requirePermission("view_reports"), getTaxSummary);
 router.get("/payment-breakdown", requirePermission("view_reports"), getPaymentBreakdown);
 router.get("/sales-summary", requirePermission("view_reports"), getSalesSummary);
 router.get("/category-sales", requirePermission("view_reports"), getCategorySales);
+router.get("/staff-sales", requirePermission("view_reports"), getStaffSales);
 router.get("/coupon-usage", requirePermission("view_reports"), getCouponUsage);
 router.get("/cancelled-orders", requirePermission("view_reports"), getCancelledOrders);
+router.get("/day-end", requirePermission("view_reports"), getDayEndSummary);
 
 export default router;

@@ -203,6 +203,20 @@ export const getCategorySales = async (tenantId, branchId, fromInput, toInput) =
 
 };
 
+export const getStaffSales = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const staff = await AnalyticsRepository.getStaffSales(tenantId, branchId, from, to);
+
+    return { success: true, message: "Staff sales fetched successfully.", data: staff };
+
+};
+
 export const getCouponUsage = async (tenantId, branchId, fromInput, toInput) => {
 
     const { from, to, error } = resolveDateRange(fromInput, toInput);
@@ -244,5 +258,49 @@ export const getBranchComparison = async (tenantId, fromInput, toInput) => {
     const branches = await AnalyticsRepository.getBranchComparison(tenantId, from, to);
 
     return { success: true, message: "Branch comparison fetched successfully.", data: branches };
+
+};
+
+// The single most standard POS report there is - everything a shift needs
+// to close out and reconcile against the till, for exactly one calendar
+// day rather than a range. Deliberately built by calling the same
+// functions every other tab already uses (same date-string in as both
+// "from" and "to") rather than duplicating any of their SQL - the day
+// resolves through the exact same IST-aware resolveDateRange each of them
+// already goes through, so this can never silently disagree with what the
+// individual Sales Summary/Tax Summary/Payment Breakdown/Staff Sales tabs
+// show for the same day.
+export const getDayEndSummary = async (tenantId, branchId, dateInput) => {
+
+    // Defaulted here, not left to resolveDateRange - passing undefined
+    // through as both "from" and "to" would trigger every other report's
+    // own default (the last 30 days), not the single day this report is
+    // for.
+    const date = dateInput || todayInIst();
+
+    const [salesResult, taxResult, paymentResult, staffResult] = await Promise.all([
+        getSalesSummary(tenantId, branchId, date, date),
+        getTaxSummary(tenantId, branchId, date, date),
+        getPaymentBreakdown(tenantId, branchId, date, date),
+        getStaffSales(tenantId, branchId, date, date)
+    ]);
+
+    const failed = [salesResult, taxResult, paymentResult, staffResult].find((result) => !result.success);
+
+    if (failed) {
+        return failed;
+    }
+
+    return {
+        success: true,
+        message: "Day-end summary fetched successfully.",
+        data: {
+            date,
+            sales: salesResult.data.totals,
+            tax: taxResult.data.totals,
+            payments: paymentResult.data,
+            staff: staffResult.data
+        }
+    };
 
 };

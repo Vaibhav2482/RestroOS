@@ -261,6 +261,34 @@ describe("AnalyticsService.getCategorySales", () => {
 
 });
 
+describe("AnalyticsService.getStaffSales", () => {
+
+    it("passes the resolved range through to the repository", async () => {
+
+        AnalyticsRepository.getStaffSales.mockResolvedValue([
+            { CreatedByAdminId: 1, StaffName: "Priya Sharma", OrderCount: 12, Revenue: 3600, AvgOrderValue: 300 },
+            { CreatedByAdminId: null, StaffName: "Customer (Online)", OrderCount: 5, Revenue: 1500, AvgOrderValue: 300 }
+        ]);
+
+        const result = await AnalyticsService.getStaffSales(1, null, "2026-01-01", "2026-01-31");
+
+        expect(result.success).toBe(true);
+        expect(result.data).toHaveLength(2);
+        expect(AnalyticsRepository.getStaffSales).toHaveBeenCalledWith(1, null, expect.any(Date), expect.any(Date));
+
+    });
+
+    it("rejects an invalid range same as every other report", async () => {
+
+        const result = await AnalyticsService.getStaffSales(1, null, "not-a-date", undefined);
+
+        expect(result.success).toBe(false);
+        expect(AnalyticsRepository.getStaffSales).not.toHaveBeenCalled();
+
+    });
+
+});
+
 describe("AnalyticsService.getCouponUsage", () => {
 
     it("passes the resolved range through to the repository", async () => {
@@ -302,6 +330,71 @@ describe("AnalyticsService.getCancelledOrders", () => {
         const result = await AnalyticsService.getCancelledOrders(1, null, "2026-01-01", "2026-01-01");
 
         expect(result.data.totalValue).toBe(0);
+
+    });
+
+});
+
+describe("AnalyticsService.getDayEndSummary", () => {
+
+    beforeEach(() => {
+
+        AnalyticsRepository.getSalesSummary.mockResolvedValue([
+            { Date: "2026-01-01", TotalOrders: 10, CancelledOrders: 1, GrossSales: 900, AvgOrderValue: 100 }
+        ]);
+        AnalyticsRepository.getTaxSummary.mockResolvedValue([
+            { Date: "2026-01-01", SubTotal: 850, DiscountAmount: 0, CgstAmount: 22.5, SgstAmount: 22.5, TotalAmount: 900, OrderCount: 9 }
+        ]);
+        AnalyticsRepository.getPaymentBreakdown.mockResolvedValue([{ PaymentMethod: "Cash", OrderCount: 9, Revenue: 900 }]);
+        AnalyticsRepository.getStaffSales.mockResolvedValue([{ CreatedByAdminId: 1, StaffName: "Priya Sharma", OrderCount: 9, Revenue: 900, AvgOrderValue: 100 }]);
+
+    });
+
+    // Every other report tab reaches this same shared resolveDateRange
+    // (and its IST correction) through getSalesSummary/getTaxSummary/etc -
+    // getDayEndSummary calls those same functions rather than its own SQL,
+    // so it can never silently disagree with what those tabs show for the
+    // same day.
+    it("combines sales, tax, payment and staff figures for a single day", async () => {
+
+        const result = await AnalyticsService.getDayEndSummary(1, 5, "2026-01-01");
+
+        expect(result.success).toBe(true);
+        expect(result.data.sales).toEqual(expect.objectContaining({ TotalOrders: 10, CancelledOrders: 1, GrossSales: 900 }));
+        expect(result.data.tax).toEqual(expect.objectContaining({ TotalAmount: 900 }));
+        expect(result.data.payments).toEqual([{ PaymentMethod: "Cash", OrderCount: 9, Revenue: 900 }]);
+        expect(result.data.staff).toEqual([expect.objectContaining({ StaffName: "Priya Sharma" })]);
+
+        // Every underlying call resolved the SAME single day as both ends
+        // of the range - a day-end report spanning more than one day would
+        // defeat the entire point of it.
+        for (const mockFn of [AnalyticsRepository.getSalesSummary, AnalyticsRepository.getTaxSummary, AnalyticsRepository.getPaymentBreakdown, AnalyticsRepository.getStaffSales]) {
+            const [, , from, to] = mockFn.mock.calls[0];
+            expect(to.getTime() - from.getTime()).toBe(24 * 60 * 60 * 1000);
+        }
+
+    });
+
+    // Passing undefined through to every underlying call as both "from" and
+    // "to" would trigger each one's own default (the last 30 days) instead
+    // of a single day - this has to resolve "today" itself first.
+    it("defaults to today when no date is given", async () => {
+
+        const result = await AnalyticsService.getDayEndSummary(1, 5, undefined);
+
+        expect(result.success).toBe(true);
+        expect(result.data.date).toBeTruthy();
+
+        const [, , from, to] = AnalyticsRepository.getSalesSummary.mock.calls[0];
+        expect(to.getTime() - from.getTime()).toBe(24 * 60 * 60 * 1000);
+
+    });
+
+    it("surfaces an error from any underlying report instead of a partial summary", async () => {
+
+        const result = await AnalyticsService.getDayEndSummary(1, 5, "not-a-date");
+
+        expect(result.success).toBe(false);
 
     });
 

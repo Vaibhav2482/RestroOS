@@ -35,6 +35,11 @@ export const getCategorySales = async (branchId, from, to) => {
     return response.data;
 };
 
+export const getStaffSales = async (branchId, from, to) => {
+    const response = await axiosClient.get("/analytics/staff-sales", { params: { branchId, from, to } });
+    return response.data;
+};
+
 export const getCouponUsage = async (branchId, from, to) => {
     const response = await axiosClient.get("/analytics/coupon-usage", { params: { branchId, from, to } });
     return response.data;
@@ -42,5 +47,10 @@ export const getCouponUsage = async (branchId, from, to) => {
 
 export const getCancelledOrders = async (branchId, from, to) => {
     const response = await axiosClient.get("/analytics/cancelled-orders", { params: { branchId, from, to } });
+    return response.data;
+};
+
+export const getDayEndSummary = async (branchId, date) => {
+    const response = await axiosClient.get("/analytics/day-end", { params: { branchId, date } });
     return response.data;
 };

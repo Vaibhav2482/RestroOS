@@ -26,9 +26,11 @@ const formatDateTime = (value) => new Date(value).toLocaleString("en-IN", { day:
 
 // A void/cancellation report - one row per cancelled order, the same way
 // PetPooja's void report lists individual voided transactions rather than
-// just a daily count. RestroOS doesn't currently record WHY an order was
-// cancelled (no CancelReason field on Orders), so unlike a full void
-// report this only shows frequency and value, not reasons.
+// just a daily count. A staff cancellation carries a reason and the admin
+// who did it (OrderAdjustments); a customer's own self-cancellation has
+// neither, since none is required for that - shown as "Customer" rather
+// than left blank, so a blank row still reads as a specific, known cause
+// rather than a data gap.
 function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
 
     const [orders, setOrders] = useState([]);
@@ -80,8 +82,16 @@ function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
 
         downloadCsv(
             `cancelled-orders_${range.from}_to_${range.to}.csv`,
-            ["Order ID", "Date", "Value", "Payment Method", "Delivery Type"],
-            orders.map((row) => [`#${row.OrderId}`, formatDateTime(row.OrderDate), Number(row.TotalAmount).toFixed(2), row.PaymentMethod, row.DeliveryType])
+            ["Order ID", "Date", "Value", "Payment Method", "Delivery Type", "Cancelled By", "Reason"],
+            orders.map((row) => [
+                `#${row.OrderId}`,
+                formatDateTime(row.OrderDate),
+                Number(row.TotalAmount).toFixed(2),
+                row.PaymentMethod,
+                row.DeliveryType,
+                row.ActorAdminName || "Customer",
+                row.CancelReason || ""
+            ])
         );
 
     };
@@ -151,6 +161,8 @@ function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
                                 <TableCell sx={{ fontWeight: 600 }} align="right">Value</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Payment</TableCell>
                                 <TableCell sx={{ fontWeight: 600 }}>Delivery Type</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>Cancelled By</TableCell>
+                                <TableCell sx={{ fontWeight: 600 }}>Reason</TableCell>
                             </TableRow>
                         </TableHead>
 
@@ -159,7 +171,7 @@ function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
                             {loading ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                                         <CircularProgress size={28} />
                                     </TableCell>
                                 </TableRow>
@@ -167,7 +179,7 @@ function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
                             ) : orders.length === 0 ? (
 
                                 <TableRow>
-                                    <TableCell colSpan={5} sx={{ py: 0 }}>
+                                    <TableCell colSpan={7} sx={{ py: 0 }}>
                                         <EmptyState icon={<EventBusyOutlinedIcon />} title="No cancelled orders in this range" description="That's a good thing." />
                                     </TableCell>
                                 </TableRow>
@@ -182,6 +194,8 @@ function CancelledOrdersReportTab({ branchId, range, onRangeChange }) {
                                         <TableCell align="right">{formatCurrency(row.TotalAmount)}</TableCell>
                                         <TableCell>{row.PaymentMethod}</TableCell>
                                         <TableCell>{row.DeliveryType}</TableCell>
+                                        <TableCell>{row.ActorAdminName || "Customer"}</TableCell>
+                                        <TableCell>{row.CancelReason || "—"}</TableCell>
                                     </TableRow>
 
                                 ))

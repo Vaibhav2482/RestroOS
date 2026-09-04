@@ -106,6 +106,36 @@ export const getCategorySales = asyncHandler(async (req, res) => {
 
 });
 
+export const getDayEndSummary = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { date } = req.query;
+
+    const result = await AnalyticsService.getDayEndSummary(req.user.tenantId, branchId, date);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const getStaffSales = asyncHandler(async (req, res) => {
+
+    const branchId = resolveBranchId(req);
+    const { from, to } = req.query;
+
+    const result = await AnalyticsService.getStaffSales(req.user.tenantId, branchId, from, to);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
 export const getCouponUsage = asyncHandler(async (req, res) => {
 
     const branchId = resolveBranchId(req);
