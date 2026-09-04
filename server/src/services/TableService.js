@@ -1,4 +1,5 @@
 import * as TableRepository from "../repositories/TableRepository.js";
+import * as TableVisitRepository from "../repositories/TableVisitRepository.js";
 import { assertBranchBelongsToTenant } from "../utils/branchScope.js";
 
 export const getActiveTables = async (branchId, tenantId) => {
@@ -86,6 +87,25 @@ export const updateTable = async (tableId, table, tenantId) => {
         return { success: false, message: `A table named "${duplicate.TableName}" already exists in this branch.` };
     }
 
+    // Same guard as deactivateTable, and for the same reason - the Edit
+    // dialog's own Active checkbox is a second, separate path to the exact
+    // same IsActive column, so it needs the exact same check. Only
+    // triggered on the actual Active -> Inactive transition, not on every
+    // edit, so changing capacity/floor on an already-active table never
+    // pays for a lookup it doesn't need.
+    if (existingTable.IsActive && table.isActive === false) {
+
+        const openVisit = await TableVisitRepository.getOpenVisitForTable(existingTable.BranchId, existingTable.TableName);
+
+        if (openVisit) {
+            return {
+                success: false,
+                message: `"${existingTable.TableName}" still has an open bill - settle it first before deactivating this table.`
+            };
+        }
+
+    }
+
     const updatedTable = await TableRepository.updateTable({ ...table, tableId: Number(tableId) }, tenantId);
 
     if (!updatedTable) {
@@ -102,6 +122,22 @@ export const deactivateTable = async (tableId, tenantId) => {
 
     if (!existingTable || existingTable.TenantId !== tenantId) {
         return { success: false, message: "Table not found." };
+    }
+
+    // A deactivated table drops out of getActiveTables entirely, which is
+    // what the floor grid (and Settle Bill, which is only ever reached by
+    // tapping a table there) is built on. Deactivating one that still has
+    // an Open TableVisit would make that bill unreachable through any
+    // screen in the app - not merely hidden, genuinely stuck open with no
+    // way to collect payment or close it out. Settling the bill first (the
+    // normal end of a sitting) already clears this on its own.
+    const openVisit = await TableVisitRepository.getOpenVisitForTable(existingTable.BranchId, existingTable.TableName);
+
+    if (openVisit) {
+        return {
+            success: false,
+            message: `"${existingTable.TableName}" still has an open bill - settle it first before deactivating this table.`
+        };
     }
 
     await TableRepository.deactivateTable(tableId, tenantId);
