@@ -19,10 +19,15 @@ export const getById = async (couponId) => {
 
 };
 
+// ILIKE, not "=" - same fix as Menu items/Ingredients/Categories. Both
+// current entry points (tenant-admin's CouponDialog, storefront's checkout
+// coupon field) already force uppercase client-side, so this isn't
+// actively exploitable through the UI today, but the server-side
+// duplicate check shouldn't depend on that holding forever.
 export const getByTenantAndCode = async (tenantId, code) => {
 
     const result = await pool.query(
-        `SELECT "CouponId" FROM "Coupons" WHERE "TenantId" = $1 AND "Code" = $2`,
+        `SELECT "CouponId" FROM "Coupons" WHERE "TenantId" = $1 AND "Code" ILIKE $2`,
         [tenantId, code]
     );
 

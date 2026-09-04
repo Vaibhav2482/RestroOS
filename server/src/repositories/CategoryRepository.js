@@ -1,12 +1,18 @@
 import pool from "../config/db.js";
 
+// Public/unauthenticated endpoint (the customer storefront) - the
+// storefront's own Home.jsx already filters IsActive client-side before
+// rendering, but that's a UI convenience, not a security boundary. This
+// query itself was sending every category regardless of IsActive, leaking
+// a deactivated (e.g. not-yet-launched, or deliberately hidden) category's
+// name to anyone inspecting the raw response, not just the rendered page.
 export const getAllCategoriesByTenantSlug = async (tenantSlug) => {
 
     const result = await pool.query(
         `SELECT C."CategoryId", C."CategoryName", C."Description", C."ImageUrl", C."DisplayOrder", C."IsActive"
          FROM "Categories" C
          INNER JOIN "Tenants" T ON C."TenantId" = T."TenantId"
-         WHERE T."Slug" = $1
+         WHERE T."Slug" = $1 AND C."IsActive" = TRUE
          ORDER BY C."DisplayOrder"`,
         [tenantSlug]
     );
@@ -42,10 +48,15 @@ export const getCategoryById = async (categoryId) => {
 
 };
 
+// ILIKE, not "=" - same fix as Menu items/Ingredients: an exact-match check
+// let "Beverages" and "beverages" both exist as separate categories for
+// the same tenant, defeating the point of a duplicate check. Category
+// names have no forced casing convention (unlike coupon codes), so
+// nothing on the frontend was masking this one.
 export const checkCategoryExists = async (tenantId, categoryName) => {
 
     const result = await pool.query(
-        `SELECT "CategoryId" FROM "Categories" WHERE "TenantId" = $1 AND "CategoryName" = $2 AND "IsActive" = TRUE`,
+        `SELECT "CategoryId" FROM "Categories" WHERE "TenantId" = $1 AND "CategoryName" ILIKE $2 AND "IsActive" = TRUE`,
         [tenantId, categoryName]
     );
 
@@ -56,7 +67,7 @@ export const checkCategoryExists = async (tenantId, categoryName) => {
 export const checkCategoryExistsForUpdate = async (tenantId, categoryId, categoryName) => {
 
     const result = await pool.query(
-        `SELECT "CategoryId" FROM "Categories" WHERE "TenantId" = $1 AND "CategoryName" = $2 AND "CategoryId" <> $3 AND "IsActive" = TRUE`,
+        `SELECT "CategoryId" FROM "Categories" WHERE "TenantId" = $1 AND "CategoryName" ILIKE $2 AND "CategoryId" <> $3 AND "IsActive" = TRUE`,
         [tenantId, categoryName, categoryId]
     );
 
