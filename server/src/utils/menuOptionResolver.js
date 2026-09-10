@@ -30,8 +30,14 @@ export const resolveMenuItemOptions = async (queryable, menuItemId, selectedOpti
     for (const group of groupsResult.rows) {
 
         const countInGroup = selectedOptions.filter((option) => option.GroupId === group.GroupId).length;
+        const availableInGroup = optionsResult.rows.filter((option) => option.GroupId === group.GroupId).length;
 
-        if (group.IsRequired && countInGroup < group.MinSelect) {
+        // A required group with zero currently-available options (never
+        // had one added, or every option in it was since deactivated) is a
+        // misconfiguration, not something a customer can ever satisfy -
+        // enforcing it anyway makes the *entire item* permanently
+        // unorderable instead of just this one customization not applying.
+        if (group.IsRequired && availableInGroup > 0 && countInGroup < group.MinSelect) {
             throw new Error(`"${group.GroupName}" requires at least ${group.MinSelect} selection(s).`);
         }
 

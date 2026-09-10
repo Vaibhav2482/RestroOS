@@ -3,6 +3,7 @@ import {
     Accordion,
     AccordionDetails,
     AccordionSummary,
+    Alert,
     Box,
     Button,
     Chip,
@@ -631,11 +632,28 @@ function MenuItemOptionsDialog({ open, onClose, menuItem }) {
 
                                     <Stack spacing={1} divider={<Divider flexItem />}>
 
-                                        {(group.Options || []).length === 0 && (
+                                        {(group.Options || []).filter((option) => option.IsActive).length === 0 && (
 
-                                            <Typography variant="body2" color="text.secondary">
-                                                No options yet.
-                                            </Typography>
+                                            group.IsRequired ? (
+
+                                                // A Required group with no active option is impossible for a
+                                                // customer to satisfy - the storefront and order-creation both
+                                                // now skip enforcing it rather than making the whole item
+                                                // unorderable, but that's a safety net, not something to leave
+                                                // unfixed. This is the one place that actually says so.
+                                                <Alert severity="warning" sx={{ py: 0 }}>
+                                                    This group is Required but has no active options - customers
+                                                    won't be asked to make a choice here at all until you add one
+                                                    (or turn off Required).
+                                                </Alert>
+
+                                            ) : (
+
+                                                <Typography variant="body2" color="text.secondary">
+                                                    No options yet.
+                                                </Typography>
+
+                                            )
 
                                         )}
 

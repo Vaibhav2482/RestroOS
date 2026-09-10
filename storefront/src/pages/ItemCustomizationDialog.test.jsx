@@ -60,6 +60,50 @@ describe("ItemCustomizationDialog - required group validation", () => {
 
     });
 
+    // A Required group with zero active options (created before anyone
+    // added an actual option, or every option under it since deactivated)
+    // is a misconfiguration, not something a customer can ever satisfy -
+    // it used to leave "Add Item" permanently disabled with no way for
+    // the customer to fix it, making the whole item unorderable. The
+    // backend's own resolveMenuItemOptions makes this exact same
+    // exception, so the item stays orderable and the group (nothing to
+    // show for it) doesn't render at all rather than displaying
+    // "Required" above a blank space.
+    it("does not block Add Item on a required group that has no options at all", async () => {
+
+        menuOptionService.getGroupsForMenuItem.mockResolvedValue({
+            success: true,
+            data: [{ GroupId: 1, GroupName: "Butter", IsRequired: true, MinSelect: 1, MaxSelect: 5, Options: [] }]
+        });
+
+        render(<ItemCustomizationDialog open item={ITEM} onClose={vi.fn()} />);
+
+        await waitFor(() => expect(screen.getByRole("button", { name: /add item/i })).toBeEnabled());
+        expect(screen.queryByText("Butter")).not.toBeInTheDocument();
+
+    });
+
+    it("does not block Add Item when every option in a required group is deactivated", async () => {
+
+        menuOptionService.getGroupsForMenuItem.mockResolvedValue({
+            success: true,
+            data: [{
+                GroupId: 1,
+                GroupName: "Butter",
+                IsRequired: true,
+                MinSelect: 1,
+                MaxSelect: 5,
+                Options: [{ OptionId: 101, OptionName: "Extra Butter", PriceDelta: 10, IsActive: false }]
+            }]
+        });
+
+        render(<ItemCustomizationDialog open item={ITEM} onClose={vi.fn()} />);
+
+        await waitFor(() => expect(screen.getByRole("button", { name: /add item/i })).toBeEnabled());
+        expect(screen.queryByText("Butter")).not.toBeInTheDocument();
+
+    });
+
 });
 
 describe("ItemCustomizationDialog - option pricing display", () => {

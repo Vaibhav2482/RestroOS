@@ -67,8 +67,22 @@ function groupSelectCountHint(group) {
 function isGroupValid(group, selectedIds) {
 
     const count = selectedIds?.length || 0;
-    const min = group.MinSelect ?? (group.IsRequired ? 1 : 0);
     const max = group.MaxSelect ?? Infinity;
+
+    // A Required group with zero *active* options (never had one added, or
+    // every option under it was since deactivated) is a misconfiguration,
+    // not something a customer can ever satisfy - the backend's own
+    // resolveMenuItemOptions makes this exact same exception (it only ever
+    // counts IsActive options as "available"), so this has to match it or
+    // a customer would see "Add Item" light up here only to have the
+    // add-to-cart call fail anyway.
+    const activeOptionCount = (group.Options || []).filter((option) => option.IsActive !== false).length;
+
+    if (activeOptionCount === 0) {
+        return count <= max;
+    }
+
+    const min = group.MinSelect ?? (group.IsRequired ? 1 : 0);
 
     return count >= min && count <= max;
 
@@ -406,7 +420,16 @@ function ItemCustomizationDialog({ open, item, onClose, onCartChanged }) {
 
                     <Stack spacing={3}>
 
-                        {groups.map((group) => {
+                        {groups
+                            // A group with zero active options (never had one
+                            // added, or every option under it was since
+                            // deactivated) has nothing for a customer to pick -
+                            // isGroupValid already stops treating it as blocking,
+                            // so showing "Required · Select 1-5" above a blank
+                            // space here would be actively misleading, not just
+                            // unhelpful.
+                            .filter((group) => (group.Options || []).some((option) => option.IsActive !== false))
+                            .map((group) => {
 
                             const groupSelection = selections[group.GroupId] || [];
                             const isSingleSelect = group.MaxSelect === 1;
