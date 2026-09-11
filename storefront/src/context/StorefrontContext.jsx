@@ -1,15 +1,18 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import * as publicService from "../services/publicService";
 import * as cartService from "../services/cartService";
+import * as customerAuthService from "../services/customerAuthService";
 import {
     getStoredAuth,
     setStoredAuth,
     clearStoredAuth,
     getStoredBranchId,
-    setStoredBranchId
+    setStoredBranchId,
+    getStoredTableNumber,
+    setStoredTableNumber
 } from "../utils/customerAuth";
 
 const StorefrontContext = createContext(null);
@@ -22,14 +25,32 @@ const StorefrontContext = createContext(null);
 export function StorefrontProvider({ children }) {
 
     const { tenantSlug } = useParams();
+    const [searchParams] = useSearchParams();
 
     const [tenant, setTenant] = useState(null);
     const [branches, setBranches] = useState([]);
     const [selectedBranchId, setSelectedBranchIdState] = useState(() => getStoredBranchId(tenantSlug));
     const [auth, setAuth] = useState(() => getStoredAuth(tenantSlug));
+    // A table QR code links to "/:tenantSlug?table=N" - captured once here
+    // and then carried in localStorage for the rest of the visit, since the
+    // customer will navigate around the menu (losing the query param) long
+    // before they reach Checkout.
+    const [tableNumber, setTableNumberState] = useState(() => searchParams.get("table") || getStoredTableNumber(tenantSlug));
     const [cartCount, setCartCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+
+    useEffect(() => {
+
+        const fromUrl = searchParams.get("table");
+
+        if (fromUrl) {
+            setStoredTableNumber(tenantSlug, fromUrl);
+            setTableNumberState(fromUrl);
+        }
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchParams, tenantSlug]);
 
     useEffect(() => {
 
@@ -57,6 +78,33 @@ export function StorefrontProvider({ children }) {
                 }
 
                 setTenant(tenantResponse.data);
+
+                // No account required to browse/order: a first-time visitor
+                // gets a silent, disposable guest session instead of hitting
+                // a registration form before they can even open an item's
+                // customization dialog. A returning visitor (real account or
+                // an earlier guest session already in localStorage) keeps
+                // whatever they already have.
+                if (!getStoredAuth(tenantSlug)) {
+
+                    try {
+
+                        const guestResponse = await customerAuthService.createGuestSession(tenantSlug);
+
+                        if (!cancelled && guestResponse.success) {
+                            const { token, ...customer } = guestResponse.data;
+                            setStoredAuth(tenantSlug, { token, customer });
+                            setAuth({ token, customer });
+                        }
+
+                    } catch {
+
+                        // Non-fatal - the customer just falls back to seeing
+                        // "Log In" and browsing without a cart until they do.
+
+                    }
+
+                }
 
                 if (branchesResponse.success) {
 
@@ -111,9 +159,26 @@ export function StorefrontProvider({ children }) {
     }, [tenantSlug]);
 
     const logout = useCallback(() => {
+
         clearStoredAuth(tenantSlug);
         setAuth(null);
         setCartCount(0);
+
+        // Logging out of a real account shouldn't drop the customer back
+        // behind the registration wall - hand them a fresh guest session
+        // right away so browsing/the cart keep working uninterrupted.
+        customerAuthService.createGuestSession(tenantSlug)
+            .then((response) => {
+
+                if (response.success) {
+                    const { token, ...customer } = response.data;
+                    setStoredAuth(tenantSlug, { token, customer });
+                    setAuth({ token, customer });
+                }
+
+            })
+            .catch(() => {});
+
     }, [tenantSlug]);
 
     const refreshCartCount = useCallback(async () => {
@@ -152,6 +217,14 @@ export function StorefrontProvider({ children }) {
         auth,
         customer: auth?.customer ?? null,
         isLoggedIn: Boolean(auth?.token),
+        // A guest session (see createGuestSession) counts as "logged in" for
+        // everything that just needs a real CustomerId to work (cart,
+        // checkout) - isGuest is the separate flag for UI decisions that
+        // specifically mean "does this person have an account" (showing
+        // "Log In" instead of their name, letting them reach the actual
+        // Login/Register pages instead of bouncing them home).
+        isGuest: Boolean(auth?.customer?.IsGuest),
+        tableNumber,
         login,
         logout,
         cartCount,

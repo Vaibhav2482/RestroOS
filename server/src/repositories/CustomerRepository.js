@@ -25,10 +25,10 @@ export const getCustomerByTenantAndPhone = async (tenantId, phone) => {
 export const createCustomer = async (customer) => {
 
     const result = await pool.query(
-        `INSERT INTO "Customers" ("TenantId", "FullName", "Email", "Phone", "Password", "IsActive", "CreatedAt")
-         VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+        `INSERT INTO "Customers" ("TenantId", "FullName", "Email", "Phone", "Password", "IsGuest", "IsActive", "CreatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW())
          RETURNING *`,
-        [customer.tenantId, customer.fullName, customer.email, customer.phone, customer.password]
+        [customer.tenantId, customer.fullName, customer.email, customer.phone, customer.password, Boolean(customer.isGuest)]
     );
 
     return result.rows[0];
@@ -38,7 +38,7 @@ export const createCustomer = async (customer) => {
 export const customerLogin = async (tenantId, email) => {
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "Password", "IsActive"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "Password", "IsActive", "IsGuest"
          FROM "Customers"
          WHERE "TenantId" = $1 AND "Email" = $2 AND "IsActive" = TRUE`,
         [tenantId, email]
@@ -51,7 +51,7 @@ export const customerLogin = async (tenantId, email) => {
 export const getCustomerById = async (customerId) => {
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "IsGuest", "CreatedAt", "UpdatedAt"
          FROM "Customers"
          WHERE "CustomerId" = $1 AND "IsActive" = TRUE`,
         [customerId]
@@ -82,15 +82,18 @@ export const updatePassword = async (customerId, hashedPassword) => {
 
 export const updateCustomer = async (customer) => {
 
+    // Submitting this form at all - even just a name/phone from a guest
+    // checkout - is the customer identifying themselves, so it always clears
+    // IsGuest. A real customer already has it FALSE; this is a no-op for them.
     await pool.query(
         `UPDATE "Customers"
-         SET "FullName" = $1, "Email" = $2, "Phone" = $3, "AvatarUrl" = $4, "UpdatedAt" = NOW()
+         SET "FullName" = $1, "Email" = $2, "Phone" = $3, "AvatarUrl" = $4, "IsGuest" = FALSE, "UpdatedAt" = NOW()
          WHERE "CustomerId" = $5 AND "IsActive" = TRUE`,
         [customer.fullName, customer.email, customer.phone, customer.avatarUrl ?? null, customer.customerId]
     );
 
     const result = await pool.query(
-        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "CreatedAt", "UpdatedAt"
+        `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "AvatarUrl", "IsActive", "IsGuest", "CreatedAt", "UpdatedAt"
          FROM "Customers"
          WHERE "CustomerId" = $1`,
         [customer.customerId]
@@ -124,7 +127,7 @@ export const getAllCustomersByTenant = async (tenantId, pagination = null, filte
                     COALESCE(SUM(O."TotalAmount") FILTER (WHERE O."OrderStatus" <> 'Cancelled'), 0) AS "TotalSpent"
              FROM "Customers" C
              LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
-             WHERE C."TenantId" = $1
+             WHERE C."TenantId" = $1 AND C."IsGuest" = FALSE
              GROUP BY C."CustomerId"
              ORDER BY C."CustomerId" DESC`,
             [tenantId]
@@ -149,7 +152,7 @@ export const getAllCustomersByTenant = async (tenantId, pagination = null, filte
                 COUNT(*) OVER() AS "TotalCount"
          FROM "Customers" C
          LEFT JOIN "Orders" O ON O."CustomerId" = C."CustomerId"
-         WHERE C."TenantId" = $1
+         WHERE C."TenantId" = $1 AND C."IsGuest" = FALSE
            AND ($2::text IS NULL OR C."FullName" ILIKE '%' || $2 || '%' OR C."Phone" ILIKE '%' || $2 || '%' OR C."Email" ILIKE '%' || $2 || '%')
          GROUP BY C."CustomerId"
          ORDER BY C."CustomerId" DESC

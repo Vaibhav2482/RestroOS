@@ -644,5 +644,16 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Tables" ADD COLUMN "Floor" VARCHAR(50) NULL;
         `
+    },
+    {
+        // Lets a storefront visitor browse/customize/add-to-cart under a
+        // silently-created Customer row (see CustomerAuthService.
+        // createGuestSession) instead of hitting a full registration form
+        // before they can even open an item's customization dialog. Defaults
+        // FALSE so every pre-existing customer is unambiguously "real."
+        id: "0036_customer_guest_flag",
+        sql: `
+            ALTER TABLE "Customers" ADD COLUMN "IsGuest" BOOLEAN NOT NULL DEFAULT FALSE;
+        `
     }
 ];

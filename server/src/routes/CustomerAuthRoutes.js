@@ -1,5 +1,5 @@
 import express from "express";
-import { register, login } from "../controllers/CustomerAuthController.js";
+import { register, login, guestSession } from "../controllers/CustomerAuthController.js";
 import { authRateLimiter, loginRateLimiter } from "../middleware/RateLimit.js";
 
 const router = express.Router();
@@ -12,5 +12,10 @@ router.post("/register", authRateLimiter, register);
 // lock a customer out of their own account the way the old limiter did -
 // see middleware/RateLimit.js.
 router.post("/login", loginRateLimiter, login);
+
+// Same limiter as register - it creates a Customer row too, just without a
+// form in front of it, so it needs the same throttle against a script
+// churning out rows.
+router.post("/guest-session", authRateLimiter, guestSession);
 
 export default router;

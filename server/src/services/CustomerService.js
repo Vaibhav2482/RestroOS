@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
+import * as TenantRepository from "../repositories/TenantRepository.js";
 
 const GUEST_PHONE = "0000000000";
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,7 +27,8 @@ export const getOrCreateGuestCustomer = async (tenantId) => {
         fullName: "Walk-in Guest",
         email: `guest@tenant-${tenantId}.restroos.local`,
         phone: GUEST_PHONE,
-        password: hashedPassword
+        password: hashedPassword,
+        isGuest: true
     });
 
     delete createdCustomer.Password;
@@ -84,6 +86,42 @@ export const findOrCreateWalkInCustomer = async (customer, tenantId) => {
 
 };
 
+// Storefront equivalent of getOrCreateGuestCustomer, but NOT shared across
+// visitors - a single shared row would mean two different people browsing
+// at the same time see (and can silently modify) the same cart. Every call
+// creates a fresh, disposable Customer row instead, tied to nothing but the
+// browser session that requested it; identifying details only get attached
+// later, in updateCustomer, if this person actually places an order.
+export const createGuestSession = async (tenantSlug) => {
+
+    if (!tenantSlug) {
+        return { success: false, message: "Restaurant is required." };
+    }
+
+    const tenant = await TenantRepository.getBySlug(tenantSlug);
+
+    if (!tenant || !tenant.IsActive) {
+        return { success: false, message: "Restaurant not found." };
+    }
+
+    const randomPassword = crypto.randomBytes(24).toString("hex");
+    const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+    const createdCustomer = await CustomerRepository.createCustomer({
+        tenantId: tenant.TenantId,
+        fullName: "Guest",
+        email: `guest-${crypto.randomUUID()}@guest.restroos.local`,
+        phone: "",
+        password: hashedPassword,
+        isGuest: true
+    });
+
+    delete createdCustomer.Password;
+
+    return { success: true, message: "Guest session created.", data: { ...createdCustomer, tenantSlug: tenant.Slug } };
+
+};
+
 export const getCustomerById = async (customerId) => {
 
     const customer = await CustomerRepository.getCustomerById(customerId);
@@ -105,15 +143,15 @@ export const updateCustomer = async (customerId, customer) => {
     }
 
     const fullName = customer.fullName?.trim();
-    const email = customer.email?.trim();
+    // Optional: a guest identifying themselves at checkout supplies name and
+    // phone only, and keeps whatever placeholder email their guest session
+    // was created with - forcing a real email here would just reintroduce
+    // the registration-form friction this whole flow exists to remove.
+    const email = customer.email?.trim() || existingCustomer.Email;
     const phone = customer.phone?.trim();
 
     if (!fullName) {
         return { success: false, message: "Full Name is required." };
-    }
-
-    if (!email) {
-        return { success: false, message: "Email is required." };
     }
 
     if (!EMAIL_PATTERN.test(email)) {

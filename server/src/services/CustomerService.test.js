@@ -3,8 +3,10 @@ import bcrypt from "bcrypt";
 
 import * as CustomerService from "./CustomerService.js";
 import * as CustomerRepository from "../repositories/CustomerRepository.js";
+import * as TenantRepository from "../repositories/TenantRepository.js";
 
 vi.mock("../repositories/CustomerRepository.js");
+vi.mock("../repositories/TenantRepository.js");
 vi.mock("bcrypt");
 
 const CUSTOMER_ID = 7;
@@ -95,6 +97,63 @@ describe("CustomerService.updateCustomer", () => {
         await CustomerService.updateCustomer(CUSTOMER_ID, { fullName: "Ravi Kumar", email: "ravi@example.com", phone: "9876543210" });
 
         expect(CustomerRepository.updateCustomer).toHaveBeenCalledWith(expect.objectContaining({ avatarUrl: null }));
+
+    });
+
+    // A guest checkout only ever collects name + phone (see
+    // CustomerService.createGuestSession) - requiring a real email here
+    // would put the registration wall right back in front of them.
+    it("keeps the customer's current email when none is supplied", async () => {
+
+        CustomerRepository.updateCustomer.mockResolvedValue(existingCustomer);
+
+        await CustomerService.updateCustomer(CUSTOMER_ID, { fullName: "Guest Diner", phone: "9876543210" });
+
+        expect(CustomerRepository.getCustomerByTenantAndEmail).not.toHaveBeenCalled();
+        expect(CustomerRepository.updateCustomer).toHaveBeenCalledWith(
+            expect.objectContaining({ email: existingCustomer.Email })
+        );
+
+    });
+
+});
+
+describe("CustomerService.createGuestSession", () => {
+
+    it("rejects a missing tenant slug", async () => {
+
+        const result = await CustomerService.createGuestSession("");
+
+        expect(result.success).toBe(false);
+        expect(CustomerRepository.createCustomer).not.toHaveBeenCalled();
+
+    });
+
+    it("rejects an unknown or inactive restaurant", async () => {
+
+        TenantRepository.getBySlug.mockResolvedValue(null);
+
+        const result = await CustomerService.createGuestSession("ghost-diner");
+
+        expect(result.success).toBe(false);
+        expect(result.message).toMatch(/not found/i);
+
+    });
+
+    it("creates a disposable, tenant-scoped guest customer", async () => {
+
+        TenantRepository.getBySlug.mockResolvedValue({ TenantId: 9, Slug: "alpha-diner", IsActive: true });
+        CustomerRepository.createCustomer.mockResolvedValue({
+            CustomerId: 501, TenantId: 9, FullName: "Guest", Email: "guest-abc@guest.restroos.local", Phone: "", Password: "hashed", IsGuest: true
+        });
+
+        const result = await CustomerService.createGuestSession("alpha-diner");
+
+        expect(result.success).toBe(true);
+        expect(result.data.Password).toBeUndefined();
+        expect(CustomerRepository.createCustomer).toHaveBeenCalledWith(
+            expect.objectContaining({ tenantId: 9, isGuest: true })
+        );
 
     });
 

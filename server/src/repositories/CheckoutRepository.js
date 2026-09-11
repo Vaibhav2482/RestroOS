@@ -7,7 +7,8 @@ export const checkout = async (
     deliveryType,
     paymentMethod,
     notes,
-    couponCode
+    couponCode,
+    tableNumber
 ) => {
 
     const cartItems = await CartRepository.getCart(customerId);
@@ -29,6 +30,7 @@ export const checkout = async (
         paymentMethod,
         notes,
         couponCode,
+        tableNumber,
         items
     });
 

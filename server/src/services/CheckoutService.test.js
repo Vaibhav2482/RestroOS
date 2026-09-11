@@ -62,3 +62,42 @@ describe("CheckoutService.checkout - notifications never block the response", ()
     });
 
 });
+
+// Table-linked (QR) dine-in ordering: a table's number only ever matters for
+// a Dine In order (see OrderRepository.createOrder's VisitId resolution) - a
+// Delivery order must never carry one through, even if the storefront still
+// had a stale table number cached from an earlier dine-in visit.
+describe("CheckoutService.checkout - table number only reaches a Dine In order", () => {
+
+    it("passes tableNumber through for a Dine In order", async () => {
+
+        CheckoutRepository.checkout.mockResolvedValue(order);
+
+        await CheckoutService.checkout({
+            customerId: 1,
+            deliveryType: "Dine In",
+            paymentMethod: "Cash",
+            tableNumber: "12"
+        });
+
+        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, null, "Dine In", "Cash", undefined, undefined, "12");
+
+    });
+
+    it("strips a stale tableNumber off a Delivery order", async () => {
+
+        CheckoutRepository.checkout.mockResolvedValue(order);
+
+        await CheckoutService.checkout({
+            customerId: 1,
+            addressId: 1,
+            deliveryType: "Delivery",
+            paymentMethod: "Cash",
+            tableNumber: "12"
+        });
+
+        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, 1, "Delivery", "Cash", undefined, undefined, null);
+
+    });
+
+});

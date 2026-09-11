@@ -10,15 +10,18 @@ function Register() {
 
     const { tenantSlug } = useParams();
     const navigate = useNavigate();
-    const { login, tenant, isLoggedIn } = useStorefront();
+    const { login, tenant, isLoggedIn, isGuest } = useStorefront();
 
     const [formData, setFormData] = useState({ fullName: "", email: "", phone: "", password: "" });
     const [loading, setLoading] = useState(false);
 
     // Reachable via the browser Back button after a customer has already
     // logged in - without this, submitting the form here would silently log
-    // them out of their current session and into a brand-new account.
-    if (isLoggedIn) {
+    // them out of their current session and into a brand-new account. A
+    // guest session doesn't count - every first-time visitor has one (see
+    // StorefrontContext), and this is exactly the page that replaces it with
+    // a real account.
+    if (isLoggedIn && !isGuest) {
         return <Navigate to={`/${tenantSlug}`} replace />;
     }
 

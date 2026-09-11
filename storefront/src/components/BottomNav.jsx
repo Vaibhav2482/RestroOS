@@ -27,7 +27,8 @@ function BottomNav() {
 
     const location = useLocation();
     const navigate = useNavigate();
-    const { tenantSlug, isLoggedIn, cartCount } = useStorefront();
+    const { tenantSlug, isLoggedIn, isGuest, cartCount } = useStorefront();
+    const hasAccount = isLoggedIn && !isGuest;
 
     const goProtected = (path) => {
         navigate(isLoggedIn ? path : `/${tenantSlug}/login`);
@@ -76,10 +77,10 @@ function BottomNav() {
                 />
 
                 <BottomNavigationAction
-                    label={isLoggedIn ? "Profile" : "Log In"}
+                    label={hasAccount ? "Profile" : "Log In"}
                     value="profile"
                     icon={<PersonRoundedIcon />}
-                    onClick={() => goProtected(`/${tenantSlug}/profile`)}
+                    onClick={() => navigate(hasAccount ? `/${tenantSlug}/profile` : `/${tenantSlug}/login`)}
                 />
 
             </BottomNavigation>

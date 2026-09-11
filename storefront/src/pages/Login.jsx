@@ -12,7 +12,7 @@ function Login() {
 
     const { tenantSlug } = useParams();
     const navigate = useNavigate();
-    const { login, tenant, isLoggedIn } = useStorefront();
+    const { login, tenant, isLoggedIn, isGuest } = useStorefront();
 
     const [formData, setFormData] = useState({ email: "", password: "" });
     const [loading, setLoading] = useState(false);
@@ -21,7 +21,10 @@ function Login() {
     // Reachable via the browser Back button after a customer has already
     // logged in - without this, submitting the form here would silently log
     // them out of their current session and into whatever was just typed.
-    if (isLoggedIn) {
+    // A guest session doesn't count as "already logged in" here - every
+    // first-time visitor has one (see StorefrontContext), and this is
+    // exactly the page that lets them attach a real account to their visit.
+    if (isLoggedIn && !isGuest) {
         return <Navigate to={`/${tenantSlug}`} replace />;
     }
 

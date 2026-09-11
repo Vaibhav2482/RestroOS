@@ -9,3 +9,8 @@ export const login = async (tenantSlug, email, password) => {
     const response = await axiosClient.post("/customer/auth/login", { tenantSlug, email, password });
     return response.data;
 };
+
+export const createGuestSession = async (tenantSlug) => {
+    const response = await axiosClient.post("/customer/auth/guest-session", { tenantSlug });
+    return response.data;
+};

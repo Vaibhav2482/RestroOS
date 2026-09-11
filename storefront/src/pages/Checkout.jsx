@@ -33,7 +33,9 @@ import * as addressService from "../services/addressService";
 import * as checkoutService from "../services/checkoutService";
 import * as paymentService from "../services/paymentService";
 import * as couponService from "../services/couponService";
+import * as customerService from "../services/customerService";
 import { useStorefront } from "../context/StorefrontContext";
+import { getStoredAuth } from "../utils/customerAuth";
 import { computeCheckoutEstimate } from "../utils/checkoutTax";
 import { openRazorpayCheckout } from "../utils/razorpayCheckout";
 
@@ -70,18 +72,27 @@ function Checkout() {
 
     const { tenantSlug } = useParams();
     const navigate = useNavigate();
-    const { customer, refreshCartCount } = useStorefront();
+    const { customer, isGuest, tableNumber, login, refreshCartCount } = useStorefront();
     const theme = useTheme();
 
     const [cartItems, setCartItems] = useState([]);
     const [addresses, setAddresses] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const [deliveryType, setDeliveryType] = useState("Delivery");
+    // A table QR link (tableNumber set) means this is almost certainly a
+    // dine-in order - defaulting to it saves the one extra tap, but the
+    // toggle stays available in case someone scanned at the table and still
+    // wants delivery/takeaway instead.
+    const [deliveryType, setDeliveryType] = useState(tableNumber ? "Dine In" : "Delivery");
     const [addressId, setAddressId] = useState("");
     const [paymentMethod, setPaymentMethod] = useState("Cash");
     const [notes, setNotes] = useState("");
     const [placingOrder, setPlacingOrder] = useState(false);
+
+    // Only ever shown/required for a guest session (see StorefrontContext) -
+    // a real account already has a name and phone on file.
+    const [guestName, setGuestName] = useState("");
+    const [guestPhone, setGuestPhone] = useState("");
 
     const [couponInput, setCouponInput] = useState("");
     const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -221,9 +232,39 @@ function Checkout() {
             return;
         }
 
+        if (isGuest && (!guestName.trim() || !guestPhone.trim())) {
+            toast.error("Please enter your name and phone number.");
+            return;
+        }
+
         try {
 
             setPlacingOrder(true);
+
+            // A guest identifies themselves right here, at the moment it
+            // actually matters (placing an order), rather than being forced
+            // through a full registration form before they could even
+            // browse the menu. This also clears their IsGuest flag server-
+            // side (see CustomerRepository.updateCustomer).
+            if (isGuest) {
+
+                const profileResponse = await customerService.updateCustomer(customer.CustomerId, {
+                    fullName: guestName.trim(),
+                    phone: guestPhone.trim()
+                });
+
+                if (!profileResponse.success) {
+                    toast.error(profileResponse.message);
+                    return;
+                }
+
+                const currentAuth = getStoredAuth(tenantSlug);
+
+                if (currentAuth?.token) {
+                    login({ ...currentAuth, customer: { ...currentAuth.customer, ...profileResponse.data } });
+                }
+
+            }
 
             const checkoutResponse = await checkoutService.checkout({
                 customerId: customer.CustomerId,
@@ -231,7 +272,8 @@ function Checkout() {
                 deliveryType,
                 paymentMethod,
                 notes: notes.trim() || undefined,
-                couponCode: appliedCoupon ? appliedCoupon.code : undefined
+                couponCode: appliedCoupon ? appliedCoupon.code : undefined,
+                tableNumber: deliveryType === "Dine In" ? tableNumber : undefined
             });
 
             if (!checkoutResponse.success) {
@@ -389,6 +431,18 @@ function Checkout() {
                                 </ToggleButton>
                             </ToggleButtonGroup>
 
+                            {deliveryType === "Dine In" && tableNumber && (
+
+                                <Chip
+                                    label={`Table ${tableNumber}`}
+                                    color="primary"
+                                    variant="outlined"
+                                    size="small"
+                                    sx={{ mt: 2, fontWeight: 700 }}
+                                />
+
+                            )}
+
                             {deliveryType === "Delivery" && (
 
                                 <Box sx={{ mt: 2.5 }}>
@@ -463,6 +517,38 @@ function Checkout() {
                             )}
 
                         </SectionCard>
+
+                        {isGuest && (
+
+                            <SectionCard title="Your Details">
+
+                                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                    So the restaurant knows who to prepare this for and how to reach you.
+                                </Typography>
+
+                                <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+
+                                    <TextField
+                                        fullWidth
+                                        required
+                                        label="Your Name"
+                                        value={guestName}
+                                        onChange={(event) => setGuestName(event.target.value)}
+                                    />
+
+                                    <TextField
+                                        fullWidth
+                                        required
+                                        label="Phone Number"
+                                        value={guestPhone}
+                                        onChange={(event) => setGuestPhone(event.target.value)}
+                                    />
+
+                                </Stack>
+
+                            </SectionCard>
+
+                        )}
 
                         <SectionCard title="Payment Method">
 

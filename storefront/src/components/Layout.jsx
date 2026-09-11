@@ -41,6 +41,7 @@ function Layout({ children }) {
         selectedBranchId,
         selectBranch,
         isLoggedIn,
+        isGuest,
         customer,
         logout,
         cartCount,
@@ -234,7 +235,7 @@ function Layout({ children }) {
                             </Badge>
                         </IconButton>
 
-                        {isLoggedIn ? (
+                        {isLoggedIn && !isGuest ? (
 
                             <>
                                 <Typography
