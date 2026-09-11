@@ -121,7 +121,9 @@ describe("SettleBillDialog - applying a bill discount", () => {
         await user.type(screen.getByLabelText("Reason"), "Service delay");
         await user.click(screen.getByRole("button", { name: /pay & close table/i }));
 
-        await waitFor(() => expect(tableVisitService.settleVisit).toHaveBeenCalledWith(5, "Cash", 50, "Service delay"));
+        await waitFor(() => expect(tableVisitService.settleVisit).toHaveBeenCalledWith(5, {
+            paymentMethod: "Cash", discountAmount: 50, discountReason: "Service delay", splits: undefined
+        }));
         expect(onSettled).toHaveBeenCalled();
 
     });
@@ -136,7 +138,89 @@ describe("SettleBillDialog - applying a bill discount", () => {
         await screen.findByText("Bill Discount (optional)");
         await user.click(screen.getByRole("button", { name: /pay & close table/i }));
 
-        await waitFor(() => expect(tableVisitService.settleVisit).toHaveBeenCalledWith(5, "Cash", 0, undefined));
+        await waitFor(() => expect(tableVisitService.settleVisit).toHaveBeenCalledWith(5, {
+            paymentMethod: "Cash", discountAmount: 0, discountReason: undefined, splits: undefined
+        }));
+
+    });
+
+});
+
+describe("SettleBillDialog - split bill", () => {
+
+    beforeEach(() => {
+        localStorage.setItem("tenantAdmin", JSON.stringify(BRANCH_ADMIN_WITHOUT_DISCOUNT));
+    });
+
+    it("starts with two even shares once Split Bill is turned on", async () => {
+
+        const user = userEvent.setup();
+        renderDialog();
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByRole("button", { name: "Split Bill" }));
+
+        expect(screen.getByLabelText("Split 1")).toHaveValue(100);
+        expect(screen.getByLabelText("Split 2")).toHaveValue(100);
+        expect(screen.getByText("Splits match the amount due.")).toBeInTheDocument();
+
+    });
+
+    it("blocks settling while the splits don't add up to the amount due", async () => {
+
+        const user = userEvent.setup();
+        renderDialog();
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByRole("button", { name: "Split Bill" }));
+
+        const split1 = screen.getByLabelText("Split 1");
+        await user.clear(split1);
+        await user.type(split1, "50");
+
+        expect(await screen.findByText(/Remaining: ₹50\.00/)).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: /pay & close table/i })).toBeDisabled();
+
+    });
+
+    it("settles with a splits array once the shares add up", async () => {
+
+        tableVisitService.settleVisit.mockResolvedValue({ success: true, data: { ...VISIT_DETAILS, Status: "Closed" } });
+
+        const user = userEvent.setup();
+        renderDialog();
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByRole("button", { name: "Split Bill" }));
+
+        // Second split defaults to Card/UPI selection stays Cash - change it
+        // so the two rows aren't identical, closer to a real 2-way split.
+        const selects = screen.getAllByRole("combobox");
+        await user.click(selects[1]);
+        await user.click(await screen.findByRole("option", { name: "Card" }));
+
+        await user.click(screen.getByRole("button", { name: /pay & close table/i }));
+
+        await waitFor(() => expect(tableVisitService.settleVisit).toHaveBeenCalledWith(5, expect.objectContaining({
+            paymentMethod: undefined,
+            splits: [{ amount: 100, paymentMethod: "Cash" }, { amount: 100, paymentMethod: "Card" }]
+        })));
+
+    });
+
+    it("turning Split Bill back off restores the normal payment method selector", async () => {
+
+        const user = userEvent.setup();
+        renderDialog();
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByRole("button", { name: "Split Bill" }));
+        expect(screen.getByLabelText("Split 1")).toBeInTheDocument();
+
+        await user.click(screen.getByRole("button", { name: "Cancel Split" }));
+
+        expect(screen.queryByLabelText("Split 1")).not.toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Cash" })).toBeInTheDocument();
 
     });
 

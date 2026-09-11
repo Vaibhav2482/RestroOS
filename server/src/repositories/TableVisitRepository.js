@@ -134,6 +134,24 @@ export const getVisitConsolidatedItems = async (visitId) => {
 
 };
 
+// One row per share of a split bill (see settleVisit below) - an unsplit
+// settle still writes exactly one row here for the full amount due, so
+// this is always the complete record of how a visit was actually paid,
+// never a sometimes-empty side table only split bills populate.
+export const getVisitPayments = async (visitId) => {
+
+    const result = await pool.query(
+        `SELECT "TableVisitPaymentId", "PaymentMethod", "Amount", "CreatedAt"
+         FROM "TableVisitPayments"
+         WHERE "VisitId" = $1
+         ORDER BY "TableVisitPaymentId" ASC`,
+        [visitId]
+    );
+
+    return result.rows;
+
+};
+
 // The individual rounds themselves (each still its own Order/KOT) - shown
 // alongside the consolidated bill so staff can see what was ordered when,
 // and reachable for a KOT reprint if needed.
@@ -152,12 +170,14 @@ export const getVisitOrders = async (visitId) => {
 
 };
 
-// Closes the visit (freeing the table on the floor grid) and stamps the
-// single payment that settles everything ordered across every round. Locks
-// the visit row first so two captains tapping "Settle Bill" at the same
-// moment can't both succeed - the second sees Status already 'Closed' and
-// is rejected instead of double-settling.
-export const settleVisit = async (visitId, { paymentMethod, adminId, discountAmount, discountReason }) => {
+// Closes the visit (freeing the table on the floor grid) and records
+// whatever paid it off as one or more rows in TableVisitPayments - a plain
+// settle is exactly one row for the full amount due; a split bill (splits
+// non-empty) is one row per share, each with its own method. Locks the
+// visit row first so two captains tapping "Settle Bill" at the same moment
+// can't both succeed - the second sees Status already 'Closed' and is
+// rejected instead of double-settling.
+export const settleVisit = async (visitId, { paymentMethod, adminId, discountAmount, discountReason, splits }) => {
 
     const client = await pool.connect();
 
@@ -200,6 +220,46 @@ export const settleVisit = async (visitId, { paymentMethod, adminId, discountAmo
             throw new Error("Discount cannot exceed the bill total.");
         }
 
+        const amountDue = billTotal - discount;
+        const isSplit = Array.isArray(splits) && splits.length > 0;
+
+        if (isSplit) {
+
+            // Same reasoning as the discount check above - the amount this
+            // has to add up to is only known for certain inside this same
+            // locked transaction, not whatever the dialog last displayed.
+            const splitSum = splits.reduce((sum, split) => sum + Number(split.amount), 0);
+
+            if (Math.round((splitSum - amountDue) * 100) !== 0) {
+                throw new Error("Split amounts must add up to the amount due.");
+            }
+
+            for (const split of splits) {
+
+                await client.query(
+                    `INSERT INTO "TableVisitPayments" ("VisitId", "PaymentMethod", "Amount") VALUES ($1, $2, $3)`,
+                    [visitId, split.paymentMethod, split.amount]
+                );
+
+            }
+
+        } else {
+
+            await client.query(
+                `INSERT INTO "TableVisitPayments" ("VisitId", "PaymentMethod", "Amount") VALUES ($1, $2, $3)`,
+                [visitId, paymentMethod, amountDue]
+            );
+
+        }
+
+        // A quick-glance summary field, not a replacement for the payments
+        // above - the floor grid's "Already settled via X" chip and every
+        // pre-existing report still read this as one value, so a split
+        // across more than one distinct method collapses to "Split" rather
+        // than silently keeping just the first one.
+        const distinctMethods = isSplit ? [...new Set(splits.map((split) => split.paymentMethod))] : [paymentMethod];
+        const summaryMethod = distinctMethods.length === 1 ? distinctMethods[0] : "Split";
+
         await client.query(
             `UPDATE "TableVisits"
              SET "Status" = 'Closed', "ClosedAt" = NOW(), "PaymentMethod" = $2, "ClosedByAdminId" = $3,
@@ -207,7 +267,7 @@ export const settleVisit = async (visitId, { paymentMethod, adminId, discountAmo
              WHERE "VisitId" = $1`,
             [
                 visitId,
-                paymentMethod,
+                summaryMethod,
                 adminId ?? null,
                 discount,
                 discount > 0 ? discountReason : null,

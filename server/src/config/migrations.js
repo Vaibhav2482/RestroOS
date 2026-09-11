@@ -672,5 +672,30 @@ export const MIGRATIONS = [
                 ADD COLUMN "DiscountReason" VARCHAR(255) NULL,
                 ADD COLUMN "DiscountByAdminId" INT NULL REFERENCES "Admins"("AdminId");
         `
+    },
+    {
+        // One row per share of a split bill (see TableVisitRepository.
+        // settleVisit) - an unsplit settle still writes exactly one row here,
+        // for the full amount due, so this is always the source of truth for
+        // "how was this visit actually paid," never a sometimes-empty side
+        // table. TableVisits."PaymentMethod" stays a quick-glance summary
+        // (the one method, or the literal 'Split' when more than one was
+        // used) rather than being replaced - the floor grid's "Already
+        // settled via X" chip and every existing report still read it as a
+        // single value.
+        id: "0038_table_visit_payments",
+        sql: `
+            CREATE TABLE "TableVisitPayments" (
+                "TableVisitPaymentId" INT GENERATED ALWAYS AS IDENTITY NOT NULL,
+                "VisitId" INT NOT NULL,
+                "PaymentMethod" VARCHAR(20) NOT NULL,
+                "Amount" NUMERIC(10, 2) NOT NULL,
+                "CreatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY ("TableVisitPaymentId"),
+                CONSTRAINT "FK_TableVisitPayments_TableVisits" FOREIGN KEY ("VisitId") REFERENCES "TableVisits"("VisitId")
+            );
+
+            CREATE INDEX "IX_TableVisitPayments_Visit" ON "TableVisitPayments" ("VisitId");
+        `
     }
 ];

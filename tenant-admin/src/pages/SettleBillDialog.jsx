@@ -9,12 +9,16 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
+    IconButton,
+    MenuItem,
+    Select,
     TextField,
     ToggleButton,
     ToggleButtonGroup,
     Typography
 } from "@mui/material";
 import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import toast from "react-hot-toast";
 
 import * as tableVisitService from "../services/tableVisitService";
@@ -27,6 +31,20 @@ import { useThermalPrint } from "../hooks/useThermalPrint";
 import { buildBillTicket } from "../utils/billEscpos";
 
 const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
+
+// Even shares of `total` across `count` splits, rounded to paise - the last
+// share absorbs whatever the rounding of the others didn't divide evenly
+// (e.g. ₹100 / 3 = 33.33/33.33/33.34), so the set always sums to exactly
+// `total` rather than being a few paise short.
+const makeEvenSplits = (total, count) => {
+
+    const each = Math.floor((total / count) * 100) / 100;
+    const shares = Array(count - 1).fill(each);
+    const last = Math.round((total - each * (count - 1)) * 100) / 100;
+
+    return [...shares, last].map((amount) => ({ amount: amount.toFixed(2), paymentMethod: "Cash" }));
+
+};
 
 // The one consolidated bill for everything ordered at a table across
 // however many rounds/KOTs it took (see server migration
@@ -47,6 +65,8 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
     const [billOpen, setBillOpen] = useState(false);
     const [discountAmount, setDiscountAmount] = useState("");
     const [discountReason, setDiscountReason] = useState("");
+    const [splitMode, setSplitMode] = useState(false);
+    const [splits, setSplits] = useState([]);
 
     useEffect(() => {
 
@@ -60,6 +80,8 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
             setVisit(null);
             setDiscountAmount("");
             setDiscountReason("");
+            setSplitMode(false);
+            setSplits([]);
 
             try {
 
@@ -100,6 +122,37 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
     const discount = Number(discountAmount) || 0;
     const amountDue = Math.max(0, Number(visit?.TotalAmount ?? 0) - discount);
 
+    const splitTotal = splits.reduce((sum, split) => sum + (Number(split.amount) || 0), 0);
+    // Rounded to paise before comparing - floating point on two decimals
+    // (100.10 + 100.10 !== 200.20 in raw JS math) would otherwise show a
+    // fictitious few-paise remainder even when the split rows are correct.
+    const splitRemaining = Math.round((amountDue - splitTotal) * 100) / 100;
+
+    const toggleSplitMode = () => {
+
+        if (splitMode) {
+            setSplitMode(false);
+            setSplits([]);
+            return;
+        }
+
+        setSplitMode(true);
+        setSplits(makeEvenSplits(amountDue, 2));
+
+    };
+
+    const updateSplit = (index, field, value) => {
+        setSplits((prev) => prev.map((split, i) => (i === index ? { ...split, [field]: value } : split)));
+    };
+
+    const addSplit = () => {
+        setSplits((prev) => [...prev, { amount: "0.00", paymentMethod: "Cash" }]);
+    };
+
+    const removeSplit = (index) => {
+        setSplits((prev) => prev.filter((_, i) => i !== index));
+    };
+
     const handleSettle = async () => {
 
         if (discount > 0 && !discountReason.trim()) {
@@ -112,11 +165,35 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
             return;
         }
 
+        if (splitMode) {
+
+            if (splits.length < 2) {
+                toast.error("Add at least two splits, or turn off Split Bill.");
+                return;
+            }
+
+            if (splits.some((split) => !(Number(split.amount) > 0))) {
+                toast.error("Every split needs an amount greater than zero.");
+                return;
+            }
+
+            if (splitRemaining !== 0) {
+                toast.error(`Splits must add up to the amount due (${splitRemaining > 0 ? "short" : "over"} by ${formatCurrency(Math.abs(splitRemaining))}).`);
+                return;
+            }
+
+        }
+
         setSettling(true);
 
         try {
 
-            const result = await tableVisitService.settleVisit(visit.VisitId, paymentMethod, discount, discountReason.trim() || undefined);
+            const result = await tableVisitService.settleVisit(visit.VisitId, {
+                paymentMethod: splitMode ? undefined : paymentMethod,
+                discountAmount: discount,
+                discountReason: discountReason.trim() || undefined,
+                splits: splitMode ? splits.map((split) => ({ amount: Number(split.amount), paymentMethod: split.paymentMethod })) : undefined
+            });
 
             if (!result.success) {
                 toast.error(result.message);
@@ -265,26 +342,105 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
                                     )}
 
-                                    <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
-                                        Payment Method
-                                    </Typography>
+                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 
-                                    <ToggleButtonGroup
-                                        exclusive
-                                        fullWidth
-                                        color="primary"
-                                        size="small"
-                                        value={paymentMethod}
-                                        onChange={(event, value) => value && setPaymentMethod(value)}
-                                    >
+                                        <Typography variant="subtitle2" fontWeight={700}>
+                                            {splitMode ? "Split Bill" : "Payment Method"}
+                                        </Typography>
 
-                                        {PAYMENT_METHODS.map((method) => (
-                                            <ToggleButton key={method} value={method}>
-                                                {method}
-                                            </ToggleButton>
-                                        ))}
+                                        {/* A group splitting the bill three ways with three
+                                            different payment methods is common enough that this
+                                            needs its own dedicated flow, not just a note in Order
+                                            Notes - see TableVisitPayments (server migration
+                                            0038). */}
+                                        <Button size="small" onClick={toggleSplitMode} sx={{ minWidth: 0, textTransform: "none" }}>
+                                            {splitMode ? "Cancel Split" : "Split Bill"}
+                                        </Button>
 
-                                    </ToggleButtonGroup>
+                                    </Box>
+
+                                    {splitMode ? (
+
+                                        <Box sx={{ mb: 2 }}>
+
+                                            <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 1.5 }}>
+
+                                                {splits.map((split, index) => (
+
+                                                    <Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+
+                                                        <TextField
+                                                            size="small"
+                                                            type="number"
+                                                            label={`Split ${index + 1}`}
+                                                            value={split.amount}
+                                                            onChange={(event) => updateSplit(index, "amount", event.target.value)}
+                                                            slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                                                            sx={{ width: 120 }}
+                                                        />
+
+                                                        <Select
+                                                            size="small"
+                                                            value={split.paymentMethod}
+                                                            onChange={(event) => updateSplit(index, "paymentMethod", event.target.value)}
+                                                            sx={{ minWidth: 90 }}
+                                                        >
+                                                            {PAYMENT_METHODS.map((method) => (
+                                                                <MenuItem key={method} value={method}>{method}</MenuItem>
+                                                            ))}
+                                                        </Select>
+
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => removeSplit(index)}
+                                                            disabled={splits.length <= 2}
+                                                            aria-label={`Remove split ${index + 1}`}
+                                                        >
+                                                            <DeleteOutlineRoundedIcon fontSize="small" />
+                                                        </IconButton>
+
+                                                    </Box>
+
+                                                ))}
+
+                                            </Box>
+
+                                            <Button size="small" onClick={addSplit} sx={{ textTransform: "none", mb: 1 }}>
+                                                + Add Split
+                                            </Button>
+
+                                            <Typography
+                                                variant="body2"
+                                                fontWeight={700}
+                                                color={splitRemaining === 0 ? "success.main" : "error.main"}
+                                            >
+                                                {splitRemaining === 0
+                                                    ? "Splits match the amount due."
+                                                    : `${splitRemaining > 0 ? "Remaining" : "Over"}: ${formatCurrency(Math.abs(splitRemaining))}`}
+                                            </Typography>
+
+                                        </Box>
+
+                                    ) : (
+
+                                        <ToggleButtonGroup
+                                            exclusive
+                                            fullWidth
+                                            color="primary"
+                                            size="small"
+                                            value={paymentMethod}
+                                            onChange={(event, value) => value && setPaymentMethod(value)}
+                                        >
+
+                                            {PAYMENT_METHODS.map((method) => (
+                                                <ToggleButton key={method} value={method}>
+                                                    {method}
+                                                </ToggleButton>
+                                            ))}
+
+                                        </ToggleButtonGroup>
+
+                                    )}
 
                                 </>
 
@@ -312,7 +468,7 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
                         <Button
                             variant="contained"
-                            disabled={settling}
+                            disabled={settling || (splitMode && splitRemaining !== 0)}
                             onClick={handleSettle}
                         >
                             {settling ? "Settling..." : "Pay & Close Table"}

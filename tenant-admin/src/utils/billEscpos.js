@@ -66,7 +66,21 @@ export function buildBillTicket({ visit, restaurantName, branchName }) {
         ticket += bold(false) + "\n";
     }
 
-    ticket += `Paid via: ${visit.PaymentMethod || "-"}\n`;
+    // More than one row means this was a split bill - listing each one is
+    // the whole point of printing it, "Paid via: Split" alone tells whoever
+    // reconciles the till nothing about who paid what.
+    if ((visit.Payments || []).length > 1) {
+
+        for (const payment of visit.Payments) {
+            ticket += twoColumn(`Paid via ${payment.PaymentMethod}`, formatMoney(payment.Amount));
+        }
+
+    } else {
+
+        ticket += `Paid via: ${visit.PaymentMethod || "-"}\n`;
+
+    }
+
     ticket += `Orders on this visit: ${visit.OrderCount}\n`;
 
     ticket += alignCenter() + "\nThank you, visit again!\n";

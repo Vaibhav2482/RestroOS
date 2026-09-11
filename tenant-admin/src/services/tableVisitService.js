@@ -15,7 +15,10 @@ export const getVisitDetails = async (visitId) => {
     return response.data;
 };
 
-export const settleVisit = async (visitId, paymentMethod, discountAmount, discountReason) => {
-    const response = await axiosClient.post(`/table-visits/${visitId}/settle`, { paymentMethod, discountAmount, discountReason });
+// payload: { paymentMethod, discountAmount, discountReason, splits }. splits
+// (when present) is [{ amount, paymentMethod }, ...] for a split bill - the
+// top-level paymentMethod is only used for an ordinary, unsplit settle.
+export const settleVisit = async (visitId, payload) => {
+    const response = await axiosClient.post(`/table-visits/${visitId}/settle`, payload);
     return response.data;
 };

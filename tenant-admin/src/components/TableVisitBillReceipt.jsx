@@ -158,7 +158,24 @@ function TableVisitBillReceipt({ visit, restaurantName, branchName }) {
                         <Typography variant="body2">
                             Paid Amount: <strong>{formatMoney(visit.AmountDue)}</strong>
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">By: {paymentMethod || "-"}</Typography>
+
+                        {/* More than one row means this was a split bill -
+                            "By: Split" alone would tell staff nothing about who
+                            paid what, which is the whole point of printing it. */}
+                        {(visit.Payments || []).length > 1 ? (
+
+                            (visit.Payments || []).map((payment) => (
+                                <Typography key={payment.TableVisitPaymentId} variant="body2" color="text.secondary">
+                                    {payment.PaymentMethod}: {formatMoney(payment.Amount)}
+                                </Typography>
+                            ))
+
+                        ) : (
+
+                            <Typography variant="body2" color="text.secondary">By: {paymentMethod || "-"}</Typography>
+
+                        )}
+
                     </Box>
 
                     <Chip
