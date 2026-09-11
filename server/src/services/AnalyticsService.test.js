@@ -335,6 +335,35 @@ describe("AnalyticsService.getCancelledOrders", () => {
 
 });
 
+describe("AnalyticsService.getBillDiscounts", () => {
+
+    it("sums each visit's own DiscountAmount into a total", async () => {
+
+        AnalyticsRepository.getBillDiscounts.mockResolvedValue([
+            { VisitId: 1, TableNumber: "A3", DiscountAmount: 50, DiscountReason: "Service delay", DiscountByAdminName: "Ravi" },
+            { VisitId: 2, TableNumber: "B1", DiscountAmount: 25, DiscountReason: "Loyal customer", DiscountByAdminName: "Priya" }
+        ]);
+
+        const result = await AnalyticsService.getBillDiscounts(1, null, "2026-01-01", "2026-01-01");
+
+        expect(result.success).toBe(true);
+        expect(result.data.visits).toHaveLength(2);
+        expect(result.data.total).toBe(75);
+
+    });
+
+    it("reports zero total when no bill discounts were given in range", async () => {
+
+        AnalyticsRepository.getBillDiscounts.mockResolvedValue([]);
+
+        const result = await AnalyticsService.getBillDiscounts(1, null, "2026-01-01", "2026-01-01");
+
+        expect(result.data.total).toBe(0);
+
+    });
+
+});
+
 describe("AnalyticsService.getDayEndSummary", () => {
 
     beforeEach(() => {
@@ -347,6 +376,7 @@ describe("AnalyticsService.getDayEndSummary", () => {
         ]);
         AnalyticsRepository.getPaymentBreakdown.mockResolvedValue([{ PaymentMethod: "Cash", OrderCount: 9, Revenue: 900 }]);
         AnalyticsRepository.getStaffSales.mockResolvedValue([{ CreatedByAdminId: 1, StaffName: "Priya Sharma", OrderCount: 9, Revenue: 900, AvgOrderValue: 100 }]);
+        AnalyticsRepository.getBillDiscounts.mockResolvedValue([]);
 
     });
 
@@ -364,11 +394,12 @@ describe("AnalyticsService.getDayEndSummary", () => {
         expect(result.data.tax).toEqual(expect.objectContaining({ TotalAmount: 900 }));
         expect(result.data.payments).toEqual([{ PaymentMethod: "Cash", OrderCount: 9, Revenue: 900 }]);
         expect(result.data.staff).toEqual([expect.objectContaining({ StaffName: "Priya Sharma" })]);
+        expect(result.data.billDiscounts).toEqual({ visits: [], total: 0 });
 
         // Every underlying call resolved the SAME single day as both ends
         // of the range - a day-end report spanning more than one day would
         // defeat the entire point of it.
-        for (const mockFn of [AnalyticsRepository.getSalesSummary, AnalyticsRepository.getTaxSummary, AnalyticsRepository.getPaymentBreakdown, AnalyticsRepository.getStaffSales]) {
+        for (const mockFn of [AnalyticsRepository.getSalesSummary, AnalyticsRepository.getTaxSummary, AnalyticsRepository.getPaymentBreakdown, AnalyticsRepository.getStaffSales, AnalyticsRepository.getBillDiscounts]) {
             const [, , from, to] = mockFn.mock.calls[0];
             expect(to.getTime() - from.getTime()).toBe(24 * 60 * 60 * 1000);
         }

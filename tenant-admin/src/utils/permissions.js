@@ -17,6 +17,7 @@ export const GRANTABLE_PERMISSIONS = [
     { key: "view_analytics", label: "View Analytics", group: "Insights", core: true },
     { key: "view_reports", label: "View Reports", group: "Insights", core: true },
     { key: "manage_coupons", label: "Manage Coupons", group: "Management", core: false },
+    { key: "apply_discounts", label: "Apply Bill Discounts", group: "Management", core: false },
     { key: "manage_integrations", label: "Manage Integrations", group: "Management", core: false },
     { key: "manage_branding", label: "Manage Branding", group: "Management", core: false },
     { key: "manage_delivery", label: "Manage Delivery Settings", group: "Management", core: false },

@@ -655,5 +655,22 @@ export const MIGRATIONS = [
         sql: `
             ALTER TABLE "Customers" ADD COLUMN "IsGuest" BOOLEAN NOT NULL DEFAULT FALSE;
         `
+    },
+    {
+        // A settlement-time concession (a manager comping ₹50 off the bill),
+        // deliberately separate from each order's own SubTotal/Cgst/Sgst/
+        // TotalAmount - those stay the immutable tax invoice for what was
+        // actually cooked and served under each KOT. DiscountByAdminId has
+        // no NOT NULL/CHECK pairing with the amount at the DB level; that
+        // "amount > 0 implies a reason and an actor" rule is enforced in
+        // TableVisitRepository.settleVisit, the only place this ever gets
+        // written.
+        id: "0037_table_visit_discount",
+        sql: `
+            ALTER TABLE "TableVisits"
+                ADD COLUMN "DiscountAmount" NUMERIC(10, 2) NOT NULL DEFAULT 0,
+                ADD COLUMN "DiscountReason" VARCHAR(255) NULL,
+                ADD COLUMN "DiscountByAdminId" INT NULL REFERENCES "Admins"("AdminId");
+        `
     }
 ];

@@ -15,7 +15,7 @@ export const getVisitDetails = async (visitId) => {
     return response.data;
 };
 
-export const settleVisit = async (visitId, paymentMethod) => {
-    const response = await axiosClient.post(`/table-visits/${visitId}/settle`, { paymentMethod });
+export const settleVisit = async (visitId, paymentMethod, discountAmount, discountReason) => {
+    const response = await axiosClient.post(`/table-visits/${visitId}/settle`, { paymentMethod, discountAmount, discountReason });
     return response.data;
 };

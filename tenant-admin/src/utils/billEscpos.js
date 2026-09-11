@@ -56,6 +56,16 @@ export function buildBillTicket({ visit, restaurantName, branchName }) {
     ticket += twoColumn("TOTAL", formatMoney(visit.TotalAmount), Math.floor(PAPER_WIDTH_CHARS / 2));
     ticket += doubleSize(false) + bold(false) + "\n";
 
+    // A settlement-time concession, separate from the invoiced TOTAL above -
+    // only printed when one was actually given (see TableVisitBillReceipt's
+    // matching on-screen section).
+    if (Number(visit.BillDiscountAmount) > 0) {
+        ticket += twoColumn(`Bill Discount (${visit.BillDiscountReason})`, `-${formatMoney(visit.BillDiscountAmount)}`);
+        ticket += bold(true);
+        ticket += twoColumn("AMOUNT PAID", formatMoney(visit.AmountDue));
+        ticket += bold(false) + "\n";
+    }
+
     ticket += `Paid via: ${visit.PaymentMethod || "-"}\n`;
     ticket += `Orders on this visit: ${visit.OrderCount}\n`;
 

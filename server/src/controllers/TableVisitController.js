@@ -48,7 +48,7 @@ export const getVisitDetails = asyncHandler(async (req, res) => {
 export const settleVisit = asyncHandler(async (req, res) => {
 
     const { visitId } = req.params;
-    const { paymentMethod } = req.body;
+    const { paymentMethod, discountAmount, discountReason } = req.body;
 
     const existing = await TableVisitService.getVisitDetails(visitId);
 
@@ -63,7 +63,14 @@ export const settleVisit = asyncHandler(async (req, res) => {
     const result = await TableVisitService.settleVisit(visitId, {
         paymentMethod,
         adminId: req.user.id,
-        tenantId: req.user.tenantId
+        tenantId: req.user.tenantId,
+        discountAmount,
+        discountReason,
+        // An Owner has no branchId and always passes requirePermission -
+        // mirrored here since a discount's permission check only applies
+        // conditionally (discount > 0), so it can't live in the route's own
+        // requirePermission("manage_orders") the way settling itself does.
+        canApplyDiscount: !req.user.branchId || Boolean(req.user.permissions?.includes("apply_discounts"))
     });
 
     if (!result.success) {

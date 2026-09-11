@@ -104,3 +104,67 @@ describe("TableVisitService.settleVisit", () => {
     });
 
 });
+
+describe("TableVisitService.settleVisit - bill discount", () => {
+
+    it("rejects a negative discount before touching the repository", async () => {
+
+        const result = await settleVisit(5, { paymentMethod: "Cash", adminId: 1, tenantId: 9, discountAmount: -10, canApplyDiscount: true });
+
+        expect(result).toEqual({ success: false, message: "Discount cannot be negative." });
+        expect(TableVisitRepository.settleVisit).not.toHaveBeenCalled();
+
+    });
+
+    it("rejects a discount from an admin without apply_discounts", async () => {
+
+        const result = await settleVisit(5, {
+            paymentMethod: "Cash", adminId: 1, tenantId: 9, discountAmount: 50, discountReason: "Service delay", canApplyDiscount: false
+        });
+
+        expect(result).toEqual({ success: false, message: "You don't have permission to apply a bill discount." });
+        expect(TableVisitRepository.settleVisit).not.toHaveBeenCalled();
+
+    });
+
+    it("requires a reason once an amount is entered", async () => {
+
+        const result = await settleVisit(5, {
+            paymentMethod: "Cash", adminId: 1, tenantId: 9, discountAmount: 50, discountReason: "   ", canApplyDiscount: true
+        });
+
+        expect(result).toEqual({ success: false, message: "A reason is required to apply a discount." });
+        expect(TableVisitRepository.settleVisit).not.toHaveBeenCalled();
+
+    });
+
+    it("settling with zero discount never requires the permission or a reason", async () => {
+
+        TableVisitRepository.settleVisit.mockResolvedValue({ VisitId: 5, TableNumber: "A3", TotalAmount: "417.90", AmountDue: "417.90", OrderCount: 1 });
+
+        const result = await settleVisit(5, { paymentMethod: "Cash", adminId: 1, tenantId: 9, canApplyDiscount: false });
+
+        expect(result.success).toBe(true);
+        expect(TableVisitRepository.settleVisit).toHaveBeenCalledWith(5, expect.objectContaining({ discountAmount: 0, discountReason: undefined }));
+
+    });
+
+    it("passes a valid discount through and records it in the audit summary", async () => {
+
+        TableVisitRepository.settleVisit.mockResolvedValue({
+            VisitId: 5, TableNumber: "A3", TotalAmount: "417.90", AmountDue: "367.90", OrderCount: 1
+        });
+
+        const result = await settleVisit(5, {
+            paymentMethod: "Cash", adminId: 1, tenantId: 9, discountAmount: 50, discountReason: "  Service delay  ", canApplyDiscount: true
+        });
+
+        expect(result.success).toBe(true);
+        expect(TableVisitRepository.settleVisit).toHaveBeenCalledWith(5, expect.objectContaining({ discountAmount: 50, discountReason: "Service delay" }));
+        expect(AuditService.record).toHaveBeenCalledWith(expect.objectContaining({
+            summary: expect.stringContaining("₹50.00 bill discount (Service delay)")
+        }));
+
+    });
+
+});

@@ -172,7 +172,7 @@ describe("settleVisit - closing a table's bill", () => {
         mockClientSequence([
             {}, // BEGIN
             { rows: [{ VisitId: 5, Status: "Open" }] },
-            { rows: [{ count: 0 }] } // order count
+            { rows: [{ OrderCount: 0, TotalAmount: "0" }] } // order count + total, combined
         ]);
 
         await expect(settleVisit(5, { paymentMethod: "Cash", adminId: 5 })).rejects.toThrow("no orders to settle");
@@ -186,7 +186,7 @@ describe("settleVisit - closing a table's bill", () => {
         mockClientSequence([
             {}, // BEGIN
             { rows: [{ VisitId: 5, Status: "Open" }] },
-            { rows: [{ count: 2 }] }, // order count
+            { rows: [{ OrderCount: 2, TotalAmount: "417.90" }] }, // order count + total
             {} // UPDATE
         ]);
 
@@ -201,7 +201,7 @@ describe("settleVisit - closing a table's bill", () => {
         expect(result).toEqual({ VisitId: 5, Status: "Closed", TotalAmount: "417.90", OrderCount: 2 });
 
         const updateCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes("UPDATE \"TableVisits\""));
-        expect(updateCall[1]).toEqual([5, "Cash", 5]);
+        expect(updateCall[1]).toEqual([5, "Cash", 5, 0, null, null]);
 
     });
 

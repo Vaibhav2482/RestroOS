@@ -73,22 +73,32 @@ export const getOpenVisitForTable = async (branchId, tableNumber) => {
 // taxed its own items correctly at creation time (see
 // OrderRepository.computeOrderTax), so summing what was already validly
 // charged per round is both simpler and exactly as correct as recomputing.
+// "DiscountAmount"/"TotalAmount" here are the same order-summed, invoiced
+// figures they've always been (a coupon discount, tax-correct per round) -
+// V."DiscountAmount" is the SEPARATE settlement-time bill discount (see
+// migration 0037_table_visit_discount), aliased "BillDiscountAmount" to
+// avoid colliding with that name, with "AmountDue" as the actual amount
+// collected (TotalAmount minus the bill discount).
 export const getVisitHeader = async (visitId) => {
 
     const result = await pool.query(
         `SELECT V."VisitId", V."BranchId", V."TableNumber", V."Status", V."OpenedAt", V."ClosedAt", V."PaymentMethod",
+                V."DiscountAmount" AS "BillDiscountAmount", V."DiscountReason" AS "BillDiscountReason",
+                BA."FullName" AS "BillDiscountByAdminName",
                 B."BranchName", B."TenantId",
                 COALESCE(SUM(O."SubTotal"), 0) AS "SubTotal",
                 COALESCE(SUM(O."CgstAmount"), 0) AS "CgstAmount",
                 COALESCE(SUM(O."SgstAmount"), 0) AS "SgstAmount",
                 COALESCE(SUM(O."DiscountAmount"), 0) AS "DiscountAmount",
                 COALESCE(SUM(O."TotalAmount"), 0) AS "TotalAmount",
+                COALESCE(SUM(O."TotalAmount"), 0) - V."DiscountAmount" AS "AmountDue",
                 COUNT(O."OrderId") AS "OrderCount"
          FROM "TableVisits" V
          INNER JOIN "Branches" B ON V."BranchId" = B."BranchId"
+         LEFT JOIN "Admins" BA ON BA."AdminId" = V."DiscountByAdminId"
          LEFT JOIN "Orders" O ON O."VisitId" = V."VisitId" AND O."OrderStatus" != 'Cancelled'
          WHERE V."VisitId" = $1
-         GROUP BY V."VisitId", B."BranchName", B."TenantId"`,
+         GROUP BY V."VisitId", BA."FullName", B."BranchName", B."TenantId"`,
         [visitId]
     );
 
@@ -147,7 +157,7 @@ export const getVisitOrders = async (visitId) => {
 // the visit row first so two captains tapping "Settle Bill" at the same
 // moment can't both succeed - the second sees Status already 'Closed' and
 // is rejected instead of double-settling.
-export const settleVisit = async (visitId, { paymentMethod, adminId }) => {
+export const settleVisit = async (visitId, { paymentMethod, adminId, discountAmount, discountReason }) => {
 
     const client = await pool.connect();
 
@@ -168,18 +178,41 @@ export const settleVisit = async (visitId, { paymentMethod, adminId }) => {
             throw new Error("This table's bill has already been settled.");
         }
 
-        const orderCountResult = await client.query(
-            `SELECT COUNT(*)::int AS "count" FROM "Orders" WHERE "VisitId" = $1 AND "OrderStatus" != 'Cancelled'`,
+        const totalResult = await client.query(
+            `SELECT COUNT(*)::int AS "OrderCount", COALESCE(SUM("TotalAmount"), 0) AS "TotalAmount"
+             FROM "Orders" WHERE "VisitId" = $1 AND "OrderStatus" != 'Cancelled'`,
             [visitId]
         );
 
-        if (orderCountResult.rows[0].count === 0) {
+        if (totalResult.rows[0].OrderCount === 0) {
             throw new Error("This table has no orders to settle.");
         }
 
+        const discount = Number(discountAmount) || 0;
+        const billTotal = Number(totalResult.rows[0].TotalAmount);
+
+        // Read fresh, inside the same locked transaction as the total it's
+        // validated against - a discount checked against a total fetched
+        // before this transaction opened could pass against a bill that's
+        // since grown (another round fired off) or shrunk (an order got
+        // cancelled), letting it exceed the real, current total.
+        if (discount > billTotal) {
+            throw new Error("Discount cannot exceed the bill total.");
+        }
+
         await client.query(
-            `UPDATE "TableVisits" SET "Status" = 'Closed', "ClosedAt" = NOW(), "PaymentMethod" = $2, "ClosedByAdminId" = $3 WHERE "VisitId" = $1`,
-            [visitId, paymentMethod, adminId ?? null]
+            `UPDATE "TableVisits"
+             SET "Status" = 'Closed', "ClosedAt" = NOW(), "PaymentMethod" = $2, "ClosedByAdminId" = $3,
+                 "DiscountAmount" = $4, "DiscountReason" = $5, "DiscountByAdminId" = $6
+             WHERE "VisitId" = $1`,
+            [
+                visitId,
+                paymentMethod,
+                adminId ?? null,
+                discount,
+                discount > 0 ? discountReason : null,
+                discount > 0 ? (adminId ?? null) : null
+            ]
         );
 
         await client.query("COMMIT");

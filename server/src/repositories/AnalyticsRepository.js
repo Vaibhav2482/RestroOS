@@ -361,6 +361,35 @@ export const getCancelledOrders = async (tenantId, branchId, from, to) => {
 
 };
 
+// Manual, settlement-time bill discounts (see migration
+// 0037_table_visit_discount) - deliberately separate from getCouponUsage
+// above and from every Orders-based revenue query. A TableVisit's own
+// SubTotal/Cgst/Sgst/TotalAmount (summed from its Orders) stay the
+// immutable, tax-correct invoice for what was cooked and served; this is
+// the reconciliation-side "how much of today's invoiced total did a
+// manager actually waive," scoped by when the VISIT closed, not by any
+// order's own OrderDate.
+const VISIT_AT_IST = `(V."ClosedAt" + INTERVAL '5 hours 30 minutes')`;
+
+export const getBillDiscounts = async (tenantId, branchId, from, to) => {
+
+    const result = await pool.query(
+        `SELECT V."VisitId", V."TableNumber", V."ClosedAt", V."DiscountAmount", V."DiscountReason",
+                A."FullName" AS "DiscountByAdminName"
+         FROM "TableVisits" V
+         INNER JOIN "Branches" B ON V."BranchId" = B."BranchId"
+         LEFT JOIN "Admins" A ON A."AdminId" = V."DiscountByAdminId"
+         WHERE B."TenantId" = $1 AND ($2::int IS NULL OR V."BranchId" = $2)
+           AND V."Status" = 'Closed' AND V."DiscountAmount" > 0
+           AND ${VISIT_AT_IST} >= $3 AND ${VISIT_AT_IST} < $4
+         ORDER BY V."ClosedAt" DESC`,
+        [tenantId, branchId ?? null, from, to]
+    );
+
+    return result.rows;
+
+};
+
 // Owner-only (cross-branch view) - every one of a tenant's branches is
 // listed even with zero orders in range, via the LEFT JOIN, so a new
 // branch shows up as a real 0 rather than being silently missing.

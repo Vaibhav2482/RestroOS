@@ -231,6 +231,21 @@ export const getCouponUsage = async (tenantId, branchId, fromInput, toInput) => 
 
 };
 
+export const getBillDiscounts = async (tenantId, branchId, fromInput, toInput) => {
+
+    const { from, to, error } = resolveDateRange(fromInput, toInput);
+
+    if (error) {
+        return { success: false, message: error };
+    }
+
+    const visits = await AnalyticsRepository.getBillDiscounts(tenantId, branchId, from, to);
+    const total = visits.reduce((sum, visit) => sum + Number(visit.DiscountAmount), 0);
+
+    return { success: true, message: "Bill discounts fetched successfully.", data: { visits, total } };
+
+};
+
 export const getCancelledOrders = async (tenantId, branchId, fromInput, toInput) => {
 
     const { from, to, error } = resolveDateRange(fromInput, toInput);
@@ -278,14 +293,15 @@ export const getDayEndSummary = async (tenantId, branchId, dateInput) => {
     // for.
     const date = dateInput || todayInIst();
 
-    const [salesResult, taxResult, paymentResult, staffResult] = await Promise.all([
+    const [salesResult, taxResult, paymentResult, staffResult, discountsResult] = await Promise.all([
         getSalesSummary(tenantId, branchId, date, date),
         getTaxSummary(tenantId, branchId, date, date),
         getPaymentBreakdown(tenantId, branchId, date, date),
-        getStaffSales(tenantId, branchId, date, date)
+        getStaffSales(tenantId, branchId, date, date),
+        getBillDiscounts(tenantId, branchId, date, date)
     ]);
 
-    const failed = [salesResult, taxResult, paymentResult, staffResult].find((result) => !result.success);
+    const failed = [salesResult, taxResult, paymentResult, staffResult, discountsResult].find((result) => !result.success);
 
     if (failed) {
         return failed;
@@ -299,7 +315,8 @@ export const getDayEndSummary = async (tenantId, branchId, dateInput) => {
             sales: salesResult.data.totals,
             tax: taxResult.data.totals,
             payments: paymentResult.data,
-            staff: staffResult.data
+            staff: staffResult.data,
+            billDiscounts: discountsResult.data
         }
     };
 

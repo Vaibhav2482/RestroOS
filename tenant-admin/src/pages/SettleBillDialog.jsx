@@ -9,6 +9,7 @@ import {
     DialogContent,
     DialogTitle,
     Divider,
+    TextField,
     ToggleButton,
     ToggleButtonGroup,
     Typography
@@ -17,7 +18,7 @@ import PrintOutlinedIcon from "@mui/icons-material/PrintOutlined";
 import toast from "react-hot-toast";
 
 import * as tableVisitService from "../services/tableVisitService";
-import { getStoredAuth } from "../utils/adminAuth";
+import { getStoredAuth, hasPermission } from "../utils/adminAuth";
 import { POS_STATUS_COLOR } from "./posOrderStatus";
 import { formatCurrency } from "./orderStatusUtils";
 import TableVisitBillReceipt from "../components/TableVisitBillReceipt";
@@ -36,6 +37,7 @@ const PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
     const auth = getStoredAuth();
+    const canApplyDiscount = hasPermission(auth?.admin, "apply_discounts");
     const { printing: billPrinting, print: printBill } = useThermalPrint();
 
     const [loading, setLoading] = useState(true);
@@ -43,6 +45,8 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
     const [paymentMethod, setPaymentMethod] = useState("Cash");
     const [settling, setSettling] = useState(false);
     const [billOpen, setBillOpen] = useState(false);
+    const [discountAmount, setDiscountAmount] = useState("");
+    const [discountReason, setDiscountReason] = useState("");
 
     useEffect(() => {
 
@@ -54,6 +58,8 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
             setLoading(true);
             setVisit(null);
+            setDiscountAmount("");
+            setDiscountReason("");
 
             try {
 
@@ -91,13 +97,26 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, table, branchId]);
 
+    const discount = Number(discountAmount) || 0;
+    const amountDue = Math.max(0, Number(visit?.TotalAmount ?? 0) - discount);
+
     const handleSettle = async () => {
+
+        if (discount > 0 && !discountReason.trim()) {
+            toast.error("Please enter a reason for the discount.");
+            return;
+        }
+
+        if (discount > Number(visit.TotalAmount)) {
+            toast.error("Discount cannot exceed the bill total.");
+            return;
+        }
 
         setSettling(true);
 
         try {
 
-            const result = await tableVisitService.settleVisit(visit.VisitId, paymentMethod);
+            const result = await tableVisitService.settleVisit(visit.VisitId, paymentMethod, discount, discountReason.trim() || undefined);
 
             if (!result.success) {
                 toast.error(result.message);
@@ -204,6 +223,47 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
                             ) : (
 
                                 <>
+
+                                    {canApplyDiscount && (
+
+                                        <Box sx={{ mb: 2 }}>
+
+                                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                                                Bill Discount (optional)
+                                            </Typography>
+
+                                            <Box sx={{ display: "flex", gap: 1, mb: discount > 0 ? 1 : 0 }}>
+
+                                                <TextField
+                                                    size="small"
+                                                    type="number"
+                                                    label="Amount"
+                                                    value={discountAmount}
+                                                    onChange={(event) => setDiscountAmount(event.target.value)}
+                                                    slotProps={{ htmlInput: { min: 0, step: "0.01" } }}
+                                                    sx={{ width: 130 }}
+                                                />
+
+                                                <TextField
+                                                    size="small"
+                                                    label="Reason"
+                                                    placeholder="e.g. Loyal customer, service delay"
+                                                    value={discountReason}
+                                                    onChange={(event) => setDiscountReason(event.target.value)}
+                                                    fullWidth
+                                                />
+
+                                            </Box>
+
+                                            {discount > 0 && (
+                                                <Typography variant="body2" fontWeight={700} color="success.main">
+                                                    Amount Due: {formatCurrency(amountDue)}
+                                                </Typography>
+                                            )}
+
+                                        </Box>
+
+                                    )}
 
                                     <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
                                         Payment Method

@@ -123,6 +123,29 @@ function TableVisitBillReceipt({ visit, restaurantName, branchName }) {
                     <InfoOutlinedIcon sx={{ fontSize: 14, color: "text.disabled" }} />
                 </Box>
 
+                {/* A settlement-time concession, separate from the invoiced Total
+                    Bill above it - shown only when one was actually given, same
+                    as the coupon Discount line further up. */}
+                {Number(visit.BillDiscountAmount) > 0 && (
+
+                    <>
+
+                        <Divider sx={{ my: 1.5 }} />
+
+                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                            <Typography variant="body2" color="text.secondary">Bill Discount ({visit.BillDiscountReason})</Typography>
+                            <Typography variant="body2" color="success.main">-{formatMoney(visit.BillDiscountAmount)}</Typography>
+                        </Box>
+
+                        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}>
+                            <Typography fontWeight={800}>Amount Paid</Typography>
+                            <Typography fontWeight={800}>{formatMoney(visit.AmountDue)}</Typography>
+                        </Box>
+
+                    </>
+
+                )}
+
             </Box>
 
             <Box sx={{ border: "1px solid #E5E7EB", borderRadius: 3, p: 2.5, mt: 2 }}>
@@ -133,7 +156,7 @@ function TableVisitBillReceipt({ visit, restaurantName, branchName }) {
 
                     <Box>
                         <Typography variant="body2">
-                            Paid Amount: <strong>{formatMoney(visit.TotalAmount)}</strong>
+                            Paid Amount: <strong>{formatMoney(visit.AmountDue)}</strong>
                         </Typography>
                         <Typography variant="body2" color="text.secondary">By: {paymentMethod || "-"}</Typography>
                     </Box>

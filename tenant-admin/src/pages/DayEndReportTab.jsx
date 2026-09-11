@@ -200,6 +200,70 @@ function DayEndReportTab({ branchId, date, onDateChange }) {
 
                     <Paper elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
 
+                        {/* Separate from the Tax panel's "Discount" figure above -
+                            that one's coupon discounts, already baked into each
+                            order's own invoiced total. This is what a manager
+                            waived AFTER the invoice, at settlement - Gross Sales
+                            up top doesn't reflect it, so it's the one number here
+                            that explains a gap between "Total Collected" and what
+                            actually landed in the till. */}
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", p: 3, pb: 1.5 }}>
+                            <Typography fontWeight={700}>Bill Discounts</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                                Total waived: {formatCurrency(summary.billDiscounts.total)}
+                            </Typography>
+                        </Box>
+
+                        <Divider />
+
+                        <TableContainer>
+
+                            <Table size="small">
+
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 600 }}>Table</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>Reason</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>By</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }} align="right">Discount</TableCell>
+                                    </TableRow>
+                                </TableHead>
+
+                                <TableBody>
+
+                                    {summary.billDiscounts.visits.length === 0 ? (
+
+                                        <TableRow>
+                                            <TableCell colSpan={4} align="center" sx={{ py: 3 }}>
+                                                <Typography color="text.secondary" variant="body2">No bill discounts given on this day.</Typography>
+                                            </TableCell>
+                                        </TableRow>
+
+                                    ) : (
+
+                                        summary.billDiscounts.visits.map((visit) => (
+
+                                            <TableRow key={visit.VisitId} hover>
+                                                <TableCell>Table {visit.TableNumber}</TableCell>
+                                                <TableCell>{visit.DiscountReason}</TableCell>
+                                                <TableCell>{visit.DiscountByAdminName || "-"}</TableCell>
+                                                <TableCell align="right">{formatCurrency(visit.DiscountAmount)}</TableCell>
+                                            </TableRow>
+
+                                        ))
+
+                                    )}
+
+                                </TableBody>
+
+                            </Table>
+
+                        </TableContainer>
+
+                    </Paper>
+
+                    <Paper elevation={0} sx={{ border: "1px solid #E5E7EB" }}>
+
                         <Typography fontWeight={700} sx={{ p: 3, pb: 1.5 }}>Staff Sales</Typography>
 
                         <Divider />
