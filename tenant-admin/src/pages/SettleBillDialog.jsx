@@ -51,8 +51,10 @@ const makeEvenSplits = (total, count) => {
 // 0024_table_visits) - opened from the floor grid's per-table "Settle
 // Bill" action, regardless of whether that table has one order or five.
 // Settling here is what actually frees the table; each individual order's
-// own kitchen status is untouched by this.
-function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
+// own kitchen status is untouched by this. tables/activeOrdersByTable
+// (both optional) are the floor grid's own state, passed through only so
+// this can offer "merge with..." candidates without a dedicated endpoint.
+function SettleBillDialog({ open, branchId, table, tables = [], activeOrdersByTable = new Map(), onClose, onSettled }) {
 
     const auth = getStoredAuth();
     const canApplyDiscount = hasPermission(auth?.admin, "apply_discounts");
@@ -67,6 +69,34 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
     const [discountReason, setDiscountReason] = useState("");
     const [splitMode, setSplitMode] = useState(false);
     const [splits, setSplits] = useState([]);
+    const [mergeTarget, setMergeTarget] = useState("");
+    const [merging, setMerging] = useState(false);
+
+    // Re-resolves whatever visit THIS dialog's own table currently belongs
+    // to - always by table name, never by a previously-known VisitId, so
+    // this keeps working correctly after a merge/unmerge changes which
+    // visit that table name actually resolves to.
+    const loadVisit = async () => {
+
+        const openVisit = await tableVisitService.getOpenVisitForTable(branchId, table.TableName);
+
+        if (!openVisit.success || !openVisit.data) {
+            toast.error("This table has no open bill to settle.");
+            onClose();
+            return;
+        }
+
+        const details = await tableVisitService.getVisitDetails(openVisit.data.VisitId);
+
+        if (!details.success) {
+            toast.error(details.message);
+            onClose();
+            return;
+        }
+
+        setVisit(details.data);
+
+    };
 
     useEffect(() => {
 
@@ -82,26 +112,11 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
             setDiscountReason("");
             setSplitMode(false);
             setSplits([]);
+            setMergeTarget("");
 
             try {
 
-                const openVisit = await tableVisitService.getOpenVisitForTable(branchId, table.TableName);
-
-                if (!openVisit.success || !openVisit.data) {
-                    toast.error("This table has no open bill to settle.");
-                    onClose();
-                    return;
-                }
-
-                const details = await tableVisitService.getVisitDetails(openVisit.data.VisitId);
-
-                if (!details.success) {
-                    toast.error(details.message);
-                    onClose();
-                    return;
-                }
-
-                setVisit(details.data);
+                await loadVisit();
 
             } catch (error) {
 
@@ -151,6 +166,88 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
 
     const removeSplit = (index) => {
         setSplits((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    // A single-entry array for an ordinary, never-merged visit - see
+    // TableVisitRepository.getVisitHeader.
+    const mergedVisits = visit?.MergedVisits || [];
+    const mergedTableNumbers = new Set(mergedVisits.map((mv) => mv.TableNumber));
+
+    // Any other table currently carrying an active order, minus this
+    // dialog's own table and whichever ones are already part of this same
+    // merged bill - a real occupancy proxy without a dedicated "which
+    // tables have an open visit" endpoint, same data the floor grid itself
+    // already renders from. `table` is null whenever this dialog is closed
+    // (Pos.jsx keeps it mounted at all times with table={settleBillTable}),
+    // so this whole computation is skipped rather than dereferencing null.
+    const mergeCandidates = table
+        ? tables.filter((candidate) =>
+            candidate.TableName !== table.TableName &&
+            !mergedTableNumbers.has(candidate.TableName) &&
+            (activeOrdersByTable.get(candidate.TableName) || []).length > 0
+        )
+        : [];
+
+    const handleMerge = async () => {
+
+        if (!mergeTarget) {
+            return;
+        }
+
+        setMerging(true);
+
+        try {
+
+            const result = await tableVisitService.mergeTables(branchId, table.TableName, mergeTarget);
+
+            if (!result.success) {
+                toast.error(result.message);
+                return;
+            }
+
+            toast.success(`Table ${table.TableName} merged into Table ${mergeTarget}.`);
+            setVisit(result.data);
+            setMergeTarget("");
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to merge these tables.");
+
+        } finally {
+
+            setMerging(false);
+
+        }
+
+    };
+
+    const handleUnmerge = async (tableNumber) => {
+
+        try {
+
+            const result = await tableVisitService.unmergeTable(branchId, tableNumber);
+
+            if (!result.success) {
+                toast.error(result.message);
+                return;
+            }
+
+            toast.success(`Table ${tableNumber} unmerged.`);
+
+            // Re-resolve THIS dialog's own table rather than trusting
+            // result.data directly - that's the detached table's own tiny
+            // bill, which is only what this dialog should show if the
+            // detached table happened to be the one it was opened for. If a
+            // co-table was unmerged instead, this dialog needs to keep
+            // showing the remaining combined bill, not switch away to it.
+            await loadVisit();
+
+        } catch (error) {
+
+            toast.error(error.response?.data?.message || "Failed to unmerge this table.");
+
+        }
+
     };
 
     const handleSettle = async () => {
@@ -223,7 +320,7 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
             <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
 
                 <DialogTitle>
-                    Settle Bill &mdash; Table {table?.TableName}
+                    Settle Bill &mdash; Table {mergedVisits.length > 1 ? mergedVisits.map((mv) => mv.TableNumber).join(" + ") : table?.TableName}
                 </DialogTitle>
 
                 <DialogContent>
@@ -237,6 +334,60 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
                     ) : visit && (
 
                         <>
+
+                            {/* Two or more physical tables pushed together for one
+                                party - each stays occupied/clickable on its own floor-
+                                grid card, but they share this one combined bill (see
+                                server migration 0039_table_visit_merge). A chip's "x"
+                                unmerges just that one table back to its own bill;
+                                unmerging is disabled once the combined bill is settled. */}
+                            {mergedVisits.length > 1 && (
+
+                                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mb: 2 }}>
+
+                                    {mergedVisits.map((mv) => (
+
+                                        <Chip
+                                            key={mv.VisitId}
+                                            label={`Table ${mv.TableNumber}`}
+                                            color="primary"
+                                            variant="outlined"
+                                            size="small"
+                                            onDelete={visit.Status === "Open" ? () => handleUnmerge(mv.TableNumber) : undefined}
+                                        />
+
+                                    ))}
+
+                                </Box>
+
+                            )}
+
+                            {visit.Status === "Open" && mergeCandidates.length > 0 && (
+
+                                <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 2 }}>
+
+                                    <Select
+                                        size="small"
+                                        displayEmpty
+                                        value={mergeTarget}
+                                        onChange={(event) => setMergeTarget(event.target.value)}
+                                        sx={{ minWidth: 170, flex: 1 }}
+                                    >
+                                        <MenuItem value=""><em>Merge with another table&hellip;</em></MenuItem>
+                                        {mergeCandidates.map((candidate) => (
+                                            <MenuItem key={candidate.TableId} value={candidate.TableName}>
+                                                Table {candidate.TableName}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+
+                                    <Button size="small" disabled={!mergeTarget || merging} onClick={handleMerge}>
+                                        {merging ? "Merging..." : "Merge"}
+                                    </Button>
+
+                                </Box>
+
+                            )}
 
                             {/* Each round is still its own order/KOT underneath - shown
                                 here as context (what was ordered, when, by whom), not as
@@ -252,7 +403,9 @@ function SettleBillDialog({ open, branchId, table, onClose, onSettled }) {
                                     <Box key={order.OrderId} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 
                                         <Typography variant="body2">
-                                            Order #{order.OrderId} &middot; {new Date(order.OrderDate).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                                            Order #{order.OrderId}
+                                            {mergedVisits.length > 1 ? ` · Table ${order.TableNumber}` : ""}
+                                            {" "}&middot; {new Date(order.OrderDate).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                                         </Typography>
 
                                         <Chip

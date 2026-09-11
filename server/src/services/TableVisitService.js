@@ -46,6 +46,67 @@ export const getVisitDetails = async (visitId) => {
 
 };
 
+// Combines two occupied tables' bills for a large party seated across
+// both - see TableVisitRepository.mergeVisits for the actual validation
+// (both Open, same branch, neither already part of another merge). Returns
+// the freshly-combined bill so the dialog that triggered this can update
+// immediately instead of re-fetching.
+export const mergeTables = async (branchId, sourceTableNumber, targetTableNumber, { adminId, tenantId }) => {
+
+    try {
+
+        const targetVisitId = await TableVisitRepository.mergeVisits(branchId, sourceTableNumber, targetTableNumber);
+
+        AuditService.record({
+            tenantId,
+            actorAdminId: adminId,
+            action: "TABLE_VISIT_MERGED",
+            entityType: "TableVisit",
+            entityId: targetVisitId,
+            summary: `Merged Table ${sourceTableNumber}'s bill into Table ${targetTableNumber}`
+        });
+
+        const details = await shapeVisitDetails(targetVisitId);
+
+        return { success: true, message: `Table ${sourceTableNumber} merged into Table ${targetTableNumber}.`, data: details };
+
+    } catch (error) {
+
+        return { success: false, message: error.message };
+
+    }
+
+};
+
+// Detaches one table from whatever it's merged into, back to its own
+// separate bill.
+export const unmergeTable = async (branchId, tableNumber, { adminId, tenantId }) => {
+
+    try {
+
+        const visitId = await TableVisitRepository.unmergeVisit(branchId, tableNumber);
+
+        AuditService.record({
+            tenantId,
+            actorAdminId: adminId,
+            action: "TABLE_VISIT_UNMERGED",
+            entityType: "TableVisit",
+            entityId: visitId,
+            summary: `Unmerged Table ${tableNumber} back to its own bill`
+        });
+
+        const details = await shapeVisitDetails(visitId);
+
+        return { success: true, message: `Table ${tableNumber} unmerged.`, data: details };
+
+    } catch (error) {
+
+        return { success: false, message: error.message };
+
+    }
+
+};
+
 // Consolidates every non-cancelled order under the visit into one bill,
 // records the single payment that settles the whole table, and closes the
 // visit - which is what actually frees the table on the floor grid (see

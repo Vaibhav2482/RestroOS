@@ -697,5 +697,22 @@ export const MIGRATIONS = [
 
             CREATE INDEX "IX_TableVisitPayments_Visit" ON "TableVisitPayments" ("VisitId");
         `
+    },
+    {
+        // Two physical tables pushed together for one party get one bill -
+        // NULL (the common case) means "not merged"; set, it points at the
+        // "root" visit that now owns the combined bill. Deliberately kept
+        // to exactly two levels (a visit that's already someone's root can
+        // still gain more children; a visit that's already a child cannot
+        // itself become a root) - enforced in TableVisitRepository.
+        // mergeVisits, not here, since a CHECK constraint can't see other
+        // rows. Both tables stay Open and occupied on the floor grid; only
+        // the billing (getVisitHeader/Items/Orders/Payments, settleVisit)
+        // rolls the group up to the root.
+        id: "0039_table_visit_merge",
+        sql: `
+            ALTER TABLE "TableVisits" ADD COLUMN "MergedIntoVisitId" INT NULL REFERENCES "TableVisits"("VisitId");
+            CREATE INDEX "IX_TableVisits_MergedInto" ON "TableVisits" ("MergedIntoVisitId") WHERE "MergedIntoVisitId" IS NOT NULL;
+        `
     }
 ];

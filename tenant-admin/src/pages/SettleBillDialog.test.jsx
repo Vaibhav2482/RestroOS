@@ -34,9 +34,12 @@ const BRANCH_ADMIN_WITHOUT_DISCOUNT = {
     token: "t", admin: { AdminId: 1, BranchId: 5, Permissions: ["manage_orders"] }
 };
 
-const renderDialog = (onSettled = vi.fn()) => render(
-    <SettleBillDialog open branchId={5} table={TABLE} onClose={vi.fn()} onSettled={onSettled} />
+const renderDialog = (onSettled = vi.fn(), extraProps = {}) => render(
+    <SettleBillDialog open branchId={5} table={TABLE} onClose={vi.fn()} onSettled={onSettled} {...extraProps} />
 );
+
+const OTHER_TABLES = [TABLE, { TableId: 2, TableName: "A4" }, { TableId: 3, TableName: "B1" }];
+const OCCUPIED_MAP = new Map([["A3", [{ OrderId: 301 }]], ["A4", [{ OrderId: 302 }]], ["B1", [{ OrderId: 303 }]]]);
 
 beforeEach(() => {
 
@@ -221,6 +224,116 @@ describe("SettleBillDialog - split bill", () => {
 
         expect(screen.queryByLabelText("Split 1")).not.toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Cash" })).toBeInTheDocument();
+
+    });
+
+});
+
+describe("SettleBillDialog - stays mounted while closed", () => {
+
+    // Regression test for a real bug caught via live verification: Pos.jsx
+    // keeps this dialog mounted at all times (open={Boolean(settleBillTable)},
+    // table={settleBillTable}) rather than only rendering it once a table's
+    // been clicked - table is genuinely null the whole time nobody's opened
+    // Settle Bill yet, and every merge-candidate computation dereferenced
+    // it unconditionally, crashing the entire Take Order page on load.
+    it("renders without crashing when table and tables/activeOrdersByTable are all absent", () => {
+
+        expect(() => render(
+            <SettleBillDialog open={false} branchId={5} table={null} onClose={vi.fn()} onSettled={vi.fn()} />
+        )).not.toThrow();
+
+    });
+
+});
+
+describe("SettleBillDialog - table merge", () => {
+
+    beforeEach(() => {
+        localStorage.setItem("tenantAdmin", JSON.stringify(BRANCH_ADMIN_WITHOUT_DISCOUNT));
+    });
+
+    it("offers other occupied tables to merge with, excluding the current one", async () => {
+
+        const user = userEvent.setup();
+        renderDialog(vi.fn(), { tables: OTHER_TABLES, activeOrdersByTable: OCCUPIED_MAP });
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByText(/merge with another table/i));
+
+        expect(await screen.findByRole("option", { name: "Table A4" })).toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "Table B1" })).toBeInTheDocument();
+        expect(screen.queryByRole("option", { name: "Table A3" })).not.toBeInTheDocument();
+
+    });
+
+    it("merges into the chosen table and shows the combined bill", async () => {
+
+        tableVisitService.mergeTables.mockResolvedValue({
+            success: true,
+            data: {
+                ...VISIT_DETAILS,
+                VisitId: 6,
+                TableNumber: "A4",
+                TotalAmount: 400,
+                MergedVisits: [{ VisitId: 5, TableNumber: "A3" }, { VisitId: 6, TableNumber: "A4" }]
+            }
+        });
+
+        const user = userEvent.setup();
+        renderDialog(vi.fn(), { tables: OTHER_TABLES, activeOrdersByTable: OCCUPIED_MAP });
+
+        await screen.findByText("Total: ₹200.00");
+        await user.click(screen.getByText(/merge with another table/i));
+        await user.click(await screen.findByRole("option", { name: "Table A4" }));
+        await user.click(screen.getByRole("button", { name: /^merge$/i }));
+
+        expect(tableVisitService.mergeTables).toHaveBeenCalledWith(5, "A3", "A4");
+        expect(await screen.findByText("Settle Bill — Table A3 + A4")).toBeInTheDocument();
+        expect(screen.getByText("Table A3")).toBeInTheDocument();
+        expect(screen.getByText("Table A4")).toBeInTheDocument();
+
+    });
+
+    it("shows an unmerge control on each merged table once combined, and re-resolves this dialog's own table after unmerging a co-table", async () => {
+
+        tableVisitService.getVisitDetails.mockResolvedValue({
+            success: true,
+            data: {
+                ...VISIT_DETAILS,
+                TotalAmount: 400,
+                MergedVisits: [{ VisitId: 5, TableNumber: "A3" }, { VisitId: 6, TableNumber: "A4" }]
+            }
+        });
+        tableVisitService.unmergeTable.mockResolvedValue({ success: true, data: { VisitId: 6, TableNumber: "A4", Status: "Open" } });
+
+        const user = userEvent.setup();
+        renderDialog(vi.fn(), { tables: OTHER_TABLES, activeOrdersByTable: OCCUPIED_MAP });
+
+        await screen.findByText("Settle Bill — Table A3 + A4");
+
+        // Unmerge Table A4 (a co-table, not the one this dialog opened for -
+        // "A3") - the dialog must keep showing table A3's own resolved view,
+        // not switch to displaying A4's now-separate bill.
+        const a4Chip = screen.getByText("Table A4").closest(".MuiChip-root");
+        await user.click(a4Chip.querySelector("[data-testid='CancelIcon']"));
+
+        expect(tableVisitService.unmergeTable).toHaveBeenCalledWith(5, "A4");
+
+        await waitFor(() => expect(tableVisitService.getOpenVisitForTable).toHaveBeenCalledTimes(2));
+        expect(tableVisitService.getVisitDetails).toHaveBeenCalledTimes(2);
+
+    });
+
+    it("hides the merge picker once the bill is already settled", async () => {
+
+        tableVisitService.getVisitDetails.mockResolvedValue({ success: true, data: { ...VISIT_DETAILS, Status: "Closed", PaymentMethod: "Cash" } });
+
+        renderDialog(vi.fn(), { tables: OTHER_TABLES, activeOrdersByTable: OCCUPIED_MAP });
+
+        await screen.findByText("Total: ₹200.00");
+
+        expect(screen.queryByText(/merge with another table/i)).not.toBeInTheDocument();
 
     });
 

@@ -68,8 +68,8 @@ describe("TableVisitRepository.settleVisit - split bill", () => {
         expect(inserts[0][1]).toEqual([5, "Cash", 120]);
         expect(inserts[1][1]).toEqual([5, "UPI", 80]);
 
-        const updateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes("DiscountByAdminId"));
-        expect(updateCall[1][1]).toBe("Split");
+        const statusUpdateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes(`SET "Status" = 'Closed'`));
+        expect(statusUpdateCall[1][1]).toBe("Split");
 
     });
 
@@ -84,8 +84,8 @@ describe("TableVisitRepository.settleVisit - split bill", () => {
 
         await settleVisit(5, { adminId: 1, discountAmount: 0, splits: [{ amount: 100, paymentMethod: "Cash" }, { amount: 100, paymentMethod: "Cash" }] });
 
-        const updateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes("DiscountByAdminId"));
-        expect(updateCall[1][1]).toBe("Cash");
+        const statusUpdateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes(`SET "Status" = 'Closed'`));
+        expect(statusUpdateCall[1][1]).toBe("Cash");
 
     });
 

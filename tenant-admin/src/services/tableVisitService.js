@@ -22,3 +22,16 @@ export const settleVisit = async (visitId, payload) => {
     const response = await axiosClient.post(`/table-visits/${visitId}/settle`, payload);
     return response.data;
 };
+
+// Both work in terms of branchId + table numbers, not visit Ids - the
+// floor grid only ever has table objects/names on hand for a table that
+// isn't already open in Settle Bill.
+export const mergeTables = async (branchId, sourceTableNumber, targetTableNumber) => {
+    const response = await axiosClient.post("/table-visits/merge", { branchId, sourceTableNumber, targetTableNumber });
+    return response.data;
+};
+
+export const unmergeTable = async (branchId, tableNumber) => {
+    const response = await axiosClient.post("/table-visits/unmerge", { branchId, tableNumber });
+    return response.data;
+};

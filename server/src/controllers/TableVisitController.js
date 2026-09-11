@@ -81,3 +81,57 @@ export const settleVisit = asyncHandler(async (req, res) => {
     return successResponse(res, result.data, result.message);
 
 });
+
+// Both merge/unmerge work in terms of branchId + table numbers rather than
+// a visitId in the URL, same as getOpenVisitForTable above - the frontend
+// already has table objects/names on hand from the floor grid, not visit
+// Ids, for any table it hasn't already opened Settle Bill on.
+export const mergeTables = asyncHandler(async (req, res) => {
+
+    const { branchId, sourceTableNumber, targetTableNumber } = req.body;
+
+    if (!(await assertBranchBelongsToTenant(branchId, req.user.tenantId))) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    if (branchMismatch(req, branchId)) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    const result = await TableVisitService.mergeTables(branchId, sourceTableNumber, targetTableNumber, {
+        adminId: req.user.id,
+        tenantId: req.user.tenantId
+    });
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+export const unmergeTable = asyncHandler(async (req, res) => {
+
+    const { branchId, tableNumber } = req.body;
+
+    if (!(await assertBranchBelongsToTenant(branchId, req.user.tenantId))) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    if (branchMismatch(req, branchId)) {
+        return errorResponse(res, "Branch not found.", 404);
+    }
+
+    const result = await TableVisitService.unmergeTable(branchId, tableNumber, {
+        adminId: req.user.id,
+        tenantId: req.user.tenantId
+    });
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});

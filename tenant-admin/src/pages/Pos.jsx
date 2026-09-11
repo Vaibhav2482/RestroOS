@@ -586,6 +586,8 @@ function Pos() {
                 open={Boolean(settleBillTable)}
                 branchId={selectedBranchId}
                 table={settleBillTable}
+                tables={tables}
+                activeOrdersByTable={activeOrdersByTable}
                 onClose={() => setSettleBillTable(null)}
                 onSettled={() => loadTableState(selectedBranchId, true)}
             />

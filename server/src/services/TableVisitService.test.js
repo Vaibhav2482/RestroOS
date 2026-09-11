@@ -7,7 +7,7 @@ vi.mock("./AuditService.js");
 const TableVisitRepository = await import("../repositories/TableVisitRepository.js");
 const RealtimeService = await import("./RealtimeService.js");
 const AuditService = await import("./AuditService.js");
-const { getVisitDetails, settleVisit } = await import("./TableVisitService.js");
+const { getVisitDetails, settleVisit, mergeTables, unmergeTable } = await import("./TableVisitService.js");
 
 beforeEach(() => {
 
@@ -202,6 +202,69 @@ describe("TableVisitService.settleVisit - bill discount", () => {
         expect(AuditService.record).toHaveBeenCalledWith(expect.objectContaining({
             summary: expect.stringContaining("₹50.00 bill discount (Service delay)")
         }));
+
+    });
+
+});
+
+describe("TableVisitService.mergeTables", () => {
+
+    it("merges, records an audit entry, and returns the combined bill", async () => {
+
+        TableVisitRepository.mergeVisits.mockResolvedValue(6);
+        TableVisitRepository.getVisitHeader.mockResolvedValue({ VisitId: 6, TableNumber: "A2" });
+
+        const result = await mergeTables(1, "A1", "A2", { adminId: 1, tenantId: 9 });
+
+        expect(result.success).toBe(true);
+        expect(result.data.VisitId).toBe(6);
+        expect(AuditService.record).toHaveBeenCalledWith(expect.objectContaining({
+            tenantId: 9,
+            actorAdminId: 1,
+            action: "TABLE_VISIT_MERGED",
+            entityId: 6,
+            summary: expect.stringContaining("Table A1's bill into Table A2")
+        }));
+
+    });
+
+    it("surfaces a repository validation error as a failure result", async () => {
+
+        TableVisitRepository.mergeVisits.mockRejectedValue(new Error("Table A1 is already merged with another table - unmerge it first."));
+
+        const result = await mergeTables(1, "A1", "A2", { adminId: 1, tenantId: 9 });
+
+        expect(result).toEqual({ success: false, message: "Table A1 is already merged with another table - unmerge it first." });
+        expect(AuditService.record).not.toHaveBeenCalled();
+
+    });
+
+});
+
+describe("TableVisitService.unmergeTable", () => {
+
+    it("unmerges, records an audit entry, and returns the now-separate bill", async () => {
+
+        TableVisitRepository.unmergeVisit.mockResolvedValue(6);
+        TableVisitRepository.getVisitHeader.mockResolvedValue({ VisitId: 6, TableNumber: "A2" });
+
+        const result = await unmergeTable(1, "A2", { adminId: 1, tenantId: 9 });
+
+        expect(result.success).toBe(true);
+        expect(AuditService.record).toHaveBeenCalledWith(expect.objectContaining({
+            action: "TABLE_VISIT_UNMERGED",
+            entityId: 6
+        }));
+
+    });
+
+    it("surfaces a repository error as a failure result", async () => {
+
+        TableVisitRepository.unmergeVisit.mockRejectedValue(new Error("Table A2 isn't merged with another table."));
+
+        const result = await unmergeTable(1, "A2", { adminId: 1, tenantId: 9 });
+
+        expect(result).toEqual({ success: false, message: "Table A2 isn't merged with another table." });
 
     });
 

@@ -187,7 +187,8 @@ describe("settleVisit - closing a table's bill", () => {
             {}, // BEGIN
             { rows: [{ VisitId: 5, Status: "Open" }] },
             { rows: [{ OrderCount: 2, TotalAmount: "417.90" }] }, // order count + total
-            {} // UPDATE
+            {}, // UPDATE Status/PaymentMethod
+            {} // UPDATE DiscountAmount/Reason/ByAdmin
         ]);
 
         poolQueryMock.mockResolvedValue({
@@ -200,8 +201,11 @@ describe("settleVisit - closing a table's bill", () => {
         expect(clientQueryMock).not.toHaveBeenCalledWith("ROLLBACK");
         expect(result).toEqual({ VisitId: 5, Status: "Closed", TotalAmount: "417.90", OrderCount: 2 });
 
-        const updateCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes("UPDATE \"TableVisits\""));
-        expect(updateCall[1]).toEqual([5, "Cash", 5, 0, null, null]);
+        const statusUpdateCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes(`SET "Status" = 'Closed'`));
+        expect(statusUpdateCall[1]).toEqual([[5], "Cash", 5]);
+
+        const discountUpdateCall = clientQueryMock.mock.calls.find(([sql]) => sql.includes("DiscountByAdminId"));
+        expect(discountUpdateCall[1]).toEqual([5, 0, null, null]);
 
     });
 

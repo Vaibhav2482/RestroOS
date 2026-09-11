@@ -76,7 +76,7 @@ describe("TableVisitRepository.settleVisit - bill discount", () => {
 
         const updateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes("DiscountByAdminId"));
 
-        expect(updateCall[1]).toEqual([5, "Cash", 7, 50, "Service delay", 7]);
+        expect(updateCall[1]).toEqual([5, 50, "Service delay", 7]);
 
     });
 
@@ -91,7 +91,7 @@ describe("TableVisitRepository.settleVisit - bill discount", () => {
 
         const updateCall = clientQueryMock.mock.calls.find(([sql]) => typeof sql === "string" && sql.includes("DiscountByAdminId"));
 
-        expect(updateCall[1]).toEqual([5, "Cash", 7, 0, null, null]);
+        expect(updateCall[1]).toEqual([5, 0, null, null]);
 
     });
 
