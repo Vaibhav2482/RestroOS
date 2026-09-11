@@ -19,6 +19,7 @@
     "@react-google-maps/api": "^2.20.8",
     "axios": "^1.18.0",
     "pusher-js": "^8.6.0",
+    "qrcode": "^1.5.4",
     "qz-tray": "^2.2.6",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

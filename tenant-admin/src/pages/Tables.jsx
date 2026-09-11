@@ -26,6 +26,7 @@ import {
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import DeleteRoundedIcon from "@mui/icons-material/DeleteRounded";
+import QrCode2RoundedIcon from "@mui/icons-material/QrCode2Rounded";
 import TableRestaurantOutlinedIcon from "@mui/icons-material/TableRestaurantOutlined";
 import toast from "react-hot-toast";
 
@@ -33,6 +34,7 @@ import * as tableService from "../services/tableService";
 import * as branchService from "../services/branchService";
 import { getStoredAuth, isOwner } from "../utils/adminAuth";
 import TableDialog from "./TableDialog";
+import TableQrDialog from "./TableQrDialog";
 import EmptyState from "../components/EmptyState";
 
 function Tables() {
@@ -53,6 +55,8 @@ function Tables() {
 
     const [deactivateTarget, setDeactivateTarget] = useState(null);
     const [deactivating, setDeactivating] = useState(false);
+
+    const [qrTable, setQrTable] = useState(null);
 
     // Only the first load shows the blocking spinner - reloading after a
     // create/edit/deactivate keeps the existing table visible instead of
@@ -373,6 +377,12 @@ function Tables() {
 
                                         <TableCell align="right">
 
+                                            <Tooltip title="QR Code for ordering">
+                                                <IconButton size="small" onClick={() => setQrTable(table)}>
+                                                    <QrCode2RoundedIcon fontSize="small" />
+                                                </IconButton>
+                                            </Tooltip>
+
                                             <Tooltip title="Edit">
                                                 <IconButton size="small" onClick={() => openEditDialog(table)}>
                                                     <EditRoundedIcon fontSize="small" />
@@ -418,6 +428,12 @@ function Tables() {
                 onSave={isEditMode ? handleUpdate : handleCreate}
                 selectedTable={selectedTable}
                 isEditMode={isEditMode}
+            />
+
+            <TableQrDialog
+                open={Boolean(qrTable)}
+                table={qrTable}
+                onClose={() => setQrTable(null)}
             />
 
             <Dialog open={Boolean(deactivateTarget)} onClose={() => setDeactivateTarget(null)} fullWidth maxWidth="xs">
