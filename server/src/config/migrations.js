@@ -714,5 +714,35 @@ export const MIGRATIONS = [
             ALTER TABLE "TableVisits" ADD COLUMN "MergedIntoVisitId" INT NULL REFERENCES "TableVisits"("VisitId");
             CREATE INDEX "IX_TableVisits_MergedInto" ON "TableVisits" ("MergedIntoVisitId") WHERE "MergedIntoVisitId" IS NOT NULL;
         `
+    },
+    {
+        // Customers."LoyaltyPoints" is the live balance; LoyaltyTransactions
+        // is the ledger that balance is always derived from (every award/
+        // redemption writes a row here first) - same "one running total +
+        // an append-only ledger behind it" shape as TableVisitPayments,
+        // for the same reason: a balance with no history behind it can't be
+        // audited when a customer disputes it. OrderId is nullable so a
+        // future manual adjustment (a goodwill credit, a correction) has
+        // somewhere to live without inventing a fake order.
+        id: "0040_loyalty_points",
+        sql: `
+            ALTER TABLE "Customers" ADD COLUMN "LoyaltyPoints" INT NOT NULL DEFAULT 0;
+
+            CREATE TABLE "LoyaltyTransactions" (
+                "LoyaltyTransactionId" INT GENERATED ALWAYS AS IDENTITY NOT NULL,
+                "CustomerId" INT NOT NULL,
+                "OrderId" INT NULL,
+                "Points" INT NOT NULL,
+                "Type" VARCHAR(10) NOT NULL,
+                "CreatedAt" TIMESTAMP NOT NULL DEFAULT NOW(),
+                PRIMARY KEY ("LoyaltyTransactionId"),
+                CONSTRAINT "FK_LoyaltyTransactions_Customers" FOREIGN KEY ("CustomerId") REFERENCES "Customers"("CustomerId"),
+                CONSTRAINT "FK_LoyaltyTransactions_Orders" FOREIGN KEY ("OrderId") REFERENCES "Orders"("OrderId"),
+                CONSTRAINT "CHK_LoyaltyTransactions_Type" CHECK ("Type" IN ('Earned', 'Redeemed', 'Adjusted'))
+            );
+
+            CREATE INDEX "IX_LoyaltyTransactions_Customer" ON "LoyaltyTransactions" ("CustomerId");
+            CREATE INDEX "IX_LoyaltyTransactions_Order" ON "LoyaltyTransactions" ("OrderId");
+        `
     }
 ];

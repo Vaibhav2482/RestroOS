@@ -1,7 +1,9 @@
 import pool from "../config/db.js";
 import { resolveMenuItemOptions } from "../utils/menuOptionResolver.js";
 import { resolveCoupon } from "../utils/couponResolver.js";
+import { resolvePointsRedemption } from "../utils/loyaltyResolver.js";
 import * as CouponRepository from "./CouponRepository.js";
+import * as LoyaltyRepository from "./LoyaltyRepository.js";
 import { resolveOpenVisitId } from "./TableVisitRepository.js";
 
 const DELIVERY_SEQUENCE = ["Pending", "Accepted", "Preparing", "Ready", "Out For Delivery", "Delivered"];
@@ -173,9 +175,21 @@ export const createOrder = async (order) => {
         // Re-validated fresh here, never trusted from a checkout "preview"
         // call - the coupon could hit its usage limit or expire between
         // preview and actually placing the order.
-        const { discountAmount, couponId } = await resolveCoupon(
+        const { discountAmount: couponDiscountAmount, couponId } = await resolveCoupon(
             client, customerTenantId, order.couponCode, order.customerId, subTotal
         );
+
+        // Resolved against what's left of the subtotal AFTER the coupon,
+        // same "each discount stacks on what the previous one left" order
+        // a customer would expect if they had both to use. Combined into
+        // one Orders."DiscountAmount" (like a coupon discount already was)
+        // rather than a separate column - the points SPEND itself is still
+        // tracked distinctly, in LoyaltyTransactions once the order exists.
+        const { discountAmount: pointsDiscountAmount, pointsUsed } = await resolvePointsRedemption(
+            client, customerTenantId, order.customerId, order.redeemPoints, subTotal - couponDiscountAmount
+        );
+
+        const discountAmount = couponDiscountAmount + pointsDiscountAmount;
 
         const { cgstAmount, sgstAmount, totalAmount } = computeOrderTax(pricedItems, subTotal, discountAmount);
 
@@ -243,7 +257,11 @@ export const createOrder = async (order) => {
         }
 
         if (couponId) {
-            await CouponRepository.recordRedemption(client, couponId, order.customerId, orderId, discountAmount);
+            await CouponRepository.recordRedemption(client, couponId, order.customerId, orderId, couponDiscountAmount);
+        }
+
+        if (pointsUsed > 0) {
+            await LoyaltyRepository.addPoints(client, order.customerId, -pointsUsed, orderId, "Redeemed");
         }
 
         for (const item of pricedItems) {

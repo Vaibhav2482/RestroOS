@@ -45,6 +45,12 @@ const PAYMENT_METHODS = [
     { value: "UPI", label: "UPI", icon: <QrCode2OutlinedIcon fontSize="small" /> }
 ];
 
+// Mirrors the server's LoyaltyRepository/loyaltyResolver LOYALTY_POINT_VALUE -
+// this is only a live preview of the discount while typing, the real
+// redemption is re-validated and capped fresh inside order creation's own
+// transaction regardless of what this shows.
+const LOYALTY_POINT_VALUE = 1;
+
 function formatCurrency(value) {
     return `₹${Number(value ?? 0).toFixed(2)}`;
 }
@@ -98,6 +104,12 @@ function Checkout() {
     const [appliedCoupon, setAppliedCoupon] = useState(null);
     const [applyingCoupon, setApplyingCoupon] = useState(false);
 
+    // Defaults to 0 - a customer with none, or a tenant that's never had
+    // loyalty_points enabled, sees no redemption UI at all rather than an
+    // error over a feature that's simply not relevant to them.
+    const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+    const [redeemPointsInput, setRedeemPointsInput] = useState("");
+
     useEffect(() => {
 
         let cancelled = false;
@@ -141,6 +153,23 @@ function Checkout() {
 
                 }
 
+                // Best-effort, separate from the Promise.all above - a
+                // customer with no loyalty history yet (or a tenant without
+                // the feature) shouldn't have checkout itself fail over this.
+                try {
+
+                    const loyaltyResponse = await customerService.getLoyalty(customer.CustomerId);
+
+                    if (!cancelled && loyaltyResponse.success) {
+                        setLoyaltyBalance(loyaltyResponse.data.balance);
+                    }
+
+                } catch {
+
+                    // Non-fatal - redemption just stays unavailable.
+
+                }
+
             } catch (error) {
 
                 toast.error(error.response?.data?.message || "Failed to load checkout details.");
@@ -160,7 +189,18 @@ function Checkout() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [customer.CustomerId]);
 
-    const discountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
+    const couponDiscountAmount = appliedCoupon ? Number(appliedCoupon.discountAmount) || 0 : 0;
+
+    // Points can only ever cover what the coupon hasn't already discounted -
+    // the raw cart sum (not the tax-adjusted `subtotal` below, which needs
+    // the combined discount to compute in the first place) is enough to cap
+    // this correctly.
+    const rawSubtotal = cartItems.reduce((sum, item) => sum + Number(item.TotalPrice ?? 0), 0);
+    const maxRedeemablePoints = Math.max(0, Math.min(loyaltyBalance, Math.floor((rawSubtotal - couponDiscountAmount) / LOYALTY_POINT_VALUE)));
+    const pointsToRedeem = Math.min(Math.max(0, Math.floor(Number(redeemPointsInput) || 0)), maxRedeemablePoints);
+    const pointsDiscountAmount = pointsToRedeem * LOYALTY_POINT_VALUE;
+
+    const discountAmount = couponDiscountAmount + pointsDiscountAmount;
 
     const {
         subtotal,
@@ -273,7 +313,8 @@ function Checkout() {
                 paymentMethod,
                 notes: notes.trim() || undefined,
                 couponCode: appliedCoupon ? appliedCoupon.code : undefined,
-                tableNumber: deliveryType === "Dine In" ? tableNumber : undefined
+                tableNumber: deliveryType === "Dine In" ? tableNumber : undefined,
+                redeemPoints: pointsToRedeem > 0 ? pointsToRedeem : undefined
             });
 
             if (!checkoutResponse.success) {
@@ -702,7 +743,7 @@ function Checkout() {
                                 >
 
                                     <Typography variant="body2" sx={{ color: "#166534" }}>
-                                        <strong>{appliedCoupon.code}</strong> applied: -{formatCurrency(discountAmount)}
+                                        <strong>{appliedCoupon.code}</strong> applied: -{formatCurrency(couponDiscountAmount)}
                                     </Typography>
 
                                     <Button size="small" onClick={handleRemoveCoupon} sx={{ color: "#166534" }}>
@@ -739,6 +780,33 @@ function Checkout() {
 
                         </Box>
 
+                        {/* Only shown once there's actually a balance to spend -
+                            a customer with zero points, or a tenant that's never
+                            enabled loyalty_points, sees nothing here at all. */}
+                        {loyaltyBalance > 0 && (
+
+                            <Box sx={{ mb: 2.5 }}>
+
+                                <Typography variant="body2" fontWeight={600} sx={{ mb: 1 }}>
+                                    You have {loyaltyBalance} point{loyaltyBalance === 1 ? "" : "s"} (worth {formatCurrency(loyaltyBalance * LOYALTY_POINT_VALUE)})
+                                </Typography>
+
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="number"
+                                    label="Redeem points"
+                                    placeholder={`Up to ${maxRedeemablePoints}`}
+                                    value={redeemPointsInput}
+                                    onChange={(event) => setRedeemPointsInput(event.target.value)}
+                                    slotProps={{ htmlInput: { min: 0, max: maxRedeemablePoints, step: 1 } }}
+                                    helperText={pointsToRedeem > 0 ? `-${formatCurrency(pointsDiscountAmount)} off this order` : " "}
+                                />
+
+                            </Box>
+
+                        )}
+
                         <Stack spacing={0.75}>
 
                             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
@@ -750,7 +818,16 @@ function Checkout() {
 
                                 <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                                     <Typography variant="body2" sx={{ color: "#166534" }}>Coupon Discount</Typography>
-                                    <Typography variant="body2" sx={{ color: "#166534" }}>-{formatCurrency(discountAmount)}</Typography>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>-{formatCurrency(couponDiscountAmount)}</Typography>
+                                </Box>
+
+                            ) : null}
+
+                            {pointsToRedeem > 0 ? (
+
+                                <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>Loyalty Points ({pointsToRedeem} pts)</Typography>
+                                    <Typography variant="body2" sx={{ color: "#166534" }}>-{formatCurrency(pointsDiscountAmount)}</Typography>
                                 </Box>
 
                             ) : null}

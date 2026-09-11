@@ -8,7 +8,7 @@ const VALID_DELIVERY_TYPES = ["Delivery", "Dine In"];
 
 export const checkout = async (checkoutData) => {
 
-    const { customerId, addressId, paymentMethod, notes, couponCode, tableNumber } = checkoutData;
+    const { customerId, addressId, paymentMethod, notes, couponCode, tableNumber, redeemPoints } = checkoutData;
 
     const deliveryType = checkoutData.deliveryType || "Delivery";
 
@@ -37,7 +37,8 @@ export const checkout = async (checkoutData) => {
             paymentMethod,
             notes,
             couponCode,
-            deliveryType === "Dine In" ? tableNumber : null
+            deliveryType === "Dine In" ? tableNumber : null,
+            redeemPoints
         );
 
         await RealtimeService.publishOrderCreated(order);

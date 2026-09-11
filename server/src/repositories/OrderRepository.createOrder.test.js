@@ -24,6 +24,10 @@ vi.mock("../utils/couponResolver.js", () => ({
     resolveCoupon: vi.fn(async () => ({ discountAmount: 0, couponId: null }))
 }));
 
+vi.mock("../utils/loyaltyResolver.js", () => ({
+    resolvePointsRedemption: vi.fn(async () => ({ discountAmount: 0, pointsUsed: 0 }))
+}));
+
 const { createOrder } = await import("./OrderRepository.js");
 
 beforeEach(() => {

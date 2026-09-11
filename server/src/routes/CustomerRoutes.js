@@ -5,7 +5,8 @@ import {
     changePassword,
     getAllCustomers,
     getOrCreateGuestCustomer,
-    findOrCreateWalkInCustomer
+    findOrCreateWalkInCustomer,
+    getCustomerLoyalty
 } from "../controllers/CustomerController.js";
 import { authenticate, authorize, requirePermission } from "../middleware/Auth.js";
 
@@ -20,5 +21,6 @@ router.post("/guest", authenticate, authorize("admin"), getOrCreateGuestCustomer
 router.get("/:id", authenticate, getCustomerById);
 router.put("/:id", authenticate, updateCustomer);
 router.put("/:id/password", authenticate, changePassword);
+router.get("/:id/loyalty", authenticate, getCustomerLoyalty);
 
 export default router;

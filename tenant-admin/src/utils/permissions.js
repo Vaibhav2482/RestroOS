@@ -35,5 +35,6 @@ export const CORE_PERMISSION_KEYS = GRANTABLE_PERMISSIONS
 // single-location restaurant hiding the Branches page for good).
 export const TENANT_FEATURES = [
     ...GRANTABLE_PERMISSIONS,
-    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" }
+    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" },
+    { key: "loyalty_points", label: "Customer Loyalty Points", group: "Customers" }
 ];

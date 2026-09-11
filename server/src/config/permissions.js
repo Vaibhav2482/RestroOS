@@ -56,7 +56,11 @@ export const sanitizePermissions = (permissions) => {
 // list above but still makes sense as a whole-tenant on/off switch.
 export const TENANT_FEATURES = [
     ...GRANTABLE_PERMISSIONS,
-    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" }
+    { key: "manage_branches", label: "Branches (multi-location)", group: "Management" },
+    // Also tenant-wide only, same reasoning as manage_branches - whether to
+    // run a loyalty program at all is a whole-restaurant decision, not
+    // something any one staff member should toggle for everyone else.
+    { key: "loyalty_points", label: "Customer Loyalty Points", group: "Customers" }
 ];
 
 const TENANT_FEATURE_KEYS = new Set(TENANT_FEATURES.map((feature) => feature.key));

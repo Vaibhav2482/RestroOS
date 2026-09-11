@@ -119,3 +119,75 @@ describe("Checkout - guest details", () => {
     });
 
 });
+
+describe("Checkout - loyalty points redemption", () => {
+
+    beforeEach(() => {
+        useStorefront.mockReturnValue({ ...baseStorefront, isGuest: false, customer: { CustomerId: 9, FullName: "Ravi Kumar" } });
+    });
+
+    it("shows nothing when the customer has no points", async () => {
+
+        customerService.getLoyalty.mockResolvedValue({ success: true, data: { balance: 0, transactions: [] } });
+
+        renderCheckout();
+
+        await screen.findByText("Checkout");
+        expect(screen.queryByLabelText(/redeem points/i)).not.toBeInTheDocument();
+
+    });
+
+    it("shows the balance and lets the customer redeem points as a discount", async () => {
+
+        customerService.getLoyalty.mockResolvedValue({ success: true, data: { balance: 100, transactions: [] } });
+
+        const user = userEvent.setup();
+        renderCheckout();
+
+        expect(await screen.findByText(/you have 100 points/i)).toBeInTheDocument();
+
+        await user.type(screen.getByLabelText(/redeem points/i), "50");
+
+        expect(await screen.findByText("-₹50.00 off this order")).toBeInTheDocument();
+        expect(screen.getByText("Loyalty Points (50 pts)")).toBeInTheDocument();
+
+    });
+
+    it("caps redemption at the cart subtotal, not the full balance", async () => {
+
+        // Cart total is 149 + 5% tax; subtotal itself is 149 - redeeming more
+        // than that would take the discount past what's actually owed.
+        customerService.getLoyalty.mockResolvedValue({ success: true, data: { balance: 500, transactions: [] } });
+
+        const user = userEvent.setup();
+        renderCheckout();
+
+        await screen.findByText(/you have 500 points/i);
+        await user.type(screen.getByLabelText(/redeem points/i), "500");
+
+        expect(await screen.findByText("Loyalty Points (149 pts)")).toBeInTheDocument();
+        expect(screen.getByText("-₹149.00 off this order")).toBeInTheDocument();
+
+    });
+
+    it("sends redeemPoints through at checkout", async () => {
+
+        useStorefront.mockReturnValue({ ...baseStorefront, isGuest: false, customer: { CustomerId: 9, FullName: "Ravi Kumar" }, tableNumber: "5" });
+        customerService.getLoyalty.mockResolvedValue({ success: true, data: { balance: 100, transactions: [] } });
+        checkoutService.checkout.mockResolvedValue({ success: true, data: { OrderId: 88, TotalAmount: 100 } });
+        paymentService.createPayment.mockResolvedValue({ success: true });
+
+        const user = userEvent.setup();
+        renderCheckout();
+
+        await screen.findByText(/you have 100 points/i);
+        await user.type(screen.getByLabelText(/redeem points/i), "30");
+        await user.click(screen.getByRole("button", { name: /place order/i }));
+
+        await waitFor(() => expect(checkoutService.checkout).toHaveBeenCalledWith(
+            expect.objectContaining({ redeemPoints: 30 })
+        ));
+
+    });
+
+});

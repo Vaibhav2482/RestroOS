@@ -80,7 +80,7 @@ describe("CheckoutService.checkout - table number only reaches a Dine In order",
             tableNumber: "12"
         });
 
-        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, null, "Dine In", "Cash", undefined, undefined, "12");
+        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, null, "Dine In", "Cash", undefined, undefined, "12", undefined);
 
     });
 
@@ -96,7 +96,27 @@ describe("CheckoutService.checkout - table number only reaches a Dine In order",
             tableNumber: "12"
         });
 
-        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, 1, "Delivery", "Cash", undefined, undefined, null);
+        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, 1, "Delivery", "Cash", undefined, undefined, null, undefined);
+
+    });
+
+});
+
+describe("CheckoutService.checkout - loyalty points redemption", () => {
+
+    it("passes redeemPoints through to the repository", async () => {
+
+        CheckoutRepository.checkout.mockResolvedValue(order);
+
+        await CheckoutService.checkout({
+            customerId: 1,
+            addressId: 1,
+            deliveryType: "Delivery",
+            paymentMethod: "Cash",
+            redeemPoints: 50
+        });
+
+        expect(CheckoutRepository.checkout).toHaveBeenCalledWith(1, 1, "Delivery", "Cash", undefined, undefined, null, 50);
 
     });
 

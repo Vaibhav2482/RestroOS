@@ -27,3 +27,8 @@ export const getOrCreateGuestCustomer = async () => {
     const response = await axiosClient.post("/customers/guest");
     return response.data;
 };
+
+export const getCustomerLoyalty = async (id) => {
+    const response = await axiosClient.get(`/customers/${id}/loyalty`);
+    return response.data;
+};

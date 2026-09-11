@@ -22,6 +22,7 @@ import ReceiptLongOutlinedIcon from "@mui/icons-material/ReceiptLongOutlined";
 import toast from "react-hot-toast";
 
 import * as orderService from "../services/orderService";
+import * as customerService from "../services/customerService";
 import EmptyState from "../components/EmptyState";
 import OrderDetailsDialog from "./OrderDetailsDialog";
 import { formatCurrency, getStatusChipColor } from "./orderStatusUtils";
@@ -36,19 +37,45 @@ function CustomerDetailDialog({ open, customer, onClose }) {
     const [loading, setLoading] = useState(false);
     const [selectedOrderId, setSelectedOrderId] = useState(null);
     const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+    // null (not 0) while unloaded/unavailable - lets the stat render "-"
+    // instead of a misleading "0 pts" before the request has even resolved,
+    // or for a tenant that's never had loyalty_points enabled.
+    const [loyaltyBalance, setLoyaltyBalance] = useState(null);
 
     useEffect(() => {
 
         if (open && customer) {
             loadOrders();
+            loadLoyalty();
         }
 
         if (!open) {
             setOrders([]);
+            setLoyaltyBalance(null);
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, customer]);
+
+    const loadLoyalty = async () => {
+
+        try {
+
+            const response = await customerService.getCustomerLoyalty(customer.CustomerId);
+
+            if (response.success) {
+                setLoyaltyBalance(response.data.balance);
+            }
+
+        } catch {
+
+            // Non-fatal - the stat just stays blank rather than blocking the
+            // rest of this dialog (order history) over a feature a tenant
+            // may not even have enabled.
+
+        }
+
+    };
 
     const loadOrders = async () => {
 
@@ -130,6 +157,11 @@ function CustomerDetailDialog({ open, customer, onClose }) {
                     <Grid size={{ xs: 12, sm: 6 }}>
                         <Typography variant="caption" color="text.secondary">Total Spent</Typography>
                         <Typography fontWeight={600}>{formatCurrency(totalSpent)}</Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="caption" color="text.secondary">Loyalty Points</Typography>
+                        <Typography fontWeight={600}>{loyaltyBalance === null ? "-" : `${loyaltyBalance} pts`}</Typography>
                     </Grid>
 
                 </Grid>

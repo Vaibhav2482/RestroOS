@@ -1,4 +1,5 @@
 import * as CustomerService from "../services/CustomerService.js";
+import * as LoyaltyService from "../services/LoyaltyService.js";
 import asyncHandler from "../utils/AsyncHandler.js";
 import { successResponse, errorResponse } from "../utils/ApiResponse.js";
 
@@ -95,6 +96,37 @@ export const changePassword = asyncHandler(async (req, res) => {
 
     if (!result.success) {
         return errorResponse(res, result.message, 400);
+    }
+
+    return successResponse(res, result.data, result.message);
+
+});
+
+// No requireFeatureEnabled("loyalty_points") gate here - unlike the
+// controllers under middleware that runs for admins only, this route is
+// reachable by a customer's own JWT too, and a customer's token carries no
+// disabledFeatures to check. Viewing a balance is harmless either way; the
+// actual enforcement point (loyaltyResolver.resolvePointsRedemption) checks
+// the tenant row directly at redemption time, which is the part that
+// actually needs to be airtight.
+export const getCustomerLoyalty = asyncHandler(async (req, res) => {
+
+    const { id } = req.params;
+
+    const existing = await CustomerService.getCustomerById(id);
+
+    if (!existing.success) {
+        return errorResponse(res, existing.message, 404);
+    }
+
+    if (!canAccessCustomer(req, existing.data)) {
+        return errorResponse(res, "Customer not found.", 404);
+    }
+
+    const result = await LoyaltyService.getCustomerLoyalty(id);
+
+    if (!result.success) {
+        return errorResponse(res, result.message, 404);
     }
 
     return successResponse(res, result.data, result.message);

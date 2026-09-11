@@ -9,3 +9,8 @@ export const changePassword = async (id, currentPassword, newPassword) => {
     const response = await axiosClient.put(`/customers/${id}/password`, { currentPassword, newPassword });
     return response.data;
 };
+
+export const getLoyalty = async (id) => {
+    const response = await axiosClient.get(`/customers/${id}/loyalty`);
+    return response.data;
+};

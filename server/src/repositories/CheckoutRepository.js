@@ -8,7 +8,8 @@ export const checkout = async (
     paymentMethod,
     notes,
     couponCode,
-    tableNumber
+    tableNumber,
+    redeemPoints
 ) => {
 
     const cartItems = await CartRepository.getCart(customerId);
@@ -31,6 +32,7 @@ export const checkout = async (
         notes,
         couponCode,
         tableNumber,
+        redeemPoints,
         items
     });
 

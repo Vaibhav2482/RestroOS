@@ -9,6 +9,7 @@ import * as NotificationService from "./NotificationService.js";
 import * as InventoryService from "./InventoryService.js";
 import * as AuditService from "./AuditService.js";
 import * as CartService from "./CartService.js";
+import * as LoyaltyService from "./LoyaltyService.js";
 
 // Not awaited at any call site below - a slow WhatsApp/SMS/email provider
 // must never make an order-placing/status-changing request hang. waitUntil
@@ -276,6 +277,10 @@ export const updateOrderStatus = async (id, orderStatus) => {
                 await InventoryService.consumeForOrder(client, order.OrderId, order.BranchId);
 
             }
+
+            // Awarded on genuine fulfillment (Delivered/Served/Picked Up),
+            // never on placement - see LoyaltyService's own comment on why.
+            await LoyaltyService.awardPointsForOrder(client, order);
 
         });
 
