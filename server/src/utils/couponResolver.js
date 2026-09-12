@@ -25,11 +25,28 @@ export const resolveCoupon = async (queryable, tenantId, code, customerId, subto
 
     const now = new Date();
 
-    if (coupon.ValidFrom && now < new Date(coupon.ValidFrom)) {
+    // ValidFrom/ValidUntil come from a plain <input type="date"> in
+    // CouponDialog.jsx - just a calendar date, no time of day - and land in
+    // this naive "timestamp without time zone" column as literally midnight
+    // of that date, which (same as Orders.OrderDate - see
+    // AnalyticsRepository's AT_IST comment) round-trips as a real UTC
+    // instant in production. Comparing that UTC midnight directly against
+    // `now` made a coupon "Valid Until" its very last intended day stop
+    // working at 5:30am IST that morning - UTC midnight, not the actual end
+    // of that calendar day for an India-based restaurant - and made
+    // "Valid From" a day start 5:30am late for the same reason. Shifting by
+    // the fixed IST offset (no DST in India, so this never needs to vary)
+    // lines both boundaries up with the calendar date an owner actually
+    // picked: active from the start of that day in IST, expired only once
+    // the *next* IST day begins.
+    const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+    if (coupon.ValidFrom && now.getTime() < new Date(coupon.ValidFrom).getTime() - IST_OFFSET_MS) {
         throw new Error("This coupon isn't active yet.");
     }
 
-    if (coupon.ValidUntil && now > new Date(coupon.ValidUntil)) {
+    if (coupon.ValidUntil && now.getTime() >= new Date(coupon.ValidUntil).getTime() + ONE_DAY_MS - IST_OFFSET_MS) {
         throw new Error("This coupon has expired.");
     }
 
