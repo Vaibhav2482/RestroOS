@@ -52,8 +52,31 @@ export const resolveCoupon = async (queryable, tenantId, code, customerId, subto
 
     if (coupon.UsageLimitPerCustomer !== null) {
 
+        // A guest checkout gets a brand-new CustomerId every browser session
+        // (see CustomerService.createGuestSession) - a disposable identity by
+        // design, so a per-customer limit keyed on CustomerId alone is
+        // trivially bypassed by clearing storage or opening an incognito
+        // window between orders. Phone number is the one thing tying repeat
+        // "new" guest identities back to the same real person, and it's
+        // already captured before this runs - at checkout, guests identify
+        // themselves with name + phone (see Checkout.jsx) before the order
+        // is placed. So redemptions are also matched against any other
+        // customer row sharing that same phone, not just this exact
+        // CustomerId. A customer with no phone on file (registered accounts
+        // always have one; some non-storefront flows like a POS walk-in
+        // don't collect it) falls back to the old CustomerId-only check,
+        // since an empty phone can't be used to link identities.
         const customerUsed = await queryable.query(
-            `SELECT COUNT(*) FROM "CouponRedemptions" WHERE "CouponId" = $1 AND "CustomerId" = $2`,
+            `SELECT COUNT(*) FROM "CouponRedemptions" CR
+             INNER JOIN "Customers" C ON CR."CustomerId" = C."CustomerId"
+             WHERE CR."CouponId" = $1
+               AND (
+                   CR."CustomerId" = $2
+                   OR (
+                       NULLIF(TRIM(C."Phone"), '') IS NOT NULL
+                       AND C."Phone" = (SELECT "Phone" FROM "Customers" WHERE "CustomerId" = $2)
+                   )
+               )`,
             [coupon.CouponId, customerId]
         );
 
