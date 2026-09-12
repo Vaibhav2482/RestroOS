@@ -1,9 +1,19 @@
 import pool from "../config/db.js";
 
+// Case-insensitive on purpose: nothing anywhere lowercases an email before
+// it's stored, so "Jane@Gmail.com" and "jane@gmail.com" would otherwise
+// pass this as two different addresses - a customer could unknowingly
+// register a duplicate account under themselves, or (more common in
+// practice) type their email with different capitalization at register vs.
+// a later login and get a misleading "Invalid Email or Password" here on
+// what's actually the right account. LOWER() rather than ILIKE (the fix
+// used for coupon codes/menu names elsewhere) because ILIKE treats `_` and
+// `%` as wildcards - both valid, unremarkable characters in an email's
+// local part - so it could match addresses it has no business matching.
 export const getCustomerByTenantAndEmail = async (tenantId, email) => {
 
     const result = await pool.query(
-        `SELECT * FROM "Customers" WHERE "TenantId" = $1 AND "Email" = $2`,
+        `SELECT * FROM "Customers" WHERE "TenantId" = $1 AND LOWER("Email") = LOWER($2)`,
         [tenantId, email]
     );
 
@@ -40,7 +50,7 @@ export const customerLogin = async (tenantId, email) => {
     const result = await pool.query(
         `SELECT "CustomerId", "TenantId", "FullName", "Email", "Phone", "Password", "IsActive", "IsGuest"
          FROM "Customers"
-         WHERE "TenantId" = $1 AND "Email" = $2 AND "IsActive" = TRUE`,
+         WHERE "TenantId" = $1 AND LOWER("Email") = LOWER($2) AND "IsActive" = TRUE`,
         [tenantId, email]
     );
 

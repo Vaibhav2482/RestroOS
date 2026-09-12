@@ -1,9 +1,15 @@
 import pool from "../config/db.js";
 
+// Case-insensitive for the same reason as CustomerRepository.
+// getCustomerByTenantAndEmail - nothing lowercases an email before it's
+// stored, so an exact match could both let a duplicate staff account slip
+// through under different capitalization and lock a real admin out with a
+// misleading "invalid credentials" if they type their email differently
+// than they registered it.
 export const getByTenantAndEmail = async (tenantId, email) => {
 
     const result = await pool.query(
-        `SELECT * FROM "Admins" WHERE "TenantId" = $1 AND "Email" = $2 AND "IsActive" = TRUE`,
+        `SELECT * FROM "Admins" WHERE "TenantId" = $1 AND LOWER("Email") = LOWER($2) AND "IsActive" = TRUE`,
         [tenantId, email]
     );
 
@@ -140,7 +146,7 @@ export const deactivate = async (adminId, tenantId) => {
 export const getByTenantAndEmailAny = async (tenantId, email) => {
 
     const result = await pool.query(
-        `SELECT * FROM "Admins" WHERE "TenantId" = $1 AND "Email" = $2`,
+        `SELECT * FROM "Admins" WHERE "TenantId" = $1 AND LOWER("Email") = LOWER($2)`,
         [tenantId, email]
     );
 

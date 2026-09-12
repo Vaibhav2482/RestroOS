@@ -1,9 +1,13 @@
 import pool from "../config/db.js";
 
+// Case-insensitive for the same reason as CustomerRepository.
+// getCustomerByTenantAndEmail - an exact match would lock the platform
+// admin out with a misleading "invalid credentials" if they type their
+// email with different capitalization than they registered it.
 export const getByEmail = async (email) => {
 
     const result = await pool.query(
-        `SELECT * FROM "PlatformAdmins" WHERE "Email" = $1 AND "IsActive" = TRUE`,
+        `SELECT * FROM "PlatformAdmins" WHERE LOWER("Email") = LOWER($1) AND "IsActive" = TRUE`,
         [email]
     );
 
