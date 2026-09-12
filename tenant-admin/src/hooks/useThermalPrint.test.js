@@ -66,6 +66,36 @@ describe("useThermalPrint - falls back to browser print when thermal printing is
 
     });
 
+    it("reads the printer for the requested role, not always 'kot'", async () => {
+
+        qzTray.getSavedPrinter.mockImplementation((role) => (role === "bill" ? "Counter-58mm" : ""));
+        qzTray.printRaw.mockResolvedValue();
+
+        const { result } = renderHook(() => useThermalPrint("bill"));
+
+        await act(async () => {
+            await result.current.print(() => "BILL-TICKET");
+        });
+
+        expect(qzTray.getSavedPrinter).toHaveBeenCalledWith("bill");
+        expect(qzTray.printRaw).toHaveBeenCalledWith("Counter-58mm", "BILL-TICKET");
+
+    });
+
+    it("defaults to the kot role when none is given", async () => {
+
+        qzTray.getSavedPrinter.mockReturnValue("");
+
+        const { result } = renderHook(() => useThermalPrint());
+
+        await act(async () => {
+            await result.current.print(() => "TICKET");
+        });
+
+        expect(qzTray.getSavedPrinter).toHaveBeenCalledWith("kot");
+
+    });
+
     it("exposes printing:true only while an actual thermal print attempt is in flight", async () => {
 
         qzTray.getSavedPrinter.mockReturnValue("Kitchen-80mm");

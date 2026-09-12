@@ -85,7 +85,7 @@ const linesFromOrderItems = (items = []) =>
 function OrderDetailsDialog({ open, orderId, onClose, onChanged }) {
 
     const auth = getStoredAuth();
-    const { printing: kotPrinting, print: printKot } = useThermalPrint();
+    const { printing: kotPrinting, print: printKot } = useThermalPrint("kot");
 
     const [order, setOrder] = useState(null);
     const [loading, setLoading] = useState(false);

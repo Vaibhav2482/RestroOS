@@ -175,7 +175,7 @@ function CategoryNavItem({ label, icon, selected, onClick, count }) {
 function PosOrderBuilder({ branchId, branchName, deliveryType, tableNumber, onCreated, onCartSummaryChange }) {
 
     const { admin } = getStoredAuth() || {};
-    const { printing: kotPrinting, print: printKot } = useThermalPrint();
+    const { printing: kotPrinting, print: printKot } = useThermalPrint("kot");
 
     const [categories, setCategories] = useState([]);
     const [menuItems, setMenuItems] = useState([]);

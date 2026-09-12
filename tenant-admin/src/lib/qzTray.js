@@ -10,7 +10,44 @@ import qz from "qz-tray";
 // acceptable for a single till in a kitchen, not something worth the extra
 // complexity of standing up a signing certificate for yet.
 
-const KOT_PRINTER_KEY = "restroos_kot_printer";
+// Two independent slots, not one - a till printing both KOTs and bills used
+// to have exactly one printer setting shared between them, which breaks the
+// extremely common setup of a kitchen ticket printer separate from a
+// counter/bill printer (whichever one you picked, the other document type
+// printed to the wrong physical location). "kot" keeps its original storage
+// key so an already-configured KOT printer isn't lost by this change.
+const PRINTER_KEYS = { kot: "restroos_kot_printer", bill: "restroos_bill_printer" };
+
+// One-time migration, run once at module load: before "bill" existed as its
+// own setting, a Bill receipt silently printed to whatever was configured
+// as the KOT printer (there was only one setting for both). A till that
+// already set that up keeps printing bills there exactly as before, until
+// its owner explicitly points Bill at a different printer - rather than
+// this change silently reverting every existing single-printer till back
+// to browser-print the moment it ships. Checking for `null` (never set),
+// not falsy, is what keeps this from re-copying over a deliberately-cleared
+// bill printer on every subsequent load.
+const migrateBillPrinterKey = () => {
+
+    try {
+
+        if (localStorage.getItem(PRINTER_KEYS.bill) === null) {
+
+            const existingKotPrinter = localStorage.getItem(PRINTER_KEYS.kot);
+
+            if (existingKotPrinter) {
+                localStorage.setItem(PRINTER_KEYS.bill, existingKotPrinter);
+            }
+
+        }
+
+    } catch {
+        // Private browsing / storage blocked - nothing to migrate into.
+    }
+
+};
+
+migrateBillPrinterKey();
 
 export const isConnected = () => {
 
@@ -64,11 +101,11 @@ export const listPrinters = async () => {
 
 };
 
-export const getSavedPrinter = () => {
+export const getSavedPrinter = (role = "kot") => {
 
     try {
 
-        return localStorage.getItem(KOT_PRINTER_KEY) || "";
+        return localStorage.getItem(PRINTER_KEYS[role]) || "";
 
     } catch {
 
@@ -80,11 +117,11 @@ export const getSavedPrinter = () => {
 
 };
 
-export const saveSelectedPrinter = (printerName) => {
+export const saveSelectedPrinter = (printerName, role = "kot") => {
 
     try {
 
-        localStorage.setItem(KOT_PRINTER_KEY, printerName);
+        localStorage.setItem(PRINTER_KEYS[role], printerName);
 
     } catch {
         // See getSavedPrinter - non-fatal.
@@ -99,7 +136,7 @@ export const saveSelectedPrinter = (printerName) => {
 export const printRaw = async (printerName, escposText) => {
 
     if (!printerName) {
-        throw new Error("No KOT printer is configured. Set one under Printers in the sidebar.");
+        throw new Error("No printer is configured. Set one under Printers in the sidebar.");
     }
 
     await connect();

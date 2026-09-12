@@ -236,7 +236,7 @@ function Kitchen() {
     // pendingAdvanceOrderIds.
     const [advancingIds, setAdvancingIds] = useState(() => new Set());
     const [kotOrder, setKotOrder] = useState(null);
-    const { printing: kotPrinting, print: printKot } = useThermalPrint();
+    const { printing: kotPrinting, print: printKot } = useThermalPrint("kot");
     // Unused beyond forcing a re-render - elapsedMinutes() itself always
     // reads Date.now() fresh, but nothing was ever prompting React to
     // recompute it between actual data changes (a Pusher event or the 60s

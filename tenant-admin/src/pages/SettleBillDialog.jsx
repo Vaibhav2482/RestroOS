@@ -58,7 +58,7 @@ function SettleBillDialog({ open, branchId, table, tables = [], activeOrdersByTa
 
     const auth = getStoredAuth();
     const canApplyDiscount = hasPermission(auth?.admin, "apply_discounts");
-    const { printing: billPrinting, print: printBill } = useThermalPrint();
+    const { printing: billPrinting, print: printBill } = useThermalPrint("bill");
 
     const [loading, setLoading] = useState(true);
     const [visit, setVisit] = useState(null);

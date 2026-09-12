@@ -3,13 +3,15 @@ import toast from "react-hot-toast";
 
 import * as qzTray from "../lib/qzTray";
 
-// Shared by every KOT/Bill PrintDialog. If a KOT printer is configured
-// (Printers page in the sidebar), sends the ticket straight to it via QZ
-// Tray; otherwise - or if that attempt fails for any reason (QZ Tray not
-// running, printer offline, ...) - falls back to the browser print path
-// PrintDialog already had, so a till that's never set up thermal printing
-// keeps working exactly as it always did.
-export function useThermalPrint() {
+// Shared by every KOT/Bill PrintDialog - role picks which of the two
+// independent printer settings (Printers page in the sidebar) to use, since
+// a KOT ticket and a Bill receipt are printed to different physical
+// printers at most restaurants. If that role's printer is configured, sends
+// the ticket straight to it via QZ Tray; otherwise - or if that attempt
+// fails for any reason (QZ Tray not running, printer offline, ...) - falls
+// back to the browser print path PrintDialog already had, so a till that's
+// never set up thermal printing keeps working exactly as it always did.
+export function useThermalPrint(role = "kot") {
 
     const [printing, setPrinting] = useState(false);
 
@@ -18,7 +20,7 @@ export function useThermalPrint() {
     // send it to, not on every render.
     const print = async (buildTicket) => {
 
-        const printerName = qzTray.getSavedPrinter();
+        const printerName = qzTray.getSavedPrinter(role);
 
         if (!printerName) {
             window.print();

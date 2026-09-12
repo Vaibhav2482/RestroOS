@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
     Alert,
     Box,
@@ -6,6 +6,7 @@ import {
     Card,
     Chip,
     CircularProgress,
+    Divider,
     FormControl,
     InputLabel,
     MenuItem,
@@ -19,28 +20,94 @@ import toast from "react-hot-toast";
 import * as qzTray from "../lib/qzTray";
 import { init, alignCenter, bold, doubleSize, cutPaper } from "../utils/escpos";
 
-function buildTestTicket() {
+function buildTestTicket(label) {
     return init() + alignCenter() + bold(true) + doubleSize(true) + "RestroOS\n" + doubleSize(false) + bold(false)
-        + "Test print successful\n" + new Date().toLocaleString("en-IN") + "\n" + cutPaper();
+        + `${label} test print successful\n` + new Date().toLocaleString("en-IN") + "\n" + cutPaper();
+}
+
+// Per-role sub-section, not one shared control - a KOT ticket and a Bill
+// receipt print to two different physical printers at most restaurants
+// (the kitchen pass vs. the billing counter), so each needs its own
+// independent selection rather than one setting silently used for both.
+function PrinterRoleSection({ role, label, printers, selectedPrinter, onSelect, testing, onTest }) {
+
+    // A saved printer from a previous session isn't necessarily in this
+    // session's own `printers` list yet - that only ever gets populated by
+    // an explicit Refresh, which nothing prompts automatically on load. Left
+    // out of the options list, MUI's Select can't find a match for `value`
+    // and silently renders blank - showing "no printer selected" for a
+    // till that actually has one configured, until Refresh happens to be
+    // clicked. Folding it in here is what keeps the selection visible
+    // immediately, before any refresh at all.
+    const options = selectedPrinter && !printers.includes(selectedPrinter)
+        ? [selectedPrinter, ...printers]
+        : printers;
+
+    return (
+
+        <Box>
+
+            <Typography fontWeight={700} sx={{ mb: 1.5 }}>{label}</Typography>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+
+                <FormControl fullWidth size="small">
+
+                    <InputLabel id={`${role}-printer-label`}>{label}</InputLabel>
+
+                    <Select
+                        labelId={`${role}-printer-label`}
+                        label={label}
+                        value={selectedPrinter}
+                        onChange={onSelect}
+                        displayEmpty
+                    >
+
+                        <MenuItem value="">
+                            <em>Not set - falls back to browser print</em>
+                        </MenuItem>
+
+                        {options.map((printer) => (
+                            <MenuItem key={printer} value={printer}>{printer}</MenuItem>
+                        ))}
+
+                    </Select>
+
+                </FormControl>
+
+                <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<PrintOutlinedIcon />}
+                    disabled={!selectedPrinter || testing}
+                    onClick={onTest}
+                    sx={{ flexShrink: 0, height: 40 }}
+                >
+                    {testing ? "Printing..." : "Test"}
+                </Button>
+
+            </Box>
+
+        </Box>
+
+    );
+
 }
 
 // Per-till settings, deliberately not stored in the tenant's own database -
 // which physical printer is attached is a fact about this one computer's
 // hardware, not about the tenant. Kept in localStorage instead (same
 // reasoning as the sidebar's collapse preference), so a second till at the
-// same branch keeps its own separate printer selection.
+// same branch keeps its own separate printer selections.
 function PrinterSettings() {
 
-    const [connected, setConnected] = useState(false);
+    const [connected, setConnected] = useState(() => qzTray.isConnected());
     const [connecting, setConnecting] = useState(false);
     const [printers, setPrinters] = useState([]);
     const [loadingPrinters, setLoadingPrinters] = useState(false);
-    const [selectedPrinter, setSelectedPrinter] = useState(() => qzTray.getSavedPrinter());
-    const [testing, setTesting] = useState(false);
-
-    useEffect(() => {
-        setConnected(qzTray.isConnected());
-    }, []);
+    const [kotPrinter, setKotPrinter] = useState(() => qzTray.getSavedPrinter("kot"));
+    const [billPrinter, setBillPrinter] = useState(() => qzTray.getSavedPrinter("bill"));
+    const [testingRole, setTestingRole] = useState(null);
 
     const handleConnect = async () => {
 
@@ -87,28 +154,28 @@ function PrinterSettings() {
 
     };
 
-    const handleSelectPrinter = (event) => {
+    const handleSelectPrinter = (role, setter) => (event) => {
 
         const printerName = event.target.value;
 
-        setSelectedPrinter(printerName);
-        qzTray.saveSelectedPrinter(printerName);
+        setter(printerName);
+        qzTray.saveSelectedPrinter(printerName, role);
 
     };
 
-    const handleTestPrint = async () => {
+    const handleTestPrint = async (role, printerName, label) => {
 
-        if (!selectedPrinter) {
+        if (!printerName) {
             toast.error("Choose a printer first.");
             return;
         }
 
-        setTesting(true);
+        setTestingRole(role);
 
         try {
 
-            await qzTray.printRaw(selectedPrinter, buildTestTicket());
-            toast.success(`Test ticket sent to ${selectedPrinter}.`);
+            await qzTray.printRaw(printerName, buildTestTicket(label));
+            toast.success(`Test ticket sent to ${printerName}.`);
 
         } catch (error) {
 
@@ -116,7 +183,7 @@ function PrinterSettings() {
 
         } finally {
 
-            setTesting(false);
+            setTestingRole(null);
 
         }
 
@@ -129,9 +196,11 @@ function PrinterSettings() {
             <Typography variant="h4" sx={{ mb: 1 }}>Printers</Typography>
 
             <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 640 }}>
-                Connects this computer's till to a physical thermal receipt printer, so Print KOT and
-                Print Bill send straight to it instead of opening a browser print dialog. This is a
-                setting for this computer only - each till at a branch picks its own printer.
+                Connects this computer's till to physical thermal receipt printers, so Print KOT and
+                Print Bill send straight to them instead of opening a browser print dialog. KOT and
+                Bill can point at two different printers - the common setup of a kitchen ticket
+                printer separate from a counter printer. This is a setting for this computer only -
+                each till at a branch picks its own printers.
             </Typography>
 
             <Card variant="outlined" sx={{ p: 3, maxWidth: 560 }}>
@@ -174,44 +243,16 @@ function PrinterSettings() {
 
                     <>
 
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
-
-                            <FormControl fullWidth size="small">
-
-                                <InputLabel id="kot-printer-label">KOT Printer</InputLabel>
-
-                                <Select
-                                    labelId="kot-printer-label"
-                                    label="KOT Printer"
-                                    value={selectedPrinter}
-                                    onChange={handleSelectPrinter}
-                                    displayEmpty
-                                >
-
-                                    <MenuItem value="">
-                                        <em>Not set - falls back to browser print</em>
-                                    </MenuItem>
-
-                                    {printers.map((printer) => (
-                                        <MenuItem key={printer} value={printer}>{printer}</MenuItem>
-                                    ))}
-
-                                </Select>
-
-                            </FormControl>
-
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={loadingPrinters ? <CircularProgress size={14} /> : <RefreshRoundedIcon />}
-                                disabled={loadingPrinters}
-                                onClick={handleRefreshPrinters}
-                                sx={{ flexShrink: 0, height: 40 }}
-                            >
-                                Refresh
-                            </Button>
-
-                        </Box>
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={loadingPrinters ? <CircularProgress size={14} /> : <RefreshRoundedIcon />}
+                            disabled={loadingPrinters}
+                            onClick={handleRefreshPrinters}
+                            sx={{ mb: 2 }}
+                        >
+                            Refresh Printer List
+                        </Button>
 
                         {printers.length === 0 && !loadingPrinters && (
                             <Alert severity="info" sx={{ mb: 2 }}>
@@ -219,14 +260,27 @@ function PrinterSettings() {
                             </Alert>
                         )}
 
-                        <Button
-                            variant="contained"
-                            startIcon={<PrintOutlinedIcon />}
-                            disabled={!selectedPrinter || testing}
-                            onClick={handleTestPrint}
-                        >
-                            {testing ? "Printing..." : "Test Print"}
-                        </Button>
+                        <PrinterRoleSection
+                            role="kot"
+                            label="KOT Printer"
+                            printers={printers}
+                            selectedPrinter={kotPrinter}
+                            onSelect={handleSelectPrinter("kot", setKotPrinter)}
+                            testing={testingRole === "kot"}
+                            onTest={() => handleTestPrint("kot", kotPrinter, "KOT")}
+                        />
+
+                        <Divider sx={{ my: 2.5 }} />
+
+                        <PrinterRoleSection
+                            role="bill"
+                            label="Bill Printer"
+                            printers={printers}
+                            selectedPrinter={billPrinter}
+                            onSelect={handleSelectPrinter("bill", setBillPrinter)}
+                            testing={testingRole === "bill"}
+                            onTest={() => handleTestPrint("bill", billPrinter, "Bill")}
+                        />
 
                     </>
 
